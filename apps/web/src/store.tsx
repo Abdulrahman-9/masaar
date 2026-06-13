@@ -6,7 +6,13 @@ import {
   type AnnouncementMode,
   type EvaluationStep,
 } from '@masaar/scpp-rules';
-import { createContext, useContext, useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch, type ReactNode } from 'react';
+import { isApiMode } from './config';
+import { api } from './api/client';
+import { loadFullState, runAction, tenderIdOf } from './api/endpoints';
+import { mapTender } from './api/mappers';
+import type { ApiTender } from './api/types';
+import { loadSession } from './session';
 
 /**
  * Client-side tender store — stands in for the future API.
@@ -256,6 +262,9 @@ export type Action =
   | { type: 'COMPLETE_STAGE'; tenderId: string; stageKey: string; actualTo: string }
   | { type: 'RATIFY'; tenderId: string; by: string }
   | { type: 'RETURN_WITH_NOTES'; tenderId: string; by: string; notes: string }
+  // api-mode only: replace whole state (hydrate) or one tender (after a server mutation)
+  | { type: 'HYDRATE'; state: State }
+  | { type: 'UPSERT_TENDER'; tender: Tender }
   | { type: 'RESET' };
 
 function patchTender(state: State, id: string, fn: (t: Tender) => Tender): State {
@@ -373,6 +382,15 @@ function apply(state: State, action: Action): State {
         if (t.ratification || currentStage(t)?.key !== 'ratify' || !action.notes.trim()) return t;
         return { ...t, ratification: { status: 'returned', by: action.by, on: todayIso(), notes: action.notes.trim() } };
       });
+    case 'HYDRATE':
+      return action.state;
+    case 'UPSERT_TENDER':
+      return {
+        ...state,
+        tenders: state.tenders.some((t) => t.id === action.tender.id)
+          ? state.tenders.map((t) => (t.id === action.tender.id ? action.tender : t))
+          : [action.tender, ...state.tenders],
+      };
     case 'RESET':
       return seedState();
     default:
@@ -380,9 +398,11 @@ function apply(state: State, action: Action): State {
   }
 }
 
+const NON_AUDITED = new Set(['RESET', 'HYDRATE', 'UPSERT_TENDER']);
+
 export function reducer(state: State, action: Action): State {
   const next = apply(state, action);
-  if (action.type === 'RESET' || next === state) return next;
+  if (NON_AUDITED.has(action.type) || next === state) return next;
   // append-only audit (8.1-e) — attempts are logged whether or not the guard let them through
   return {
     ...next,
@@ -539,7 +559,12 @@ export function seedState(): State {
 
 const KEY = 'masaar-operator-v3';
 
+export function emptyState(): State {
+  return { tenders: [], contracts: [], vendors: [], audit: [], seq: 0 };
+}
+
 function loadState(): State {
+  if (isApiMode) return emptyState(); // hydrated from the server on mount
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -555,14 +580,62 @@ function loadState(): State {
 const StoreCtx = createContext<{ state: State; dispatch: Dispatch<Action> } | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [state, baseDispatch] = useReducer(reducer, undefined, loadState);
+
+  // local mode: persist to localStorage. api mode: state lives on the server.
   useEffect(() => {
+    if (isApiMode) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch {
       /* storage full/blocked — in-memory only */
     }
   }, [state]);
+
+  // api mode: hydrate the full state from the backend once a session exists.
+  useEffect(() => {
+    if (!isApiMode) return;
+    const session = loadSession();
+    if (!session) return;
+    let cancelled = false;
+    loadFullState(session.role === 'roc-admin' ? 'ROC_ADMIN' : 'OPERATOR_ADMIN')
+      .then((s) => !cancelled && baseDispatch({ type: 'HYDRATE', state: s }))
+      .catch((e) => console.error('hydrate failed', e));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // api mode: send mutations to the server, then merge the server's truth back.
+  const dispatch = useMemo<Dispatch<Action>>(() => {
+    if (!isApiMode) return baseDispatch;
+    return (action: Action) => {
+      if (NON_AUDITED.has(action.type)) {
+        baseDispatch(action);
+        return;
+      }
+      runAction(action)
+        .then((res) => {
+          if (res.tender) baseDispatch({ type: 'UPSERT_TENDER', tender: res.tender });
+          if (res.reload) {
+            const session = loadSession();
+            const role = session?.role === 'roc-admin' ? 'ROC_ADMIN' : 'OPERATOR_ADMIN';
+            return loadFullState(role).then((s) => baseDispatch({ type: 'HYDRATE', state: s }));
+          }
+        })
+        .catch((e) => {
+          // server refused (a guard) or network error — resync the affected tender
+          console.error('action failed', action.type, e);
+          const id = tenderIdOf(action);
+          if (id) {
+            void api<ApiTender>(`/tenders/${id}`)
+              .then((t) => baseDispatch({ type: 'UPSERT_TENDER', tender: mapTender(t) }))
+              .catch(() => {});
+          }
+        });
+    };
+  }, []);
+
   return <StoreCtx.Provider value={{ state, dispatch }}>{children}</StoreCtx.Provider>;
 }
 

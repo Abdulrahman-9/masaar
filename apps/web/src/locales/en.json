@@ -156,7 +156,8 @@
     "ssoNote": "Mock — replaced by MSAL once the corporate tenant is available.",
     "otp": "Two-factor code (6 digits)",
     "verify": "Verify & sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "failed": "Sign-in failed — check the role and code."
   },
   "admin": {
     "title": "Admin dashboard",

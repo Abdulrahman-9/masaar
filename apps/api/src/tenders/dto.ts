@@ -30,3 +30,37 @@ export class CompleteStageDto {
 export class ReturnDto {
   @IsString() @Length(1, 1000) notes!: string;
 }
+
+export class PlanStageDto {
+  @IsString() stageKey!: string;
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) plannedFrom?: string;
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) plannedTo?: string;
+}
+
+export class AnnouncementPatchDto {
+  @IsOptional() @IsInt() @Min(0) periodDays?: number;
+  @IsOptional() @IsString({ each: true }) newspapers?: string[];
+  @IsOptional() @IsBoolean() lcWebsite?: boolean;
+  @IsOptional() @IsBoolean() rocWebsite?: boolean;
+  @IsOptional() @IsInt() @Min(0) inviteeCount?: number;
+  @IsOptional() @IsBoolean() inviteesPreQualified?: boolean;
+  @IsOptional() @Matches(/^(public|limited|direct)$/) mode?: string;
+}
+
+export class EvalStepDto {
+  @IsInt() @Min(0) step!: number;
+}
+
+export class AddBidderDto {
+  @IsString() @Length(1, 160) name!: string;
+}
+
+export class SetTechnicalDto {
+  @IsString() bidderId!: string;
+  @Matches(/^(pass|fail)$/) result!: string;
+}
+
+export class ToggleDocDto {
+  @IsString() stageKey!: string;
+  @IsString() doc!: string;
+}

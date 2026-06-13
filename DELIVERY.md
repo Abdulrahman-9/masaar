@@ -22,10 +22,15 @@ summary; the phased plan with acceptance criteria lives in
 | **Tests** | ✅ 133 passing (engine + DOM + frontend store + **server-side guard** tests) |
 | **CI** | ✅ GitHub Actions — Prisma generate + typecheck + test + build on every push |
 
-The client store (`apps/web/src/store.tsx`) enforces the SCPP guards itself (publish blocked
-until checks pass, price locked off-step, stage close blocked without docs, ratify only at the
-ratify stage). These guards are written **as the future API contract** — they move server-side
-unchanged.
+The web app runs in **two data modes** behind one flag (`VITE_API_URL`):
+- **local** (default, no env): the `apps/web/src/store.tsx` reducer on localStorage — fully offline,
+  used for the demo and tests.
+- **api**: the same UI talks to the NestJS backend. Login authenticates against `/auth/login`
+  (httpOnly cookie), state hydrates from the API on mount, and every mutation routes to its
+  endpoint (`apps/web/src/api/`), where the SCPP guards are **binding** server-side.
+
+The store guards and the API guards are written from the same `@masaar/scpp-rules` engine, so the
+two modes behave identically — a refused publish/price/stage-close/ratify is refused in both.
 
 ## Run
 
@@ -60,17 +65,31 @@ npm run dev:api        # http://localhost:4000/api  (health: /api/health)
 The SCPP guards are now enforced **server-side** (publish/price/stage-close/ratify/scope), proven by
 `apps/api/test/tenders.service.spec.ts` which runs without a database. See `apps/api/README.md`.
 
+### Wire the web app to the API (end-to-end, both running)
+
+```bash
+# terminal 1 — backend (needs Docker Desktop running)
+cp .env.example .env
+npm run db:up && npm run db:generate && npm run db:migrate && npm run db:seed
+npm run dev:api
+
+# terminal 2 — frontend in api mode
+cp apps/web/.env.example apps/web/.env.local     # sets VITE_API_URL=http://localhost:4000
+npm run dev
+```
+
+The web app now reads/writes through the API: login → httpOnly cookie, dashboard/admin hydrate from
+the server, and mutations hit the guarded endpoints. With no `.env.local`, it stays offline (local mode).
+
 ## Remaining — needs the enterprise environment
 
 1. **Azure AD (MSAL)** against the corporate tenant — replaces `AUTH_MODE=mock`; only the token→AuthUser
    step changes, the cookie/guard contract stays.
-2. **Wire the web app to the API** — replace the client `store.tsx` localStorage with calls to the
-   endpoints (the store guards already match the API contract 1:1).
-3. **Email notifications** — `notify.ts` already computes the notices; wire to a mailer for the
+2. **Email notifications** — `notify.ts` already computes the notices; wire to a mailer for the
    3-WD / 1-day reminders.
-4. **Document upload** — real file storage behind the docs gate (currently checkbox simulation).
-5. **Production container build** — bundle the Nest app (esbuild/`nest build`) + deploy Postgres.
-6. **Pre-launch passes** — WCAG AA with an Arabic screen reader, TTI measurement, virtualized tables
+3. **Document upload** — real file storage behind the docs gate (currently a checkbox + `mock://` URL).
+4. **Production container build** — bundle the Nest app (esbuild/`nest build`) + deploy Postgres.
+5. **Pre-launch passes** — WCAG AA with an Arabic screen reader, TTI measurement, virtualized tables
    for 1000+ rows, full security review, UAT with two pilot operators.
 
 ## Repository layout

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminShell, { ADMIN_SUBS, type AdminSub } from './admin/AdminShell';
 import TenderReview from './admin/TenderReview';
+import { apiLogout } from './api/endpoints';
+import { isApiMode } from './config';
 import Gallery from './Gallery';
 import Login from './Login';
 import { computeNotices } from './notify';
@@ -183,6 +185,7 @@ export default function App() {
               className="user-chip"
               title={t('login.signOut')}
               onClick={() => {
+                if (isApiMode) void apiLogout().catch(() => {});
                 clearSession();
                 forceRender((x) => x + 1);
               }}

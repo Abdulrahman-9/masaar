@@ -49,10 +49,18 @@ export class TendersService {
     return operatorScoped ? { operatorId: user.operatorId } : {};
   }
 
+  private static readonly FULL_INCLUDE = {
+    stages: { orderBy: { order: 'asc' as const }, include: { documents: true } },
+    announcement: true,
+    bidders: true,
+    mct: true,
+    ratification: true,
+  };
+
   private async loadScoped(user: AuthUser, id: string) {
     const tender = await this.prisma.tender.findUnique({
       where: { id },
-      include: { stages: { orderBy: { order: 'asc' }, include: { documents: true } }, announcement: true, bidders: true, mct: true },
+      include: TendersService.FULL_INCLUDE,
     });
     if (!tender) throw new NotFoundException('Tender not found');
     const operatorScoped = user.role === 'OPERATOR_ADMIN' || user.role === 'OPERATOR_USER';
@@ -65,7 +73,7 @@ export class TendersService {
   list(user: AuthUser) {
     return this.prisma.tender.findMany({
       where: this.scopeWhere(user),
-      include: { stages: { orderBy: { order: 'asc' } }, announcement: true, mct: true },
+      include: TendersService.FULL_INCLUDE,
       orderBy: { createdOn: 'desc' },
     });
   }
@@ -198,6 +206,66 @@ export class TendersService {
   /** Current (first not-yet-closed) stage. */
   private currentStageKey(stages: { key: string; order: number; actualTo: Date | null }[]): string | undefined {
     return [...stages].sort((a, b) => a.order - b.order).find((s) => !s.actualTo)?.key;
+  }
+
+  /* ---- intra-stage editor mutations (the detail screen edits; not SCPP-gated) ---- */
+
+  async planStage(user: AuthUser, id: string, stageKey: string, plannedFrom?: string, plannedTo?: string) {
+    const tender = await this.loadScoped(user, id);
+    const stage = tender.stages.find((s) => s.key === stageKey);
+    if (!stage) throw new NotFoundException('Stage not found');
+    if (stage.actualTo) throw new BadRequestException('Closed stage cannot be re-planned');
+    await this.prisma.stage.update({
+      where: { id: stage.id },
+      data: {
+        ...(plannedFrom ? { plannedFrom: new Date(plannedFrom) } : {}),
+        ...(plannedTo ? { plannedTo: new Date(plannedTo) } : {}),
+      },
+    });
+    return this.loadScoped(user, id);
+  }
+
+  async patchAnnouncement(user: AuthUser, id: string, patch: Record<string, unknown>) {
+    const tender = await this.loadScoped(user, id);
+    if (!tender.announcement) throw new BadRequestException('No announcement');
+    if (tender.announcement.publishedOn) throw new BadRequestException('Published announcement is locked');
+    const data: Record<string, unknown> = { ...patch };
+    if (typeof patch.mode === 'string') data.mode = patch.mode.toUpperCase();
+    await this.prisma.announcement.update({ where: { tenderId: id }, data });
+    return this.loadScoped(user, id);
+  }
+
+  async setEvalStep(user: AuthUser, id: string, step: number) {
+    await this.loadScoped(user, id);
+    await this.prisma.tender.update({ where: { id }, data: { evaluationStep: Math.min(Math.max(step, 0), 3) } });
+    return this.loadScoped(user, id);
+  }
+
+  async addBidder(user: AuthUser, id: string, name: string) {
+    await this.loadScoped(user, id);
+    await this.prisma.bidder.create({ data: { tenderId: id, name, docsOk: true, bondOk: true } });
+    return this.loadScoped(user, id);
+  }
+
+  async setTechnical(user: AuthUser, id: string, bidderId: string, result: 'pass' | 'fail') {
+    const tender = await this.loadScoped(user, id);
+    if (!tender.bidders.some((b) => b.id === bidderId)) throw new NotFoundException('Bidder not found');
+    await this.prisma.bidder.update({ where: { id: bidderId }, data: { technicalResult: result.toUpperCase() as 'PASS' | 'FAIL' } });
+    return this.loadScoped(user, id);
+  }
+
+  async toggleDoc(user: AuthUser, id: string, stageKey: string, doc: string) {
+    const tender = await this.loadScoped(user, id);
+    const stage = tender.stages.find((s) => s.key === stageKey);
+    if (!stage) throw new NotFoundException('Stage not found');
+    if (stage.actualTo) throw new BadRequestException('Closed stage');
+    const existing = stage.documents.find((d) => d.kind === doc);
+    if (existing) {
+      await this.prisma.document.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.document.create({ data: { stageId: stage.id, kind: doc, fileUrl: `mock://${doc}` } });
+    }
+    return this.loadScoped(user, id);
   }
 
   async ratify(user: AuthUser, id: string) {

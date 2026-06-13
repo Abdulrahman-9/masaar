@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
 import { HealthController } from './health.controller.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { RegistryModule } from './registry/registry.module.js';
 import { TendersModule } from './tenders/tenders.module.js';
 
 @Module({
@@ -16,6 +17,7 @@ import { TendersModule } from './tenders/tenders.module.js';
     AuditModule,
     AuthModule,
     TendersModule,
+    RegistryModule,
   ],
   controllers: [HealthController],
   providers: [
