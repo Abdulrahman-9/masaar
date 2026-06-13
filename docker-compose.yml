@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: masaar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: masaar
+      POSTGRES_PASSWORD: masaar_dev
+      POSTGRES_DB: masaar
+    ports:
+      - '5432:5432'
+    volumes:
+      - masaar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U masaar -d masaar']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  masaar-pgdata:

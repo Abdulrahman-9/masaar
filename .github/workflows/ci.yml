@@ -13,6 +13,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - run: npm run db:generate    # Prisma client (offline, no DB)
+      - run: npm run typecheck       # all packages + web + api
+      - run: npm test                # 133 tests incl. server-side guard tests
+      - run: npm run build           # web production bundle

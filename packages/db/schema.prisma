@@ -80,8 +80,25 @@ model Tender {
   bidders               Bidder[]
   mct                   MctCase?
   contract              Contract?
+  ratification          Ratification?
 
   @@index([budgetCode]) // anti-splitting scan (7.2)
+}
+
+enum RatificationStatus {
+  RATIFIED
+  RETURNED
+}
+
+/// ROC decision on the award (admin side) — only at the ratification stage.
+model Ratification {
+  id        String             @id @default(cuid())
+  tender    Tender             @relation(fields: [tenderId], references: [id])
+  tenderId  String             @unique
+  status    RatificationStatus
+  by        String
+  on        DateTime           @default(now())
+  notes     String?
 }
 
 model Stage {

@@ -10,9 +10,15 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p packages/working-days && tsc --noEmit -p packages/scpp-rules && tsc --noEmit -p packages/ui && tsc --noEmit -p apps/web",
+    "typecheck": "tsc --noEmit -p packages/working-days && tsc --noEmit -p packages/scpp-rules && tsc --noEmit -p packages/ui && tsc --noEmit -p apps/web && tsc --noEmit -p apps/api",
     "build": "npm run build -w @masaar/web",
-    "dev": "npm run dev -w @masaar/web"
+    "dev": "npm run dev -w @masaar/web",
+    "dev:api": "npm run dev -w @masaar/api",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "npm run generate -w @masaar/db",
+    "db:migrate": "npm run migrate -w @masaar/db",
+    "db:seed": "npm run seed -w @masaar/db"
   },
   "devDependencies": {
     "@testing-library/react": "^16.1.0",

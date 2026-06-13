@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "noEmit": false,
+    "paths": {
+      "@masaar/scpp-rules": ["../../packages/scpp-rules/src/index.ts"],
+      "@masaar/working-days": ["../../packages/working-days/src/index.ts"],
+      "@masaar/db": ["../../packages/db/src/index.ts"]
+    }
+  },
+  "exclude": ["test", "**/*.spec.ts"]
+}
