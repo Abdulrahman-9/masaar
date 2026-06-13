@@ -1,0 +1,293 @@
+/* ========================================================================
+   @masaar/ui — component styles
+   Tokens come from @masaar/tokens/css/tokens.css (must be loaded first).
+   Skins: one system, three skins — the same components re-dress via
+   CSS variables on a `.m-skin` wrapper. No physical left/right values.
+   ======================================================================== */
+
+/* ---------- Skins ---------- */
+.m-skin {
+  /* Direction 1 — "The Living Ledger" (default, ~90% of screens) */
+  --m-bg: var(--paper-50);
+  --m-card: #ffffff;
+  --m-bd: var(--border-2);
+  --m-bd-strong: var(--border-3);
+  --m-t1: var(--ink-1);
+  --m-t2: var(--ink-2);
+  --m-t3: var(--ink-3);
+  --m-acc: var(--brand-amber-600);
+  --m-accbar: var(--brand-amber-500);
+  --m-track: rgba(11, 19, 32, 0.12);
+  --m-radius: 10px;
+  color: var(--m-t1);
+  background: var(--m-bg);
+}
+
+.m-skin--control {
+  /* Direction 2 — "The Operations Room" (critical monitoring surfaces) */
+  --m-bg: var(--brand-navy-900);
+  --m-card: var(--brand-navy-800);
+  --m-bd: rgba(244, 241, 234, 0.12);
+  --m-bd-strong: rgba(244, 241, 234, 0.22);
+  --m-t1: var(--ink-on-dark);
+  --m-t2: var(--ink-on-dark);
+  --m-t3: var(--ink-on-dark-2);
+  --m-acc: var(--brand-amber-400);
+  --m-accbar: var(--brand-amber-400);
+  --m-track: rgba(244, 241, 234, 0.18);
+  --m-radius: 8px;
+}
+
+.m-skin--blueprint {
+  /* Direction 3 — "The Engineering Blueprint" (explainer surfaces) */
+  --m-bg: transparent;
+  --m-card: rgba(255, 255, 255, 0.78);
+  --m-bd: var(--brand-navy-700);
+  --m-bd-strong: var(--brand-navy-800);
+  --m-t1: var(--brand-navy-900);
+  --m-t2: var(--ink-2);
+  --m-t3: var(--ink-3);
+  --m-acc: var(--brand-amber-700);
+  --m-accbar: var(--brand-amber-500);
+  --m-track: rgba(11, 37, 64, 0.14);
+  --m-radius: 3px;
+  background:
+    repeating-linear-gradient(0deg, rgba(11, 37, 64, 0.055) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, rgba(11, 37, 64, 0.055) 0 1px, transparent 1px 26px),
+    var(--paper-50);
+}
+
+/* ---------- StatusPill — the six system statuses ---------- */
+.m-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+}
+.m-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: currentColor;
+}
+.m-pill--planned { color: var(--status-planned); background: var(--status-planned-bg); }
+.m-pill--progress { color: var(--status-progress); background: var(--status-progress-bg); }
+.m-pill--done { color: var(--status-done); background: var(--status-done-bg); }
+.m-pill--risk { color: var(--status-risk); background: var(--status-risk-bg); }
+.m-pill--delayed { color: var(--status-delayed); background: var(--status-delayed-bg); }
+.m-pill--blocked { color: var(--status-blocked); background: var(--status-blocked-bg); }
+
+/* ---------- KpiTile ---------- */
+.m-kpi {
+  background: var(--m-card);
+  border: 1px solid var(--m-bd);
+  border-radius: var(--m-radius);
+  padding: 16px 18px;
+}
+.m-kpi__l {
+  font-size: 11.5px;
+  color: var(--m-t3);
+  letter-spacing: 0.02em;
+}
+.m-kpi__v {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 28px;
+  font-weight: var(--fw-semibold);
+  color: var(--m-t1);
+  margin-top: 7px;
+}
+.m-kpi__v small {
+  font-size: 13px;
+  color: var(--m-t3);
+  font-weight: var(--fw-regular);
+}
+
+/* ---------- Clause chip (SCPP ref) ---------- */
+.m-clause {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 10.5px;
+  color: var(--brand-amber-700);
+  background: var(--brand-amber-50);
+  border: 1px solid var(--brand-amber-100);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+}
+.m-skin--control .m-clause {
+  color: var(--brand-amber-400);
+  background: rgba(224, 168, 72, 0.12);
+  border-color: rgba(224, 168, 72, 0.3);
+}
+
+/* ---------- CapMeter ---------- */
+.m-meter { padding: 16px 18px; background: var(--m-card); border: 1px solid var(--m-bd); border-radius: var(--m-radius); }
+.m-meter__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.m-meter__label { font-size: 13px; font-weight: var(--fw-semibold); color: var(--m-t1); }
+.m-meter__track { position: relative; height: 10px; border-radius: var(--r-pill); background: var(--m-track); }
+.m-meter__fill {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-pill);
+  background: var(--status-done);
+  transition: width var(--dur-fast) linear, background var(--dur-base) var(--ease-out);
+}
+.m-meter--risk .m-meter__fill { background: var(--status-risk); }
+.m-meter--breach .m-meter__fill { background: var(--status-delayed); }
+.m-meter__tick { position: absolute; top: -5px; height: 20px; width: 2px; background: var(--m-bd-strong); }
+.m-meter__read { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.m-meter__val {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 22px;
+  font-weight: var(--fw-semibold);
+  color: var(--m-t1);
+}
+.m-meter__verdict { font-size: 12px; font-weight: var(--fw-semibold); padding: 4px 12px; border-radius: var(--r-pill); }
+.m-meter--ok .m-meter__verdict { color: var(--status-done); background: var(--status-done-bg); }
+.m-meter--risk .m-meter__verdict { color: var(--status-risk); background: var(--status-risk-bg); }
+.m-meter--breach .m-meter__verdict { color: var(--status-delayed); background: var(--status-delayed-bg); }
+
+/* ---------- WdRail ---------- */
+.m-rail { padding: 16px 18px; background: var(--m-card); border: 1px solid var(--m-bd); border-radius: var(--m-radius); }
+.m-rail__head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.m-rail__title { font-size: 13px; font-weight: var(--fw-semibold); color: var(--m-t1); }
+.m-rail__day {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 11.5px;
+  color: var(--m-acc);
+}
+.m-rail__track { position: relative; height: 8px; border-radius: var(--r-pill); background: var(--m-track); }
+.m-rail__fill {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-pill);
+  background: var(--brand-navy-600);
+  transition: width var(--dur-fast) linear, background var(--dur-base) var(--ease-out);
+}
+.m-skin--control .m-rail__fill { background: var(--brand-navy-500); }
+.m-rail--warn .m-rail__fill { background: var(--status-risk); }
+.m-rail--late .m-rail__fill { background: var(--status-delayed); }
+.m-rail__mk { position: absolute; top: -5px; width: 2px; height: 18px; background: var(--m-bd-strong); }
+.m-rail__lbls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 9px;
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 10.5px;
+  color: var(--m-t3);
+}
+
+/* ---------- VerdictStrip ---------- */
+.m-verdict {
+  border-radius: var(--m-radius);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-normal);
+  transition: background var(--dur-base) var(--ease-out);
+}
+.m-verdict__delta {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 22px;
+  font-weight: var(--fw-semibold);
+  flex: 0 0 auto;
+}
+.m-verdict--award { background: var(--status-done-bg); color: var(--status-done); }
+.m-verdict--negotiate { background: var(--status-delayed-bg); color: var(--status-delayed); }
+.m-verdict--clarify-capability { background: var(--status-progress-bg); color: var(--status-progress); }
+
+/* ---------- Stepper ---------- */
+.m-stepper { display: flex; align-items: center; }
+.m-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.m-step__c {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold);
+  background: var(--m-track);
+  color: var(--m-t3);
+  transition: background var(--dur-base) var(--ease-out);
+}
+.m-step__t { font-size: 12.5px; color: var(--m-t3); transition: color var(--dur-base) var(--ease-out); }
+.m-step--done .m-step__c { background: var(--status-done); color: #fff; }
+.m-step--now .m-step__c { background: var(--brand-navy-800); color: #fff; box-shadow: 0 0 0 3px var(--brand-navy-50); }
+.m-skin--control .m-step--now .m-step__c { background: var(--brand-amber-400); color: var(--brand-navy-900); box-shadow: none; }
+.m-step--now .m-step__t { color: var(--m-t1); font-weight: var(--fw-semibold); }
+.m-stepper__sep { flex: 1; height: 1px; background: var(--m-bd); margin: 0 6px; min-width: 16px; }
+
+/* ---------- PathBadge ---------- */
+.m-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--m-card);
+  border: 1px solid var(--m-bd);
+  border-radius: var(--r-pill);
+  padding: 5px 13px;
+  padding-inline-start: 7px;
+  font-size: 12.5px;
+  font-weight: var(--fw-medium);
+  color: var(--m-t1);
+}
+.m-path__no {
+  font-family: var(--font-mono);
+  direction: ltr;
+  font-weight: var(--fw-semibold);
+  background: var(--brand-navy-800);
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+}
+.m-skin--control .m-path__no { background: var(--brand-amber-400); color: var(--brand-navy-900); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-meter__fill,
+  .m-rail__fill,
+  .m-verdict,
+  .m-step__c,
+  .m-step__t {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,343 @@
+{
+  "app": {
+    "title": "Masaar",
+    "subtitle": "Contractor & Tender Management Platform — SCPP Rev 1.0",
+    "switchLang": "عربي",
+    "docTitle": "Masaar — Contractor & Tender Management"
+  },
+  "nav": {
+    "home": "Home",
+    "operator": "Operator portal",
+    "gallery": "Component library",
+    "admin": "Admin dashboard"
+  },
+  "kpi": {
+    "openTenders": "Open tenders",
+    "awaitingRatification": "Awaiting ratification",
+    "scheduleCompliance": "Schedule compliance",
+    "avgAwardDays": "Avg. award time (days)"
+  },
+  "verdict": {
+    "title": "The ±20% verdict strip — live from the rules engine",
+    "hint": "Edit the lowest qualified bid and watch the verdict computed directly by @masaar/scpp-rules.",
+    "estimate": "Accredited estimate",
+    "bid": "Lowest qualified bid"
+  },
+  "routing": {
+    "title": "Auto-routing of the eight methods",
+    "hint": "Enter the estimated value and the engine suggests the contracting method per §11.",
+    "value": "Estimated value (USD)"
+  },
+  "gallery": {
+    "title": "@masaar/ui — one system, three skins, two languages",
+    "hint": "Every component below reads its result from the rules engine. Switch skin and language and watch the same components re-dress.",
+    "skinLedger": "The Living Ledger",
+    "skinControl": "The Operations Room",
+    "skinBlueprint": "The Engineering Blueprint",
+    "pills": "The six statuses",
+    "pillPlanned": "Planned",
+    "pillProgress": "In progress",
+    "pillDone": "Done",
+    "pillRisk": "Warning",
+    "pillDelayed": "Deviation",
+    "pillBlocked": "Blocked",
+    "paths": "The eight method badges",
+    "kpis": "KPI tiles (count-up)",
+    "cap": "Cap meter — Variation Orders",
+    "capHint": "Drag to simulate the VO value (cap = 10% of contract value)",
+    "rail": "Working-day rail — MCT cycle",
+    "railHint": "Drag to simulate passing days (14 & 21 WD deadlines)",
+    "railTitle": "MCT cycle — tender",
+    "verdictTitle": "The ±20% verdict strip",
+    "stepper": "Bid-entry stepper",
+    "step1": "Technical opening",
+    "step2": "Technical analysis",
+    "step3": "Commercial opening",
+    "step4": "Commercial analysis"
+  },
+  "operator": {
+    "title": "My tenders",
+    "newRequest": "New purchase request",
+    "value": "Value",
+    "progress": "Stages",
+    "deviationDays": "Deviation",
+    "allDone": "All stages complete"
+  },
+  "new": {
+    "title": "New purchase request",
+    "name": "Request name & scope",
+    "budgetCode": "Budget code",
+    "value": "Estimated value (USD)",
+    "flags": "Request circumstances",
+    "flagSpecialized": "Specialized works / emergency",
+    "flagComplex": "Technically complex scope",
+    "flagPreq": "Pre-qualified list available",
+    "flagRecent": "Bidders qualified ≤ 12 months ago, similar scope",
+    "soleCase": "Sole-source case",
+    "soleNone": "Not applicable",
+    "suggested": "Engine-suggested method",
+    "minParticipants": "Minimum participants",
+    "override": "Override suggestion (requires justification)",
+    "overrideNone": "Accept suggestion",
+    "justification": "Override justification",
+    "justificationHint": "Mandatory when departing from the engine suggestion",
+    "splitWarning": "Warning: close requests under the same budget code jointly exceed Financial Authority — splitting is prohibited.",
+    "submit": "Create request & generate tender code"
+  },
+  "detail": {
+    "back": "→ My tenders",
+    "tabs": {
+      "plan": "Stage scheduling",
+      "announce": "Announcement & invitations",
+      "bids": "Bid entry",
+      "close": "Complete stage"
+    }
+  },
+  "plan": {
+    "stage": "Stage",
+    "from": "Planned from",
+    "to": "Planned to",
+    "actual": "Actual close",
+    "status": "Status",
+    "awardDate": "Expected award date",
+    "announceMin": "Announcement period below the minimum"
+  },
+  "ann": {
+    "mode": "Invitation mode",
+    "public": "Public announcement",
+    "limited": "Limited tender",
+    "direct": "Direct invitation",
+    "period": "Announcement period (calendar days)",
+    "newspaper": "Newspaper",
+    "invitees": "Invitee count",
+    "lcSite": "Published on LC website",
+    "rocSite": "Published on ROC website",
+    "preq": "All invitees from the pre-qualified list",
+    "checks": "Pre-publish checks",
+    "publish": "Publish announcement",
+    "publishedOn": "Published on"
+  },
+  "bids": {
+    "bidder": "Bidder",
+    "docs": "Docs",
+    "bond": "Bond",
+    "technical": "Technical result",
+    "price": "Price (USD)",
+    "pass": "Qualified",
+    "fail": "Not qualified",
+    "locked": "Locked — 12.4.2",
+    "applied": "Applied",
+    "qualified": "Qualified",
+    "priced": "Priced",
+    "addBidder": "Add bidder…"
+  },
+  "close": {
+    "stage": "Current stage",
+    "actualDate": "Actual closing date",
+    "docs": "Required documents",
+    "missing": "Missing documents",
+    "complete": "Complete stage",
+    "deviation": "Deviation at this date"
+  },
+  "docs": {
+    "stage-report": "Stage report",
+    "opening-minutes": "Opening minutes",
+    "evaluation-report": "Evaluation report",
+    "announcement-copy": "Published announcement copy"
+  },
+  "footer": "Phases 3 & 4 — both portals over the rules engine. Remaining: a real API and phase-5 reports per BUILD_PLAN.md",
+  "login": {
+    "title": "Sign in to Masaar",
+    "hint": "Role-scoped session — operators see only their own company.",
+    "role": "Role (for the demo)",
+    "roleOperator": "Operator admin — Basra Energy",
+    "roleRoc": "ROC administration",
+    "sso": "Sign in with Azure AD",
+    "ssoNote": "Mock — replaced by MSAL once the corporate tenant is available.",
+    "otp": "Two-factor code (6 digits)",
+    "verify": "Verify & sign in",
+    "signOut": "Sign out"
+  },
+  "admin": {
+    "title": "Admin dashboard",
+    "sub": {
+      "overview": "Overview",
+      "mct": "MCT cycle",
+      "contracts": "Contracts",
+      "paths": "Paths guide",
+      "audit": "Audit log",
+      "compliance": "Compliance",
+      "vendors": "Vendors",
+      "reports": "Reports",
+      "roles": "Roles"
+    },
+    "kpiOpen": "Open tenders",
+    "kpiRatify": "Awaiting ratification",
+    "kpiCompliance": "Schedule compliance",
+    "kpiMct": "In MCT cycle",
+    "alerts": "Deviation & deadline alerts",
+    "alertsHint": "Sorted by severity — accumulated deviation first, then stages past their plan.",
+    "noAlerts": "No active alerts",
+    "pastPlanned": "past plan",
+    "allTenders": "All tenders",
+    "allMethods": "All methods",
+    "code": "Code",
+    "titleCol": "Title",
+    "method": "Method",
+    "stage": "Current stage"
+  },
+  "mct": {
+    "title": "MCT cycle — tenders above Financial Authority",
+    "hint": "A live working-day rail from official notification; the prevailing estimate settles automatically per 6.9.",
+    "none": "No cases above Financial Authority right now",
+    "rail": "Since notification",
+    "prevailing": {
+      "PENDING": "Cycle running",
+      "AGREED": "Agreed estimate",
+      "LC": "LC estimate prevails",
+      "MCT": "MCT estimate prevails"
+    },
+    "cycle": {
+      "notified": "Official notification",
+      "meeting": "Meeting",
+      "agreement": "Agreement",
+      "award": "Award"
+    },
+    "lcEstimate": "LC estimate",
+    "mctEstimate": "MCT estimate",
+    "accredited": "Accredited estimate",
+    "lowestBid": "Lowest qualified bid"
+  },
+  "contracts": {
+    "title": "Post-award contract management",
+    "hint": "Every cap clause is a live meter: VOs 10%, extension 25%, LDs 10%.",
+    "value": "Contract value",
+    "term": "Term",
+    "vo": "Variation orders",
+    "extension": "LC-authority extension",
+    "ld": "Liquidated damages",
+    "guarantee": "Guarantee",
+    "check": "Check",
+    "expiry": "Expiry",
+    "ok": "Compliant",
+    "below": "Below minimum",
+    "expiringSoon": "Expires within 60 days",
+    "kind": {
+      "bid-bond": "Bid bond",
+      "performance": "Performance bond",
+      "advance": "Advance-payment guarantee"
+    }
+  },
+  "paths": {
+    "title": "The eight-method guide",
+    "hint": "Pick a method to see its governing condition and stages — on the approved Engineering-Blueprint skin.",
+    "stages": "Method stages"
+  },
+  "audit": {
+    "title": "Audit log",
+    "hint": "Append-only, no edit or delete (8.1-e) — refused attempts are recorded too.",
+    "empty": "No entries yet — perform any action in the operator portal.",
+    "ts": "Timestamp",
+    "action": "Action",
+    "target": "Target"
+  },
+  "notices": {
+    "title": "Notifications",
+    "empty": "No active notifications",
+    "stageLate": "Tender {{code}}: the current stage is past its planned date.",
+    "mctMeeting": "Tender {{code}}: {{days}} working days to the MCT meeting deadline (14 WD).",
+    "mctAgreement": "Tender {{code}}: {{days}} working days to the agreement cap (21 WD).",
+    "guarantee": "Contract {{code}}: a guarantee expires on {{date}} — renew before lapse."
+  },
+  "vendors": {
+    "title": "Vendors & pre-qualification",
+    "hint": "Capability registry, MoO list membership, eligibility flags (10.4) and refusal-to-sign bans (14.3).",
+    "name": "Vendor",
+    "scores": "Capabilities",
+    "moo": "MoO list",
+    "eligibility": "Eligibility",
+    "tech": "Tech",
+    "fin": "Fin",
+    "hse": "HSE",
+    "mooYes": "Listed",
+    "mooNo": "Not listed",
+    "eligible": "Eligible",
+    "suspended": "Suspended",
+    "until": "until"
+  },
+  "compliance": {
+    "nomTitle": "ROC committee nominations (12.2)",
+    "nomHint": "Tier derives from value vs Financial Authority; the deadline runs from the trigger date — a missed deadline lets the LC proceed.",
+    "tier": "Participation tier",
+    "deadline": "Nomination deadline",
+    "tiers": {
+      "information-only": "Information only",
+      "observer": "Observer (technical)",
+      "witness-validate": "Witness & validate"
+    },
+    "missed": "Missed — LC proceeds",
+    "open": "Open",
+    "lcTitle": "Local content — 20% for state companies",
+    "lcHint": "The scope suggested for the five state companies with their response status.",
+    "company": "Company",
+    "response": "Response",
+    "resp": {
+      "accepted": "Accepted",
+      "pending": "Pending",
+      "declined": "Declined"
+    }
+  },
+  "roles": {
+    "title": "The six-role permission matrix",
+    "hint": "Enforced per endpoint on the server — shown here as the configuration reference.",
+    "role": "Role",
+    "names": {
+      "superAdmin": "Super Admin",
+      "rocAdmin": "ROC Administration",
+      "evaluation": "Evaluation Committees",
+      "auditor": "Auditor",
+      "operatorAdmin": "Operator Admin",
+      "operatorUser": "Operator User"
+    },
+    "perm": {
+      "createRequests": "Create requests",
+      "enterEvaluation": "Enter evaluation",
+      "ratifyAwards": "Ratify awards",
+      "manageRoles": "Manage roles",
+      "signContracts": "Sign contracts",
+      "readAudit": "Read audit"
+    },
+    "scopeNote": "Operator roles are scoped to their own company; the auditor is read-only post-award (6.7)."
+  },
+  "reports": {
+    "title": "Reports",
+    "hint": "Every figure is recomputed from state via the engine — nothing is stored.",
+    "csv": "Export CSV",
+    "print": "Print / PDF",
+    "dist": "Method distribution",
+    "deadlines": "SCPP deadline compliance",
+    "ann21": "Public announcements ≥ 21 days",
+    "mct14": "MCT meetings within 14 WD",
+    "leaderboard": "Tenders ranked by compliance",
+    "compliance": "Compliance",
+    "expiring": "Guarantees expiring within 60 days",
+    "noneExpiring": "No guarantees expiring soon"
+  },
+  "review": {
+    "back": "→ Overview",
+    "award": "Award summary",
+    "awardHint": "Accredited estimate, lowest qualified bid and the ±20% verdict — all from the engine for the final decision.",
+    "lowest": "Lowest qualified bid",
+    "stages": "Tender stages & deviation",
+    "dev": "Deviation (days)",
+    "decision": "Ratification decision",
+    "decisionHint": "Ratify the award or return it with notes to the operator. Notes are mandatory on return.",
+    "notes": "Notes",
+    "notesHint": "Reason for return or notes to the operator…",
+    "ratify": "Ratify the award",
+    "return": "Return with notes",
+    "ratified": "Ratified",
+    "returned": "Returned with notes",
+    "notReady": "Not yet at the ratification stage"
+  }
+}

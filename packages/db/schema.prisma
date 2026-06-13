@@ -1,0 +1,253 @@
+// ============================================================================
+// Masaar — Prisma schema (the tender aggregate, README §State Management)
+// Mirrors apps/web/src/store.tsx types 1:1; the store's engine guards move
+// into the API layer in front of these models.
+// Derived values (counts, ±20% delta, cap %, countdowns) are NOT stored —
+// they are computed by @masaar/scpp-rules.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- org & access ----------
+
+model Operator {
+  id                    String   @id @default(cuid())
+  name                  String
+  nameEn                String?
+  /// Financial Authority from the Service Contract (§7) — per operator, never hardcoded
+  financialAuthorityUSD Decimal  @db.Decimal(18, 2)
+  users                 User[]
+  tenders               Tender[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  ROC_ADMIN
+  EVALUATION
+  AUDITOR
+  OPERATOR_ADMIN
+  OPERATOR_USER
+}
+
+model User {
+  id         String     @id @default(cuid())
+  azureOid   String     @unique // Azure AD object id (MSAL)
+  name       String
+  email      String     @unique
+  role       Role
+  twoFa      Boolean    @default(true)
+  disabled   Boolean    @default(false)
+  operator   Operator?  @relation(fields: [operatorId], references: [id])
+  operatorId String?
+  audit      AuditLog[]
+}
+
+// ---------- tender aggregate ----------
+
+enum Method {
+  SOLE_SOURCE // 11.5
+  LOW_VALUE // 11.8.3
+  FAST_TRACK // 11.7
+  DIRECT // 11.4
+  RFP // 11.8.1
+  LIMITED // 11.2
+  PUBLIC // 11.1
+  TWO_PHASED // 11.3
+}
+
+model Tender {
+  id                    String        @id @default(cuid())
+  code                  String        @unique
+  titleAr               String
+  titleEn               String
+  budgetCode            String
+  estimatedValueUSD     Decimal       @db.Decimal(18, 2)
+  method                Method
+  overrideJustification String?
+  createdOn             DateTime      @default(now())
+  operator              Operator      @relation(fields: [operatorId], references: [id])
+  operatorId            String
+  stages                Stage[]
+  announcement          Announcement?
+  evaluationStep        Int           @default(0) // 0..3 (12.4)
+  bidders               Bidder[]
+  mct                   MctCase?
+  contract              Contract?
+
+  @@index([budgetCode]) // anti-splitting scan (7.2)
+}
+
+model Stage {
+  id          String    @id @default(cuid())
+  tender      Tender    @relation(fields: [tenderId], references: [id])
+  tenderId    String
+  key         String // canonical key from scpp-rules STAGES
+  order       Int
+  plannedFrom DateTime?
+  plannedTo   DateTime?
+  actualTo    DateTime? // set only after the docs gate passes
+  documents   Document[]
+
+  @@unique([tenderId, key])
+}
+
+model Document {
+  id       String   @id @default(cuid())
+  stage    Stage    @relation(fields: [stageId], references: [id])
+  stageId  String
+  kind     String // stage-report / opening-minutes / evaluation-report / announcement-copy
+  fileUrl  String
+  uploaded DateTime @default(now())
+}
+
+enum AnnouncementMode {
+  PUBLIC // 11.1
+  LIMITED // 11.2
+  DIRECT // 11.4
+}
+
+model Announcement {
+  id                    String           @id @default(cuid())
+  tender                Tender           @relation(fields: [tenderId], references: [id])
+  tenderId              String           @unique
+  mode                  AnnouncementMode
+  periodDays            Int
+  newspapers            String[] // ≥ 3 distinct for PUBLIC
+  lcWebsite             Boolean          @default(false)
+  rocWebsite            Boolean          @default(false)
+  inviteeCount          Int              @default(0)
+  inviteesPreQualified  Boolean          @default(false)
+  publishedOn           DateTime? // set only after checkAnnouncement passes
+}
+
+enum TechnicalResult {
+  PASS
+  FAIL
+}
+
+model Bidder {
+  id              String           @id @default(cuid())
+  tender          Tender           @relation(fields: [tenderId], references: [id])
+  tenderId        String
+  vendor          Vendor?          @relation(fields: [vendorId], references: [id])
+  vendorId        String?
+  name            String
+  docsOk          Boolean          @default(false)
+  bondOk          Boolean          @default(false)
+  technicalResult TechnicalResult?
+  /// writable only when isPriceVisible(step, bidder) — enforced in the API (12.4.2)
+  priceUSD        Decimal?         @db.Decimal(18, 2)
+
+  @@unique([tenderId, vendorId]) // one bid per bidder (10.4)
+}
+
+// ---------- MCT cycle (6.9) ----------
+
+model MctCase {
+  id                 String    @id @default(cuid())
+  tender             Tender    @relation(fields: [tenderId], references: [id])
+  tenderId           String    @unique
+  notifiedOn         DateTime // official e-mail (6.9)
+  meetingHeldOn      DateTime? // ≤ 14 WD else LC prevails (6.9.2)
+  agreementReachedOn DateTime? // ≤ 21 WD else MCT prevails (6.9.1)
+  lcEstimateUSD      Decimal   @db.Decimal(18, 2)
+  mctEstimateUSD     Decimal?  @db.Decimal(18, 2)
+  agreedEstimateUSD  Decimal?  @db.Decimal(18, 2)
+  finalValueNotified Boolean   @default(false) // 6.9.4
+}
+
+// ---------- post-award (§18–§21) ----------
+
+model Contract {
+  id            String      @id @default(cuid())
+  code          String      @unique
+  tender        Tender      @relation(fields: [tenderId], references: [id])
+  tenderId      String      @unique
+  valueUSD      Decimal     @db.Decimal(18, 2)
+  termDays      Int
+  signedOn      DateTime
+  vos           VariationOrder[]
+  extensions    Extension[]
+  lds           LiquidatedDamage[]
+  guarantees    Guarantee[]
+}
+
+model VariationOrder {
+  id         String   @id @default(cuid())
+  contract   Contract @relation(fields: [contractId], references: [id])
+  contractId String
+  valueUSD   Decimal  @db.Decimal(18, 2) // Σ ≤ 10% of contract (18.1)
+  approvedOn DateTime
+}
+
+model Extension {
+  id         String   @id @default(cuid())
+  contract   Contract @relation(fields: [contractId], references: [id])
+  contractId String
+  days       Int // Σ ≤ 25% of term under LC authority (19.3)
+  approvedOn DateTime
+}
+
+model LiquidatedDamage {
+  id         String   @id @default(cuid())
+  contract   Contract @relation(fields: [contractId], references: [id])
+  contractId String
+  valueUSD   Decimal  @db.Decimal(18, 2) // Σ ≤ 10% of contract (21.2)
+  appliedOn  DateTime
+}
+
+enum GuaranteeKind {
+  BID_BOND // 1–3% of estimate
+  PERFORMANCE // ≥ 5% of contract
+  ADVANCE // = advance payment
+}
+
+model Guarantee {
+  id         String        @id @default(cuid())
+  contract   Contract      @relation(fields: [contractId], references: [id])
+  contractId String
+  kind       GuaranteeKind
+  valueUSD   Decimal       @db.Decimal(18, 2)
+  expiresOn  DateTime // surfaced in reports 60 days ahead
+}
+
+// ---------- vendors & governance ----------
+
+model Vendor {
+  id             String    @id @default(cuid())
+  name           String
+  mooListed      Boolean   @default(false) // MoO Vendor List
+  suspended      Boolean   @default(false)
+  blacklisted    Boolean   @default(false)
+  inDispute      Boolean   @default(false)
+  banUntil       DateTime? // refusal-to-sign ban ≤ 12 months (14.3)
+  banReason      String?
+  techScore      Int? // capability bars
+  financialScore Int?
+  hseScore       Int?
+  bidders        Bidder[]
+}
+
+/// Admin-managed holiday calendar feeding @masaar/working-days
+model Holiday {
+  date DateTime @id @db.Date
+  name String
+}
+
+/// Append-only: no update/delete exposed by the API (8.1-e)
+model AuditLog {
+  id     BigInt   @id @default(autoincrement())
+  ts     DateTime @default(now())
+  user   User?    @relation(fields: [userId], references: [id])
+  userId String?
+  action String
+  target String
+  ip     String?
+}
