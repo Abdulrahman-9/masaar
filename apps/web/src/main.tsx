@@ -17,9 +17,13 @@ import '@masaar/tokens/css/tokens.css';
 import './i18n';
 import './styles.css';
 import App from './App';
+import ErrorBoundary from './ErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* outermost: a render crash anywhere below shows the bilingual notice, never a white screen */}
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

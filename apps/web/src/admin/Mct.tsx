@@ -1,8 +1,8 @@
-import { IRAQ_CALENDAR, workingDaysBetween } from '@masaar/working-days';
+import { workingDaysBetween } from '@masaar/working-days';
 import { awardVerdict, lowestQualified, mctCycleStatus } from '@masaar/scpp-rules';
 import { StatusPill, VerdictStrip, WdRail } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
-import { accreditedEstimate, isAboveFA, todayIso, useStore } from '../store';
+import { aboveOwnFA, accreditedEstimate, calendarOf, todayIso, useStore } from '../store';
 
 /** The Operations-Room (dark) surface: live deadline vigilance per the approved direction. */
 export default function Mct() {
@@ -10,8 +10,9 @@ export default function Mct() {
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state } = useStore();
   const today = todayIso();
+  const cal = calendarOf(state);
 
-  const cases = state.tenders.filter((t) => isAboveFA(t) && t.mct);
+  const cases = state.tenders.filter((t) => aboveOwnFA(state, t) && t.mct);
 
   return (
     <section className="card">
@@ -27,8 +28,9 @@ export default function Mct() {
           meetingHeldOn: m.meetingHeldOn,
           agreementReachedOn: m.agreementReachedOn,
           asOf: today,
+          calendar: cal,
         });
-        const elapsed = workingDaysBetween(m.notifiedOn, today, IRAQ_CALENDAR);
+        const elapsed = workingDaysBetween(m.notifiedOn, today, cal);
         const accredited = accreditedEstimate(m, status.prevailingEstimate);
         const lowest = lowestQualified(t.bidders);
         const verdict = lowest?.priceUSD != null ? awardVerdict(lowest.priceUSD, accredited) : null;

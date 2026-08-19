@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiLogin } from './api/endpoints';
 import { isApiMode } from './config';
-import { saveSession, type Role } from './session';
+import { DEMO_IDENTITIES, isApiLoginable, saveSession, type ApiRole } from './session';
 
 /**
  * Login — two-step flow (SSO → 2FA). In api mode it authenticates against the
@@ -12,22 +12,28 @@ import { saveSession, type Role } from './session';
 export default function Login({ onLogin }: { onLogin: () => void }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<'sso' | 'otp'>('sso');
-  const [role, setRole] = useState<Role>('operator-admin');
+  const [role, setRole] = useState<ApiRole>('OPERATOR_ADMIN');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const identity = DEMO_IDENTITIES.find((i) => i.role === role) ?? DEMO_IDENTITIES[0]!;
+
   const persist = (name: string) =>
-    saveSession({ name, role, company: role === 'operator-admin' ? 'Basra Energy Company' : undefined });
+    saveSession({ name, role, oid: identity.oid, company: identity.company, companyId: identity.companyId });
 
   const finish = async () => {
     if (!/^\d{6}$/.test(code) || busy) return;
     setError('');
     if (isApiMode) {
+      // the server's LoginDto only accepts OPERATOR_ADMIN | ROC_ADMIN — narrows `role`
+      if (!isApiLoginable(role)) {
+        setError(t('login.notApiLoginable'));
+        return;
+      }
       setBusy(true);
       try {
-        const apiRole = role === 'roc-admin' ? 'ROC_ADMIN' : 'OPERATOR_ADMIN';
-        const res = await apiLogin(apiRole, code);
+        const res = await apiLogin(role, code);
         persist(res.user.name);
         onLogin();
       } catch {
@@ -37,7 +43,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       }
       return;
     }
-    persist(role === 'operator-admin' ? 'م. أحمد عبد الرحمن' : 'د. سارة الجبوري');
+    persist(identity.name);
     onLogin();
   };
 
@@ -52,9 +58,10 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           <>
             <div className="field" style={{ marginBottom: 16 }}>
               <label>{t('login.role')}</label>
-              <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                <option value="operator-admin">{t('login.roleOperator')}</option>
-                <option value="roc-admin">{t('login.roleRoc')}</option>
+              <select value={role} onChange={(e) => setRole(e.target.value as ApiRole)}>
+                <option value="OPERATOR_ADMIN">{t('login.roleOperator')}</option>
+                <option value="ROC_ADMIN">{t('login.roleRoc')}</option>
+                <option value="SUPER_ADMIN">{t('login.roleSuper')}</option>
               </select>
             </div>
             <button className="btn btn--primary login-sso" onClick={() => setStep('otp')}>

@@ -3,11 +3,48 @@ import { PrismaClient } from '@prisma/client';
 /**
  * Seed — mirrors apps/web/src/store.tsx seedState() so the API serves the same
  * demo data the frontend prototyped against. Idempotent: clears then inserts.
+ *
+ * Ids are the client's own stable ids ('op-bec', 'f-ru', 'sc-ru', …) rather than
+ * generated cuids, so a row in the database and the same row in the client seed
+ * are literally the same record — the only way the two universes stay comparable.
  */
 const prisma = new PrismaClient();
 
+/** The three operating companies of the client seed (store.tsx seedState). */
+const OPERATORS: { id: string; name: string; nameEn: string }[] = [
+  { id: 'op-bec', name: 'شركة نفط البصرة', nameEn: 'Basra Oil Company' },
+  { id: 'op-mjn', name: 'شركة نفط ميسان', nameEn: 'Maysan Oil Company' },
+  { id: 'op-dqr', name: 'شركة نفط ذي قار', nameEn: 'Dhi Qar Oil Company' },
+];
+
+/**
+ * The 13 oil fields (spec §1) with the Financial Authority their Service Contract grants
+ * (§7.1 — FA lives on the contract, never on the operator). Values, codes and dates mirror
+ * store.tsx exactly, so `aboveOwnFA` resolves identically on both sides:
+ * t1 (Rumaila 4.2M < 5M) is within authority, t3 (Majnoon 7.8M > 3M) is above it.
+ */
+const FIELDS: { id: string; name: string; nameEn: string; code: string; operatorId: string; faUSD: number }[] = [
+  { id: 'f-ru', name: 'الرميلة', nameEn: 'Rumaila', code: 'RU', operatorId: 'op-bec', faUSD: 5_000_000 },
+  { id: 'f-wq1', name: 'غرب القرنة 1', nameEn: 'West Qurna 1', code: 'WQ1', operatorId: 'op-bec', faUSD: 5_000_000 },
+  { id: 'f-wq2', name: 'غرب القرنة 2', nameEn: 'West Qurna 2', code: 'WQ2', operatorId: 'op-bec', faUSD: 5_000_000 },
+  { id: 'f-zb', name: 'الزبير', nameEn: 'Zubair', code: 'ZB', operatorId: 'op-bec', faUSD: 5_000_000 },
+  { id: 'f-lh', name: 'اللحيس', nameEn: 'Luhais', code: 'LH', operatorId: 'op-bec', faUSD: 4_000_000 },
+  { id: 'f-tb', name: 'طوبة', nameEn: 'Tuba', code: 'TB', operatorId: 'op-bec', faUSD: 3_500_000 },
+  { id: 'f-mj', name: 'مجنون', nameEn: 'Majnoon', code: 'MJ', operatorId: 'op-mjn', faUSD: 3_000_000 },
+  { id: 'f-hf', name: 'الحلفاية', nameEn: 'Halfaya', code: 'HF', operatorId: 'op-mjn', faUSD: 3_000_000 },
+  { id: 'f-bz', name: 'البزركان', nameEn: 'Buzurgan', code: 'BZ', operatorId: 'op-mjn', faUSD: 2_500_000 },
+  { id: 'f-ag', name: 'أبو غرب', nameEn: 'Abu Ghurab', code: 'AG', operatorId: 'op-mjn', faUSD: 2_000_000 },
+  { id: 'f-fk', name: 'الفكة', nameEn: 'Fakka', code: 'FK', operatorId: 'op-mjn', faUSD: 2_000_000 },
+  { id: 'f-gh', name: 'الغرّاف', nameEn: 'Gharraf', code: 'GH', operatorId: 'op-dqr', faUSD: 2_000_000 },
+  { id: 'f-ns', name: 'الناصرية', nameEn: 'Nasiriyah', code: 'NS', operatorId: 'op-dqr', faUSD: 2_000_000 },
+];
+
+/** Service Contract id/code convention of the client seed: `sc-ru` / `SC-RU-24`, 2024→2031. */
+const CONTRACT_SIGNED_ON = new Date('2024-01-01');
+const CONTRACT_EXPIRES_ON = new Date('2031-01-01');
+
 async function main() {
-  // wipe in FK-safe order
+  // wipe in FK-safe order (children before parents)
   await prisma.auditLog.deleteMany();
   await prisma.guarantee.deleteMany();
   await prisma.liquidatedDamage.deleteMany();
@@ -15,24 +52,47 @@ async function main() {
   await prisma.variationOrder.deleteMany();
   await prisma.contract.deleteMany();
   await prisma.mctCase.deleteMany();
+  await prisma.ratification.deleteMany();
+  await prisma.bidderMaterialDeclaration.deleteMany();
   await prisma.bidder.deleteMany();
+  await prisma.stateCompanyResponse.deleteMany();
   await prisma.announcement.deleteMany();
   await prisma.document.deleteMany();
   await prisma.stage.deleteMany();
   await prisma.tender.deleteMany();
+  await prisma.vendorEvent.deleteMany();
   await prisma.vendor.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.serviceContract.deleteMany();
+  await prisma.field.deleteMany();
   await prisma.operator.deleteMany();
   await prisma.holiday.deleteMany();
 
-  const basra = await prisma.operator.create({
-    data: { name: 'Basra Energy Company', nameEn: 'Basra Energy Company', financialAuthorityUSD: 5_000_000 },
+  // Financial Authority is NOT written here — it is a property of the field's Service
+  // Contract (§7.1), created below. An Operator row carries identity only.
+  await prisma.operator.createMany({ data: OPERATORS });
+
+  await prisma.field.createMany({
+    data: FIELDS.map(({ id, name, nameEn, code, operatorId }) => ({ id, name, nameEn, code, operatorId })),
+  });
+  await prisma.serviceContract.createMany({
+    data: FIELDS.map((f) => ({
+      id: `sc-${f.id.slice(2)}`,
+      code: `SC-${f.id.slice(2).toUpperCase()}-24`,
+      fieldId: f.id,
+      financialAuthorityUSD: f.faUSD,
+      signedOn: CONTRACT_SIGNED_ON,
+      expiresOn: CONTRACT_EXPIRES_ON,
+    })),
   });
 
+  // azureOid values match DEMO_IDENTITIES / seedState() in the client, so a session minted
+  // against this database resolves to the same account on both sides.
   await prisma.user.createMany({
     data: [
-      { azureOid: 'oid-op-1', name: 'م. أحمد عبد الرحمن', email: 'op@basra.example', role: 'OPERATOR_ADMIN', operatorId: basra.id },
-      { azureOid: 'oid-roc-1', name: 'د. سارة الجبوري', email: 'roc@roc.example', role: 'ROC_ADMIN' },
+      { azureOid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', email: 'ahmed.abdulrahman@bec.iq', role: 'OPERATOR_ADMIN', operatorId: 'op-bec' },
+      { azureOid: 'oid-opuser-01', name: 'كرار محسن', email: 'karrar.mohsin@moc.iq', role: 'OPERATOR_USER', operatorId: 'op-mjn' },
+      { azureOid: 'oid-roc-01', name: 'د. سارة الجبوري', email: 'sara.jubouri@roc.iq', role: 'ROC_ADMIN' },
     ],
   });
 
@@ -51,10 +111,17 @@ async function main() {
         financialScore: 64,
         hseScore: 59,
       },
+      // the five Iraqi state companies (Article 25 / §9) — compete under the ordinary 10.4 gates (C8.4)
+      { name: 'شركة حفر الآبار النفطية (IDC)', isStateCompany: true, mooListed: true, techScore: 84, financialScore: 80, hseScore: 83 },
+      { name: 'شركة مشاريع النفط (SCOP)', isStateCompany: true, mooListed: true, techScore: 86, financialScore: 82, hseScore: 85 },
+      { name: 'الشركة العامة للهندسة الكهربائية (HEESCO)', isStateCompany: true, mooListed: true, techScore: 78, financialScore: 75, hseScore: 79 },
+      { name: 'شركة النفط الوطنية العراقية للهندسة (OEC)', isStateCompany: true, mooListed: false, techScore: 80, financialScore: 77, hseScore: 81 },
+      { name: 'شركة تطوير حقول النفط (PRDC)', isStateCompany: true, mooListed: true, techScore: 82, financialScore: 79, hseScore: 84 },
     ],
   });
 
-  // Tender 1 — public, at technical-analysis
+  // Tender 1 — public, at technical-analysis. Rumaila (op-bec): 4.2M < its 5M contract FA,
+  // so §9 does not trigger even though the scope is DRILLING.
   const t1 = await prisma.tender.create({
     data: {
       code: 'RU-DRL-0212',
@@ -63,7 +130,9 @@ async function main() {
       budgetCode: 'RU-DRL-77',
       estimatedValueUSD: 4_200_000,
       method: 'PUBLIC',
-      operatorId: basra.id,
+      scope: 'DRILLING',
+      operatorId: 'op-bec',
+      fieldId: 'f-ru',
       evaluationStep: 1,
       announcement: {
         create: {
@@ -89,7 +158,9 @@ async function main() {
     data: t1Stages.map((key, order) => ({ tenderId: t1.id, key, order })),
   });
 
-  // Tender 3 — above FA → MCT case, at ratification
+  // Tender 3 — above FA → MCT case, at ratification. Majnoon belongs to op-mjn (the
+  // field/operator invariant the create path enforces), and its 3M contract FA is what
+  // 7.8M exceeds — the MCT cycle below is a consequence of that figure, not a decoration.
   const t3 = await prisma.tender.create({
     data: {
       code: 'MJ-EPC-0305',
@@ -98,7 +169,11 @@ async function main() {
       budgetCode: 'MJ-EPC-04',
       estimatedValueUSD: 7_800_000,
       method: 'PUBLIC',
-      operatorId: basra.id,
+      // §9 — EPC above authority triggers C8.1/C8.2; a documented SCOP decline makes it a lawful exemption
+      scope: 'ENGINEERING_CONSTRUCTION',
+      stateResponses: { create: [{ company: 'SCOP', status: 'DECLINED', evidence: 'اعتذار رسمي موثّق من الشركة لارتباط طاقتها بمشروع قائم (كتاب 2026/155)' }] },
+      operatorId: 'op-mjn',
+      fieldId: 'f-mj',
       evaluationStep: 3,
       mct: {
         create: {
@@ -141,7 +216,9 @@ async function main() {
     ],
   });
 
-  console.log('Seed complete: 1 operator, 2 users, 4 vendors, 2 tenders, 1 contract.');
+  console.log(
+    `Seed complete: ${OPERATORS.length} operators, ${FIELDS.length} fields + service contracts, 3 users, 9 vendors, 2 tenders, 1 contract.`,
+  );
 }
 
 main()

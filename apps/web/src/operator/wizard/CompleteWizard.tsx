@@ -1,0 +1,157 @@
+import { stageByKey, stageDeviationWorkingDays } from '@masaar/scpp-rules';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { currentStage, requiredDocsFor, todayIso, useStore } from '../../store';
+import { DevBadge } from '../DevBadge';
+import { DevChip } from '../DevChip';
+import { Icon } from '../Icon';
+import WizardShell, { type WizardStep } from './WizardShell';
+
+const DEV_CATS = ['publisherDelay', 'docsCompletion', 'forceMajeure', 'internalCoord'];
+
+export default function CompleteWizard({ tenderId }: { tenderId: string }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'ar' ? 'ar' : 'en';
+  const { state, dispatch } = useStore();
+  const tender = state.tenders.find((x) => x.id === tenderId);
+  const cur = tender ? currentStage(tender) : undefined;
+
+  const [from, setFrom] = useState(cur?.plannedFrom ?? todayIso());
+  const [to, setTo] = useState('');
+  const [cat, setCat] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+
+  if (!tender || !cur) return <div className="op-empty">{t('file.notFound')}</div>;
+
+  const def = stageByKey(cur.key);
+  const req = requiredDocsFor(cur.key);
+  const docsOk = req.every((d) => cur.uploadedDocs.includes(d));
+  const dev = to && cur.plannedTo ? stageDeviationWorkingDays(cur.plannedTo, to) : null;
+  const needReason = dev != null && dev > 0;
+
+  const steps: WizardStep[] = [
+    {
+      label: t('wizco.s0'), title: t('wizco.s0'), sub: t('wizco.sub0'),
+      help: { t: t('wizco.help0'), r: 'SCPP 8.1' },
+      conditions: [
+        { t: t('wizco.cDates'), ok: !!from && !!to },
+        { t: t('wizco.cOrder'), ok: !!from && !!to && to >= from },
+      ],
+      content: (
+        <div className="wz-grid2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="wz-side-box" style={{ background: 'var(--bg-page)' }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('wizco.planned', { stage: def?.[lang] ?? cur.key })}</span>
+              <span className="op-code" style={{ fontSize: 13, fontWeight: 600 }}>{cur.plannedFrom ?? '—'} → {cur.plannedTo ?? '—'}</span>
+            </div>
+            {/* native date widgets: values stored as Latin ISO; display digits follow browser locale (documented Track-0 exclusion) */}
+            <div className="wz-field"><label className="wz-field__l">{t('wizco.from')}</label><input className="wz-in wz-in--mono" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+            <div className="wz-field"><label className="wz-field__l">{t('wizco.to')}</label><input className="wz-in wz-in--mono" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          </div>
+          <div className="wz-side-box">
+            <div className="wz-side-box__l">{t('wizco.devAuto')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {dev == null ? <span className="op-dev op-dev--none">{t('wizco.awaitTo')}</span> : <DevChip wd={dev} />}
+              <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{t('wizco.weekend')}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.8, borderTop: '1px dashed var(--border-2)', paddingTop: 10 }}>{dev == null ? t('wizco.devHintNull') : needReason ? t('wizco.devHintPos') : t('wizco.devHintNeg')}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: t('wizco.s1'), title: t('wizco.s1'), sub: t('wizco.sub1'),
+      help: { t: t('wizco.help1'), r: 'SCPP 8.1' },
+      conditions: [{ t: t('wizco.cDocs', { n: `${cur.uploadedDocs.filter((d) => req.includes(d)).length}/${req.length}` }), ok: docsOk }],
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {req.map((d) => {
+            const up = cur.uploadedDocs.includes(d);
+            return (
+              <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: '1px solid var(--border-1)', borderRadius: 10, background: 'var(--bg-card)' }}>
+                <Icon name="doc" size={16} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{t(`docs.${d}`)}</span>
+                <span className="op-task__due" style={{ background: up ? 'var(--status-done-bg)' : 'var(--status-delayed-bg)', color: up ? 'var(--status-done)' : 'var(--status-delayed)' }}>{up ? t('filedocs.stDone') : t('wizco.docMissing')}</span>
+                {/* the toggle marks the document RECEIVED — it uploads nothing, so it carries the
+                    same wording and the same «محاكاة» badge as the Documents tab (FileDocs.tsx). */}
+                {!up && (
+                  <>
+                    <button className="op-btn-nav" onClick={() => void dispatch({ type: 'TOGGLE_DOC', tenderId, stageKey: cur.key, doc: d })}>
+                      <Icon name="check" size={12} />
+                      {t('filedocs.markReceived')}
+                    </button>
+                    <DevBadge title={t('filedocs.simTitle')} />
+                  </>
+                )}
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{t('wizco.docsNote')}</div>
+        </div>
+      ),
+    },
+    {
+      label: t('wizco.s2'), title: t('wizco.s2'), sub: t('wizco.sub2'),
+      help: { t: t('wizco.help2'), r: 'SCPP 8.2' },
+      conditions: needReason
+        ? [{ t: t('wizco.cCat'), ok: !!cat }, { t: t('wizco.cNote'), ok: note.trim().length >= 15 }]
+        : [{ t: t('wizco.cNoDev'), ok: true }],
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {dev == null ? <span className="op-dev op-dev--none">{t('dev.none')}</span> : <DevChip wd={dev} />}
+            <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>{t('wizco.againstPlan')} <b className="op-code">{cur.plannedTo ?? '—'}</b></span>
+          </div>
+          {needReason ? (
+            <>
+              <div className="wz-field">
+                <label className="wz-field__l">{t('wizco.reasonCat')}</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {DEV_CATS.map((c) => <button key={c} className={`wz-chip${cat === c ? ' wz-chip--on' : ''}`} onClick={() => setCat(c)}>{t(`wizco.cat_${c}`)}</button>)}
+                </div>
+              </div>
+              <div className="wz-field">
+                <label className="wz-field__l">{t('wizco.reasonDetail')}</label>
+                <textarea className="wz-ta" rows={3} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('wizco.reasonPh')} />
+              </div>
+            </>
+          ) : (
+            <div className="wz-note wz-note--ok"><Icon name="check" size={15} strokeWidth={2} /><span>{t('wizco.noDevBox')}</span></div>
+          )}
+        </div>
+      ),
+    },
+    {
+      label: t('wizco.s3'), title: t('wizco.s3'), sub: t('wizco.sub3'),
+      help: { t: t('wizco.help3'), r: 'SCPP 8' },
+      conditions: [{ t: t('wizco.cAll'), ok: docsOk && !!to }],
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            { k: t('wizco.stage'), v: def?.[lang] ?? cur.key },
+            { k: t('wizco.actual'), v: `${from || '—'} → ${to || '—'}` },
+            { k: t('timeline.deviation'), v: dev == null ? '—' : `${dev > 0 ? t('dev.lateWd', { n: Math.abs(dev) }) : dev < 0 ? t('dev.earlyWd', { n: Math.abs(dev) }) : t('wizco.onPlan')}${needReason && cat ? ` — ${t(`wizco.cat_${cat}`)}` : ''}` },
+            { k: t('filedocs.title'), v: `${cur.uploadedDocs.filter((d) => req.includes(d)).length}/${req.length}` },
+          ].map((r, i) => <div key={i} className="wz-reviewrow"><span>{r.k}</span><span>{r.v}</span></div>)}
+          <div className="wz-note wz-note--info"><Icon name="clock" size={15} /><span>{t('wizco.finalNote')}</span></div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <WizardShell
+      title={t('wizco.title', { stage: def?.[lang] ?? cur.key })}
+      tenderName={tender.title[lang]}
+      code={tender.code}
+      steps={steps}
+      finalLabel={t('wizco.final')}
+      doneHash={`#/operator/t/${tenderId}`}
+      exitHash={`#/operator/t/${tenderId}`}
+      success={{ title: t('wizco.doneTitle', { stage: def?.[lang] ?? cur.key }), desc: t('wizco.doneDesc'), audit: `${tender.code} · STAGE CLOSED · DEV ${dev != null && dev > 0 ? '+' : ''}${dev ?? 0}WD` }}
+      onFinish={() => {
+        dispatch({ type: 'COMPLETE_STAGE', tenderId, stageKey: cur.key, actualTo: to || todayIso() });
+      }}
+    />
+  );
+}

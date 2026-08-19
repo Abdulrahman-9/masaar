@@ -1,0 +1,80 @@
+/* ============================================================
+   Registry layer (batch 1) — shared list-screen chrome.
+   New classes only where the existing vocabulary had none:
+   sortable table headers + the pagination bar.
+   Tokens only; logical properties only.
+   ============================================================ */
+
+/* ---- sortable header ---- */
+.reg-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: start;
+}
+.reg-sort:hover { color: var(--ink-1); }
+.reg-sort__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
+/* neutral: a faint down caret hints the column is sortable */
+.reg-sort__caret--off { opacity: 0.35; transform: rotate(90deg); }
+.reg-sort__caret--asc { transform: rotate(-90deg); color: var(--brand-navy-800); }
+.reg-sort__caret--desc { transform: rotate(90deg); color: var(--brand-navy-800); }
+
+/* ---- pagination bar ---- */
+.reg-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-block-start: 12px;
+}
+.reg-pager__range { font-size: 12.5px; color: var(--ink-3); }
+.reg-pager__controls { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+.reg-pager__size {
+  font: inherit;
+  font-size: 12.5px;
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-2);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.reg-pager__size:hover { background: var(--bg-muted); }
+.reg-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Registry filter <select> — the operator portal does not load admin.css, so its
+   .op-filter-select is unavailable there; the registry layer carries its own token-only copy. */
+.reg-select {
+  font: inherit;
+  font-size: 12.5px;
+  height: 32px;
+  max-width: 340px;
+  padding-inline: 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-2);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.reg-select:hover { background: var(--bg-muted); }
+
+/* FilterChips badge — .acc-count lives in admin.css which the operator portal never loads;
+   registry.css is bundled in both portals (identical to the admin.css rule, harmless duplicate). */
+.acc-count {
+  font-family: var(--font-mono);
+  direction: ltr;
+  font-size: 10.5px;
+  opacity: 0.75;
+  margin-inline-start: 5px;
+}

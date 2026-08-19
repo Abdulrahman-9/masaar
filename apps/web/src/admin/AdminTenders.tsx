@@ -1,0 +1,215 @@
+import { METHODS, stageByKey } from '@masaar/scpp-rules';
+import { StatusPill } from '@masaar/ui';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DevChip } from '../operator/DevChip';
+import { fmtCount, tenderDeviationWd, tenderStatus, type OpStatus } from '../operator/derive';
+import { Icon } from '../operator/Icon';
+import { PathChip } from '../operator/PathChip';
+import { EmptyState } from '../registry/EmptyState';
+import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { PaginationBar } from '../registry/PaginationBar';
+import { exportCsv, type ReportColumn } from '../registry/report';
+import { SearchBox } from '../registry/SearchBox';
+import { SortableTh } from '../registry/SortableTh';
+import { usePagination } from '../registry/usePagination';
+import { arCompare, useTableSort } from '../registry/useTableSort';
+import { calendarOf, currentStage, todayIso, useStore, type Tender } from '../store';
+import { useAdminUi } from './AdminShell';
+
+/** The four live statuses a tender can hold (from tenderStatus), in reading order. */
+const STATUS_ORDER: OpStatus[] = ['progress', 'risk', 'delayed', 'done'];
+type StatusFilter = '' | OpStatus;
+
+/** A tender is awaiting the ROC ratification decision when RATIFY would be accepted (mirrors the reducer guard). */
+function isPendingRatification(t: Tender): boolean {
+  return !t.lifecycle && !t.ratification && currentStage(t)?.key === 'ratify';
+}
+
+export default function AdminTenders() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'ar' ? 'ar' : 'en';
+  const { state } = useStore();
+  const { toast } = useAdminUi();
+  const today = todayIso();
+  const cal = calendarOf(state);
+
+  const [q, setQ] = useState('');
+  const [method, setMethod] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+
+  const qn = q.trim().toLowerCase();
+
+  // Method + free-text search, before the status chip narrows further — chip counts read off this set.
+  const searched = useMemo(() => state.tenders.filter((tn) => {
+    if (method !== 0 && tn.methodId !== method) return false;
+    if (qn && !(`${tn.code} ${tn.title.ar} ${tn.title.en}`.toLowerCase().includes(qn))) return false;
+    return true;
+  }), [state.tenders, method, qn]);
+
+  const rows = useMemo(
+    () => (statusFilter ? searched.filter((tn) => tenderStatus(tn, today, cal) === statusFilter) : searched),
+    [searched, statusFilter, today],
+  );
+
+  // Tri-state sort — title is Arabic-collated; deviation sorts by signed working days.
+  const compare = useMemo(() => ({
+    tender: arCompare<Tender>((tn) => tn.title[lang]),
+    deviation: (a: Tender, b: Tender) => tenderDeviationWd(a, today, cal) - tenderDeviationWd(b, today, cal),
+  }), [lang, today]);
+  const { sorted, sortKey, dir, toggle } = useTableSort(rows, compare);
+  const { pageRows, page, setPage, pageSize, setPageSize, total, start, end } = usePagination(sorted, 10);
+
+  // KPIs read the filtered set — as you narrow the registry the counts follow the view (honest, derived).
+  const pending = rows.filter(isPendingRatification).length;
+  const late = rows.filter((tn) => tenderStatus(tn, today, cal) === 'delayed').length;
+  const done = rows.filter((tn) => tenderStatus(tn, today, cal) === 'done').length;
+  const kpis = [
+    { l: t('reg.atenders.kpiTotal'), v: rows.length, tone: undefined as string | undefined },
+    { l: t('reg.atenders.kpiPending'), v: pending, tone: pending > 0 ? 'var(--brand-amber-700)' : undefined },
+    { l: t('reg.atenders.kpiLate'), v: late, tone: late > 0 ? 'var(--status-delayed)' : undefined },
+    { l: t('reg.atenders.kpiDone'), v: done, tone: done > 0 ? 'var(--status-done)' : undefined },
+  ];
+
+  const statusChips: FilterChip[] = [
+    { key: '', label: t('reg.atenders.allStatus'), count: searched.length, active: statusFilter === '' },
+    ...STATUS_ORDER.map((s) => ({
+      key: s,
+      label: t(`status.${s}`),
+      count: searched.filter((tn) => tenderStatus(tn, today, cal) === s).length,
+      active: statusFilter === s,
+    })),
+  ];
+
+  // One column contract drives the table read-out and the CSV — the export is exactly the sorted, filtered view.
+  const csvColumns: ReportColumn<Tender>[] = [
+    { key: 'code', label: 'code', value: (tn) => tn.code },
+    { key: 'title', label: 'title', value: (tn) => tn.title[lang] },
+    { key: 'method', label: 'method', value: (tn) => tn.methodId },
+    { key: 'stage', label: 'stage', value: (tn) => currentStage(tn)?.key ?? 'completed' },
+    { key: 'status', label: 'status', value: (tn) => tenderStatus(tn, today, cal) },
+    { key: 'deviationWd', label: 'deviationWd', value: (tn) => tenderDeviationWd(tn, today, cal) },
+    { key: 'ratification', label: 'ratification', value: (tn) => tn.ratification?.status ?? '' },
+  ];
+
+  const doExport = () => {
+    exportCsv('masaar-tenders-registry', csvColumns, sorted);
+    toast(t('reg.atenders.toastExport'));
+  };
+
+  const clearFilters = () => { setQ(''); setMethod(0); setStatusFilter(''); };
+
+  return (
+    <div className="op-page" style={{ maxWidth: 1240 }}>
+      <div className="op-page__head">
+        <div>
+          <h1 className="op-page__title">{t('admin.allTenders')}</h1>
+          <div className="op-page__sub">{t('reg.atenders.sub', { n: fmtCount(state.tenders.length, lang) })}</div>
+        </div>
+        {/* Admin reviews, never creates — no primary. The export mirrors the filtered rows on screen. */}
+        <button className="op-btn-ghost" onClick={doExport}>{t('reg.atenders.exportCsv')}</button>
+      </div>
+
+      <div className="ad-kpis" style={{ marginTop: 4 }}>
+        {kpis.map((k) => (
+          <div key={k.l} className="ad-kpi">
+            <div className="ad-kpi__head"><span className="ad-kpi__l">{k.l}</span></div>
+            <div className="ad-kpi__row">
+              <span className="ad-kpi__v" style={k.tone ? { color: k.tone } : undefined}>{fmtCount(k.v, lang)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="acc-filters">
+        <SearchBox value={q} onChange={setQ} placeholder={t('reg.atenders.searchPh')} style={{ width: 280 }} />
+        <FilterChips chips={statusChips} onSelect={(key) => setStatusFilter(key as StatusFilter)} lang={lang} />
+        {/* filter by the named procurement path (§11), not a bare id nobody memorises */}
+        <select
+          className="op-filter-select"
+          value={method}
+          aria-label={t('admin.allMethods')}
+          onChange={(e) => setMethod(Number(e.target.value))}
+        >
+          <option value={0}>{t('admin.allMethods')}</option>
+          {METHODS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {`${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {state.tenders.length === 0 ? (
+        <EmptyState mode="empty">{t('reg.atenders.emptyStore')}</EmptyState>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          mode="noMatch"
+          action={<button className="op-btn-ghost" onClick={clearFilters}>{t('reg.atenders.clearFilters')}</button>}
+        >
+          {t('reg.atenders.noMatch')}
+        </EmptyState>
+      ) : (
+        <>
+          <div className="op-tablecard">
+            <table className="op-tbl">
+              <thead>
+                <tr>
+                  <SortableTh label={t('tenders.colTender')} sortKey="tender" active={sortKey} dir={dir} onToggle={toggle} />
+                  <th>{t('tenders.colPath')}</th>
+                  <th>{t('tenders.colStage')}</th>
+                  <th>{t('tenders.colStatus')}</th>
+                  <SortableTh label={t('tenders.colDeviation')} sortKey="deviation" active={sortKey} dir={dir} onToggle={toggle} className="op-end" />
+                  <th>{t('adtenders.colRatify')}</th>
+                  <th style={{ width: 150 }} className="op-end" />
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((tender) => {
+                  const cur = currentStage(tender);
+                  const status = tenderStatus(tender, today, cal);
+                  return (
+                    <tr key={tender.id} className="op-tbl__row">
+                      <td>
+                        <div className="op-tbl__name" dir="auto">{tender.title[lang]}</div>
+                        <div className="op-tbl__code">{tender.code}</div>
+                      </td>
+                      <td><PathChip id={tender.methodId} lang={lang} /></td>
+                      <td>{cur ? stageByKey(cur.key)?.[lang] : t('tenders.completed')}</td>
+                      <td><StatusPill status={status}>{t(`status.${status}`)}</StatusPill></td>
+                      <td className="op-end"><DevChip wd={tenderDeviationWd(tender, today, cal)} /></td>
+                      <td>
+                        {tender.ratification ? (
+                          <StatusPill status={tender.ratification.status === 'ratified' ? 'done' : 'delayed'}>{t(`review.${tender.ratification.status}`)}</StatusPill>
+                        ) : (
+                          <span className="op-dev op-dev--none">—</span>
+                        )}
+                      </td>
+                      <td className="op-end">
+                        {/* a real link, so review is reachable by keyboard — an onClick <tr> is not */}
+                        <a className="acc-open" href={`#/admin/review/${tender.id}`}>
+                          {t('reg.atenders.openReview')}
+                          <Icon name="chevronEnd" size={12} strokeWidth={2} className="op-chev-fwd" />
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <PaginationBar
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            total={total}
+            start={start}
+            end={end}
+            lang={lang}
+          />
+        </>
+      )}
+    </div>
+  );
+}

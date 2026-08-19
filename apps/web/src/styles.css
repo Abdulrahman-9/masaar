@@ -203,6 +203,15 @@ html[lang='en'] body { font-family: var(--font-sans); }
 .dtable td { padding: 9px 10px; border-bottom: 1px solid var(--border-1); font-size: 13px; vertical-align: middle; }
 .row--lowest td { background: var(--status-done-bg); }
 
+/* The .mono / .op-code utilities keep digits LTR, but when applied to a table
+   CELL the cell's own ltr direction flips text-align:start to the LEFT, drifting
+   the value away from its (RTL) column header. Re-anchor mono/code cells to the
+   column's start edge per document direction (op-end cells stay end-aligned). */
+html[dir='rtl'] td.mono:not(.op-end), html[dir='rtl'] th.mono:not(.op-end),
+html[dir='rtl'] td.op-code:not(.op-end), html[dir='rtl'] th.op-code:not(.op-end) { text-align: right; }
+html[dir='ltr'] td.mono:not(.op-end), html[dir='ltr'] th.mono:not(.op-end),
+html[dir='ltr'] td.op-code:not(.op-end), html[dir='ltr'] th.op-code:not(.op-end) { text-align: left; }
+
 .date-in, .price-in {
   font-family: var(--font-mono);
   direction: ltr;
@@ -472,14 +481,26 @@ html[lang='en'] body { font-family: var(--font-sans); }
   border-bottom: 1px solid var(--border-1);
 }
 .bell-panel__empty { padding: 18px 16px; font-size: 12.5px; color: var(--fg-3); }
-.bell-panel ul { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+.bell-list { max-height: 300px; overflow-y: auto; }
+/* rows are real buttons that open the tender file (batch 2) */
 .bell-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: start;
   padding: 11px 16px;
+  font-family: inherit;
   font-size: 12.5px;
   line-height: 1.6;
+  color: var(--fg-1);
+  background: transparent;
+  border: none;
   border-bottom: 1px solid var(--border-1);
   border-inline-start: 3px solid var(--status-risk);
+  cursor: pointer;
 }
+.bell-item:hover:not(:disabled) { background: var(--bg-muted); }
+.bell-item:disabled { cursor: default; color: var(--fg-3); }
 .bell-item--delayed { border-inline-start-color: var(--status-delayed); }
 .bell-item:last-child { border-bottom: none; }
 

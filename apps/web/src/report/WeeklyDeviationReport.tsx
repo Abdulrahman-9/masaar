@@ -1,0 +1,139 @@
+import { METHODS, scheduleCompliancePct, stageByKey } from '@masaar/scpp-rules';
+import { workingDaysBetween } from '@masaar/working-days';
+import { useTranslation } from 'react-i18next';
+import { resolveSessionOrg } from '../orgIdentity';
+import { aboveOwnFA, calendarOf, currentStage, todayIso, useStore } from '../store';
+import { fmtCount, tenderDeviationWd } from '../operator/derive';
+import { Icon } from '../operator/Icon';
+import './report.css';
+
+export default function WeeklyDeviationReport() {
+  const { t, i18n } = useTranslation();
+  const lang = (i18n.language === 'ar' ? 'ar' : 'en') as 'ar' | 'en';
+  const { state } = useStore();
+  const today = todayIso();
+  const cal = calendarOf(state);
+  // a portfolio-wide report: the company is the SESSION's operating company (the scope the
+  // rows were drawn from), resolved from the registries — never a literal
+  const org = resolveSessionOrg(state, lang);
+
+  const open = state.tenders.filter((x) => currentStage(x));
+  const lateRows = state.tenders
+    .map((x) => ({ tender: x, cur: currentStage(x), dev: tenderDeviationWd(x, today, cal) }))
+    .filter((r) => r.cur?.plannedTo && today > r.cur.plannedTo)
+    .sort((a, b) => b.dev - a.dev);
+  const compliance = scheduleCompliancePct(
+    state.tenders.flatMap((x) => x.stages.filter((s) => s.plannedTo).map((s) => ({ plannedEnd: s.plannedTo!, actualEnd: s.actualTo }))),
+  );
+  const inMct = state.tenders.filter((x) => aboveOwnFA(state, x) && x.mct);
+
+  const pub = state.tenders.filter((x) => x.announcement.mode === 'public');
+  const annOk = pub.filter((x) => x.announcement.periodDays >= 21).length;
+  const annPct = pub.length ? Math.round((annOk / pub.length) * 100) : 100;
+  const mctAll = state.tenders.filter((x) => x.mct?.meetingHeldOn);
+  const mctOk = mctAll.filter((x) => workingDaysBetween(x.mct!.notifiedOn, x.mct!.meetingHeldOn!, cal) <= 14).length;
+  const mctPct = mctAll.length ? Math.round((mctOk / mctAll.length) * 100) : 100;
+
+  const kpis = [
+    { l: t('report.wk_kpiOpen'), v: fmtCount(open.length, lang) },
+    { l: t('report.wk_kpiLate'), v: fmtCount(lateRows.length, lang) },
+    { l: t('report.wk_kpiCompliance'), v: `${fmtCount(Math.round(compliance), lang)}%` },
+    { l: t('report.wk_kpiMct'), v: fmtCount(inMct.length, lang) },
+  ];
+
+  return (
+    <div className="rp-screen">
+      <div className="rp-toolbar">
+        <a className="op-btn-ghost" href="#/operator/reports">{t('report.back')}</a>
+        <span className="rp-toolbar__title">{t('report.wk_title')}</span>
+        <span className="rp-toolbar__spacer" />
+        <button className="op-btn-primary" onClick={() => window.print()}><Icon name="printer" size={14} />{t('report.print')}</button>
+      </div>
+
+      <div className="rp-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="rp-hdr">
+          <img src="/logo.svg" alt="مسار" />
+          <div className="rp-hdr__ref">DOC MSR-WKR-{today.replace(/-/g, '')}<br />PORTFOLIO · WEEKLY</div>
+        </div>
+
+        <div className="rp-body">
+          <div className="rp-titleblock">
+            <div>
+              <div className="rp-eyebrow">{t('report.wk_eyebrow')}</div>
+              <h1 className="rp-h1">{t('report.wk_title')}</h1>
+              <p className="rp-p" style={{ marginTop: 4 }}>{t('report.wk_sub')}</p>
+            </div>
+            <table className="rp-metatbl">
+              <tbody>
+                <tr><td className="k">{t('report.wk_generated')}</td><td className="v">{today}</td></tr>
+                <tr><td className="k">{t('report.operator')}</td><td dir="auto">{org.name ?? '—'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 1 summary KPIs */}
+          <div className="rp-sec rp-sec--avoid">
+            <div className="rp-sec__head"><span className="rp-sec__n">1</span><span className="rp-sec__t">{t('report.wk_sec1')}</span></div>
+            <table className="rp-kvtbl">
+              <tbody>
+                <tr>{kpis.map((k) => <td key={k.l} className="k" style={{ textAlign: 'center' }}>{k.l}</td>)}</tr>
+                <tr>{kpis.map((k) => <td key={k.l} className="rp-mono" style={{ textAlign: 'center', fontSize: 18, fontWeight: 600 }}>{k.v}</td>)}</tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 2 late tenders */}
+          <div className="rp-sec rp-sec--avoid">
+            <div className="rp-sec__head"><span className="rp-sec__n">2</span><span className="rp-sec__t">{t('report.wk_sec2')}</span></div>
+            {lateRows.length === 0 ? (
+              <div className="rp-conclusion">{t('report.wk_noLate')}</div>
+            ) : (
+              <table className="rp-tbl">
+                <thead>
+                  <tr>
+                    <th>{t('report.wk_colTender')}</th>
+                    <th>{t('report.wk_colStage')}</th>
+                    <th className="c">{t('report.wk_colMethod')}</th>
+                    <th className="c">{t('report.wk_colDev')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lateRows.map((r) => (
+                    <tr key={r.tender.id}>
+                      <td><span dir="auto">{r.tender.title[lang]}</span> <span className="rp-mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{r.tender.code}</span></td>
+                      <td>{r.cur ? stageByKey(r.cur.key)?.[lang] : '—'}</td>
+                      <td className="c">{METHODS.find((m) => m.id === r.tender.methodId)?.[lang]}</td>
+                      <td className="c"><span className={r.dev > 5 ? 'rp-dev--late5' : 'rp-dev--late'}>{t('report.late', { n: fmtCount(r.dev, lang) })} {t('report.wd')}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 3 compliance */}
+          <div className="rp-sec rp-sec--avoid">
+            <div className="rp-sec__head"><span className="rp-sec__n">3</span><span className="rp-sec__t">{t('report.wk_sec3')}</span></div>
+            <div className="rp-bars">
+              {[
+                { l: t('report.wk_ann21'), pct: annPct, n: annOk, d: pub.length },
+                { l: t('report.wk_mct14'), pct: mctPct, n: mctOk, d: mctAll.length },
+              ].map((b, i) => (
+                <div key={i} className="rp-bar">
+                  <span className="rp-bar__l">{b.l}</span>
+                  <span className="rp-bar__track"><span className="rp-bar__fill" style={{ width: `${b.pct}%`, background: b.pct >= 100 ? 'var(--status-done)' : b.pct >= 80 ? 'var(--brand-navy-700)' : 'var(--status-risk)' }} /></span>
+                  <span className="rp-bar__v">{fmtCount(b.n, lang)}/{fmtCount(b.d, lang)} · {b.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rp-ftr">
+          <span>{t('report.wk_footer')}</span>
+          <span className="rp-ftr__ref">SCPP Rev 1.0 · Masaar</span>
+        </div>
+      </div>
+    </div>
+  );
+}

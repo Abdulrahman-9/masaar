@@ -1,0 +1,96 @@
+/* ------------------------------------------------------------------ *
+ * Toast v2 — shared queue toaster (max 3 visible, FIFO).
+ * Success is the .op-toast baseline (navy card + done mark); error and
+ * warning swap the mark tone only. Every value flows from @masaar/tokens.
+ * ------------------------------------------------------------------ */
+
+.tv2-viewport {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 24px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.tv2-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  inline-size: min(440px, calc(100vw - 32px));
+  padding-block: 12px;
+  padding-inline: 16px;
+  background: var(--brand-navy-800);
+  color: var(--ink-on-dark);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  animation: tv2-in var(--dur-base) var(--ease-out);
+}
+
+.tv2-toast--out {
+  animation: tv2-out var(--dur-base) var(--ease-out) forwards;
+}
+
+.tv2-toast__mark {
+  flex-shrink: 0;
+  inline-size: 20px;
+  block-size: 20px;
+  margin-block-start: 1px;
+  border-radius: var(--r-pill);
+  color: var(--bg-card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tv2-toast--success .tv2-toast__mark { background: var(--status-done); }
+.tv2-toast--error   .tv2-toast__mark { background: var(--status-delayed); }
+.tv2-toast--warning .tv2-toast__mark { background: var(--status-risk); }
+
+.tv2-toast__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+.tv2-toast__msg { line-height: 1.45; }
+.tv2-toast__desc {
+  color: var(--ink-on-dark-2);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.tv2-toast__x {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-on-dark-2);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.tv2-toast__x:hover { color: var(--ink-on-dark); }
+
+@keyframes tv2-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tv2-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv2-toast,
+  .tv2-toast--out { animation: none; }
+}

@@ -7,7 +7,7 @@ import {
 import { workingDaysBetween } from '@masaar/working-days';
 import { StatusPill } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
-import { isAboveFA, todayIso, totalDeviationDays, useStore } from '../store';
+import { aboveOwnFA, calendarOf, todayIso, totalDeviationDays, useStore } from '../store';
 
 function HBar({ label, value, max, suffix }: { label: string; value: number; max: number; suffix?: string }) {
   return (
@@ -30,6 +30,7 @@ export default function Reports() {
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state } = useStore();
   const today = todayIso();
+  const cal = calendarOf(state);
 
   // method distribution
   const dist = METHODS.map((m) => ({ m, n: state.tenders.filter((t) => t.methodId === m.id).length })).filter((x) => x.n > 0);
@@ -45,8 +46,8 @@ export default function Reports() {
   // SCPP deadline compliance
   const published = state.tenders.filter((t) => t.announcement.publishedOn && t.announcement.mode === 'public');
   const annOk = published.filter((t) => t.announcement.periodDays >= 21).length;
-  const mctCases = state.tenders.filter((t) => isAboveFA(t) && t.mct?.meetingHeldOn);
-  const mctOk = mctCases.filter((t) => workingDaysBetween(t.mct!.notifiedOn, t.mct!.meetingHeldOn!) <= 14).length;
+  const mctCases = state.tenders.filter((t) => aboveOwnFA(state, t) && t.mct?.meetingHeldOn);
+  const mctOk = mctCases.filter((t) => workingDaysBetween(t.mct!.notifiedOn, t.mct!.meetingHeldOn!, cal) <= 14).length;
 
   // expiring guarantees
   const expiring = state.contracts.flatMap((c) =>

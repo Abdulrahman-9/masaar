@@ -1,0 +1,251 @@
+/* ========================================================================
+   Admin panel redesign (Batch 4) — dark "operations room" sidebar + follow-up
+   Reuses the operator shell primitives (op-shell/op-main/op-topbar/op-page).
+   ======================================================================== */
+.ad-side {
+  background: var(--brand-navy-900);
+  color: var(--ink-on-dark);
+  border: none;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.ad-side__logo { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; border-bottom: 1px solid rgba(244, 241, 234, 0.14); }
+.ad-side__logo img { height: 32px; }
+.ad-side__badge { margin-inline-start: auto; font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: 0.1em; color: var(--brand-amber-400); border: 1px solid rgba(219, 166, 89, 0.45); padding: 2px 8px; border-radius: var(--r-pill); }
+.ad-nav { display: flex; flex-direction: column; gap: 2px; }
+.ad-nav__group { font-size: 9.5px; font-weight: var(--fw-semibold); letter-spacing: 0.08em; color: var(--ink-on-dark-2); padding: 12px 10px 4px; }
+.ad-nav__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  text-align: start;
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--ink-on-dark-2);
+  text-decoration: none;
+  transition: background var(--dur-base) var(--ease-out);
+}
+.ad-nav__btn:hover { background: rgba(244, 241, 234, 0.08); color: var(--ink-on-dark); }
+.ad-nav__btn--on, .ad-nav__btn--on:hover { background: var(--brand-amber-500); color: var(--brand-navy-900); }
+.ad-nav__btn svg { flex-shrink: 0; }
+.ad-nav__count { margin-inline-start: auto; font-family: var(--font-mono); font-size: 11px; padding: 1px 7px; border-radius: var(--r-pill); background: rgba(244, 241, 234, 0.1); color: var(--ink-on-dark); }
+.ad-nav__btn--on .ad-nav__count { background: rgba(11, 37, 64, 0.18); color: var(--brand-navy-900); }
+.ad-side__sup { margin-top: auto; padding: 12px 10px; background: rgba(244, 241, 234, 0.08); border-radius: var(--r-md); }
+.ad-side__sup-l { font-size: 11px; color: var(--ink-on-dark-2); }
+.ad-side__sup-n { font-size: 13px; font-weight: var(--fw-semibold); color: var(--ink-on-dark); margin-top: 2px; }
+.ad-side__sup-r { font-size: 11px; color: var(--ink-on-dark-2); margin-top: 4px; font-family: var(--font-mono); direction: ltr; }
+.ad-side__credit { padding: 8px 10px 2px; text-align: center; border-top: 1px solid rgba(244, 241, 234, 0.14); }
+.ad-side__credit-l { font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.08em; font-weight: var(--fw-semibold); }
+.ad-side__credit-n { font-size: 11.5px; color: #DDE2E9; margin-top: 3px; font-weight: var(--fw-medium); }
+.ad-avatar { background: var(--brand-amber-500); color: var(--brand-navy-900); }
+
+/* ---- Follow-up room ---- */
+.ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 6px; }
+.ad-kpi__head { display: flex; align-items: center; gap: 7px; }
+.ad-kpi__dot { width: 8px; height: 8px; border-radius: var(--r-pill); }
+.ad-kpi__l { font-size: 12px; color: var(--ink-3); }
+.ad-kpi__row { display: flex; align-items: baseline; gap: 8px; }
+.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
+.ad-kpi__delta { font-size: 11.5px; font-weight: var(--fw-semibold); }
+
+.ad-cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
+.ad-panel { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
+.ad-panel__head { padding: 14px 20px; border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: 10px; }
+.ad-panel__t { font-size: 14px; font-weight: var(--fw-semibold); }
+.ad-panel__s { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.ad-panel__count { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-size: 11px; font-weight: var(--fw-semibold); padding: 2px 9px; border-radius: var(--r-pill); }
+.ad-panel__count--amber { background: var(--status-risk-bg); color: var(--status-risk); }
+.ad-panel__count--red { background: var(--status-delayed-bg); color: var(--status-delayed); }
+
+.ad-decision { padding: 14px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 14px; text-align: start; width: 100%; background: transparent; border-inline: none; border-top: none; font-family: inherit; cursor: pointer; }
+.ad-decision:last-child { border-bottom: none; }
+.ad-decision:hover { background: var(--bg-page); }
+.ad-decision__icon { width: 34px; height: 34px; border-radius: var(--r-md); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--brand-navy-50); color: var(--brand-navy-700); }
+.ad-decision__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ad-decision__t { font-size: 14px; font-weight: var(--fw-semibold); color: var(--ink-1); }
+.ad-decision__meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
+.ad-decision__due { font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; padding: 3px 10px; border-radius: var(--r-pill); background: var(--status-risk-bg); color: var(--status-risk); }
+.ad-decision__go { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--brand-navy-800); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); border: none; cursor: pointer; white-space: nowrap; }
+.ad-decision__go:hover { background: var(--brand-navy-700); }
+.ad-empty-inline { padding: 20px; text-align: center; color: var(--ink-3); font-size: 12.5px; }
+
+.ad-late { padding: 12px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 12px; }
+.ad-late:last-child { border-bottom: none; }
+.ad-late__body { flex: 1; min-width: 0; }
+.ad-late__t { font-size: 13px; font-weight: var(--fw-medium); color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-late__s { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.ad-late__chip { font-size: 11.5px; font-weight: var(--fw-bold); color: var(--status-delayed); background: var(--status-delayed-bg); padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
+
+.ad-searchchip { font-size: 9.5px; font-weight: var(--fw-bold); padding: 2px 7px; border-radius: var(--r-sm); flex-shrink: 0; }
+.ad-searchchip--tender { background: var(--status-progress-bg); color: var(--status-progress); }
+.ad-searchchip--contract { background: var(--status-done-bg); color: var(--status-done); }
+.ad-searchchip--entity { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+
+/* ---- Governance modal ---- */
+.ad-modal { position: fixed; inset: 0; background: rgba(6, 24, 38, 0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.ad-modal__card { width: 480px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-radius: var(--r-xl); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; }
+.ad-modal__head { padding: 18px 22px; border-bottom: 1px solid var(--border-1); display: flex; align-items: flex-start; gap: 12px; }
+.ad-modal__head > div { flex: 1; min-width: 0; }
+.ad-modal__title { font-size: 16px; font-weight: var(--fw-semibold); }
+.ad-modal__sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.ad-modal__body { padding: 18px 22px; }
+.ad-modal__foot { padding: 14px 22px; border-top: 1px solid var(--border-1); background: var(--bg-page); display: flex; align-items: center; gap: 8px; border-radius: 0 0 var(--r-xl) var(--r-xl); }
+
+/* ---- Danger action buttons + tender lifecycle banner ---- */
+.op-btn-danger { color: var(--status-delayed); }
+.op-btn-ghost.op-btn-danger:hover { background: var(--status-delayed-bg); color: var(--status-delayed); }
+.op-btn-primary.op-btn-danger { background: var(--status-delayed); border-color: var(--status-delayed); color: #fff; }
+.op-btn-primary.op-btn-danger:hover { background: var(--status-delayed); filter: brightness(0.94); }
+.ad-lifebanner { margin: 14px 0 4px; padding: 14px 18px; border-radius: var(--r-lg); background: var(--bg-card); border: 1px solid var(--border-1); box-shadow: var(--shadow-1); }
+
+/* ---- Contract lifecycle stage rail ---- */
+.ctr-stage { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(11, 19, 32, 0.06); }
+.ctr-stage:last-child { border-bottom: none; }
+.ctr-stage__dot { width: 24px; height: 24px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); font-family: var(--font-mono); }
+.ctr-stage__dot--done { background: var(--status-done); color: #fff; }
+.ctr-stage__dot--now { background: var(--brand-amber-500); color: var(--brand-navy-900); box-shadow: 0 0 0 3px var(--status-risk-bg); }
+.ctr-stage__dot--todo { background: var(--bg-muted); color: var(--ink-4); }
+.ctr-stage__body { flex: 1; min-width: 0; }
+.ctr-stage__t { font-size: 13.5px; font-weight: var(--fw-medium); color: var(--ink-1); }
+.ctr-stage__d { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctr-dev { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; font-weight: var(--fw-bold); padding: 1px 6px; border-radius: var(--r-pill); }
+.ctr-dev--late { background: var(--status-delayed-bg); color: var(--status-delayed); }
+.ctr-dev--early { background: var(--status-done-bg); color: var(--status-done); }
+
+/* ---- Contract schedule & progress ---- */
+.ctr-sched-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.ctr-sched-dates > div { display: flex; flex-direction: column; gap: 3px; }
+.ctr-sched__l { font-size: 11px; color: var(--ink-3); }
+.ctr-sched__pending { font-size: 12px; color: var(--status-progress); font-weight: var(--fw-medium); }
+.ctr-bar { display: grid; grid-template-columns: 96px 1fr 42px; align-items: center; gap: 10px; margin: 7px 0; }
+.ctr-bar__l { font-size: 12px; color: var(--ink-2); }
+.ctr-bar__track { height: 8px; border-radius: var(--r-pill); background: var(--bg-muted); overflow: hidden; }
+.ctr-bar__fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-out); }
+.ctr-bar__v { font-family: var(--font-mono); direction: ltr; font-size: 12px; text-align: end; color: var(--ink-1); }
+.ctr-variance { margin-top: 8px; font-size: 12.5px; font-weight: var(--fw-semibold); }
+
+/* ---- Filter select — a data filter, not the language switcher it used to borrow ---- */
+.op-filter-select {
+  font: inherit;
+  font-size: 12.5px;
+  height: 32px;
+  max-width: 320px;
+  padding-inline: 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-2);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.op-filter-select:hover { background: var(--bg-muted); }
+
+/* ============================================================
+   Access governance — registry, 360° file, capability matrix.
+   Namespaced acc-*; tokens only; logical properties only.
+   Deliberately NOT StatusPill: a role is not a lifecycle state.
+   ============================================================ */
+
+/* ---- role / status / attribute pills ---- */
+.acc-role { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.acc-role--super      { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+.acc-role--roc        { background: var(--status-progress-bg); color: var(--status-progress); }
+.acc-role--evaluation { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.acc-role--auditor    { background: var(--bg-muted); color: var(--ink-2); }
+.acc-role--operator   { background: var(--status-done-bg); color: var(--status-done); }
+
+.acc-status { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.acc-status--active   { background: var(--status-done-bg); color: var(--status-done); }
+.acc-status--disabled { background: var(--bg-muted); color: var(--ink-3); }
+
+.acc-attr { display: inline-flex; align-items: center; height: 20px; padding-inline: 8px; border-radius: var(--r-pill); font-size: 11px; background: var(--bg-muted); color: var(--ink-3); white-space: nowrap; }
+.acc-conflict { font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--brand-amber-700); }
+.acc-refused { margin-inline-start: 8px; font-size: 10.5px; font-weight: var(--fw-bold); color: var(--status-delayed); background: var(--status-delayed-bg); padding: 1px 7px; border-radius: var(--r-pill); }
+.acc-by { font-weight: var(--fw-medium); color: var(--ink-2); }
+.acc-type--action { color: var(--status-progress); font-weight: var(--fw-semibold); }
+.acc-type--read   { color: var(--ink-3); }
+
+/* mono values inside Arabic prose must stay LTR and isolated, or codes and arrows mis-order */
+.acc-mono { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; }
+
+.acc-avatar { width: 32px; height: 32px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--brand-navy-50); color: var(--brand-navy-700); font-size: 12px; font-weight: var(--fw-bold); }
+.acc-avatar--sm { width: 24px; height: 24px; font-size: 10px; }
+
+/* ---- registry ---- */
+.acc-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 16px 12px; }
+.acc-scope-select { font: inherit; font-size: 12.5px; height: 32px; max-width: 260px; padding-inline: 12px; border-radius: var(--r-md); border: 1px solid var(--border-2); background: var(--bg-card); color: var(--ink-2); cursor: pointer; margin-inline-start: auto; }
+.acc-row--off { opacity: 0.62; }
+.acc-count { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; opacity: 0.75; margin-inline-start: 5px; }
+
+/* rows are real buttons so a keyboard can open a file — a bare <tr onClick> cannot be reached */
+.acc-open { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding-inline: 11px; border-radius: var(--r-sm); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-2); font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; }
+.acc-open:hover { background: var(--bg-muted); }
+
+/* ---- 360° file ---- */
+.acc-actionstack { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.acc-actionstack .wz-gate { text-align: end; max-width: 280px; }
+.acc-actionstack__row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---- capability matrix ---- */
+.acc-matrix { overflow-x: auto; }
+.acc-matrix thead th { position: sticky; inset-block-start: 0; z-index: 1; background: var(--bg-card); }
+.acc-matrix th:first-child, .acc-matrix td:first-child { position: sticky; inset-inline-start: 0; background: var(--bg-card); z-index: 2; }
+.acc-matrix thead th:first-child { z-index: 3; }
+
+.acc-cell { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 12px; font-weight: var(--fw-bold); }
+.acc-cell--yes     { background: var(--status-done-bg); color: var(--status-done); }
+.acc-cell--scoped  { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.acc-cell--open    { background: var(--bg-muted); color: var(--ink-3); border: 1px dashed var(--border-3); }
+.acc-cell--no      { background: transparent; color: var(--ink-4); }
+.acc-cell--session { background: transparent; color: var(--ink-4); opacity: 0.5; }
+/* not a permission — a disagreement between the spec document and the enforced guard */
+.acc-cell--conflict { background: var(--status-delayed-bg); color: var(--status-delayed); }
+
+.acc-legend { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 11.5px; color: var(--ink-3); margin-block: 12px; }
+.acc-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+
+.acc-domain td { background: var(--bg-page); font-size: 11px; font-weight: var(--fw-bold); letter-spacing: 0.06em; color: var(--ink-3); padding-block: 6px; }
+.acc-holders { font-family: var(--font-mono); direction: ltr; font-weight: var(--fw-bold); font-size: 12px; }
+.acc-holders--none { color: var(--status-delayed); }
+
+.acc-rolecards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.acc-rolecard__layer { font-size: 12.5px; color: var(--ink-2); line-height: 1.75; }
+.acc-rolecard__holders { display: flex; flex-wrap: wrap; gap: 5px; margin-block-start: 10px; }
+
+/* TARGET FILE: apps/web/src/admin/admin.css -- Tender-review award-decision ceremony (TenderReview.tsx). The "record to be written" preview inside the ratify/return modals. Rows reuse the existing .wz-reviewrow label/value grid (operator.css). Tokens + logical props only. */
+.rv-ledger { margin-block-start: 14px; padding: 2px 14px 6px; border: 1px solid var(--border-1); border-radius: var(--r-md); background: var(--bg-inset); }
+.rv-ledger__cap { padding-block: 10px 2px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--ink-3); }
+.rv-ledger .wz-reviewrow:last-child { border-block-end: none; }
+
+/* ---- Batch 4 «مفاتيح الربط» — cross-record link affordances (contract ↔ entity ↔ tender) ---- */
+/* Status pill that is also a navigation link (contractor → its Vendor file). */
+a.ad-pill-link { text-decoration: none; cursor: pointer; transition: filter 150ms ease-out; }
+a.ad-pill-link:hover { filter: brightness(0.96); }
+/* Lineage chip link — «من المناقصة …» and «العقد الناتج …». */
+.ad-fromtender { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); background: var(--bg-inset); border: 1px solid var(--border-1); padding: 4px 11px; border-radius: var(--r-pill); text-decoration: none; transition: background 150ms ease-out, color 150ms ease-out; }
+.ad-fromtender:hover { background: var(--bg-muted); color: var(--ink-1); }
+
+/* «إجراءات أخرى» overflow menu (ContractProfile action row) — lightweight disclosure. */
+.ctr-actions { position: relative; display: inline-flex; }
+.ctr-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 6px); min-width: 210px; background: var(--bg-card); border: 1px solid var(--border-2); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: 6px; z-index: 30; }
+.ctr-menuitem { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: var(--r-sm); background: transparent; border: none; font: inherit; font-size: 12.5px; color: var(--ink-1); cursor: pointer; text-align: start; }
+.ctr-menuitem:hover { background: var(--bg-muted); }
+.ctr-menuitem .op-devbadge { margin-inline-start: auto; }
+
+/* Entity-file contracts panel — each row is a real link to the contract file. */
+a.ent-crow { text-decoration: none; color: inherit; }
+a.ent-crow:hover { background: var(--bg-page); }
