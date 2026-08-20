@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react';
 import { guaranteeExpiringSoon } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
+import { CompletionHistogram } from '../charts/CompletionHistogram';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
-import { todayIso, useStore, type ContractState } from '../store';
+import { hashParam, useHashParams, writeHashParam, type ProgressBucket } from '../registry/useHashParams';
+import { todayIso, useStore, type ContractStageKey, type ContractState } from '../store';
+import { bucketRangeLabel, completionBuckets, progressBucketOf } from './dashboardDerive';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
@@ -38,10 +41,22 @@ export default function Contracts() {
 
   const contracts = state.contracts;
 
+  /**
+   * The two link-borne filters (§5-ج): `?prog=` from a histogram column — here or in the
+   * follow-up room — and `?stage=` from the «عقود في مرحلة التنفيذ» tile. Both re-sync on
+   * `hashchange`, which is what makes the histogram ON THIS SCREEN work: clicking a column
+   * changes only the query string, and a mount-only read would leave the table untouched.
+   */
+  const params = useHashParams();
+  const progParam = hashParam(params, 'prog') as ProgressBucket | '';
+  const stageParam = hashParam(params, 'stage') as ContractStageKey | '';
+
   const rows = useMemo(() => {
     const qn = q.trim().toLowerCase();
     return contracts.filter((c) => {
       if (tier && capHealth(c) !== tier) return false;
+      if (progParam && progressBucketOf(contractProgress(c).pct) !== progParam) return false;
+      if (stageParam && currentStageKey(c) !== stageParam) return false;
       if (qn && !(
         c.code.toLowerCase().includes(qn) ||
         c.contractorName.toLowerCase().includes(qn) ||
@@ -50,7 +65,12 @@ export default function Contracts() {
       )) return false;
       return true;
     });
-  }, [contracts, tier, q]);
+  }, [contracts, tier, q, progParam, stageParam]);
+
+  // The distribution is drawn over the WHOLE registry, never over the filtered rows: a histogram
+  // that redraws itself from its own selection would show one full column and three empty ones,
+  // and the reader would lose the shape they were navigating by.
+  const buckets = useMemo(() => completionBuckets(contracts), [contracts]);
 
   // Tri-state sort — code is numeric-collated, value is numeric, health follows the tier order.
   const compare = useMemo(() => ({
@@ -78,6 +98,17 @@ export default function Contracts() {
     { key: 'ok', label: t('reg.contracts.cap_ok'), count: contracts.filter((c) => capHealth(c) === 'ok').length, active: tier === 'ok' },
     { key: 'risk', label: t('reg.contracts.cap_risk'), count: contracts.filter((c) => capHealth(c) === 'risk').length, active: tier === 'risk' },
     { key: 'breach', label: t('reg.contracts.cap_breach'), count: contracts.filter((c) => capHealth(c) === 'breach').length, active: tier === 'breach' },
+  ];
+  /** The link-borne filters, each as a standing chip that rewrites the hash when dismissed. */
+  const linkChips: FilterChip[] = [
+    ...(progParam
+      // the chip prints the SAME range the histogram column does (`bucketRangeLabel`) — the key
+      // '25-50' is the machine name of a half-open bucket, not the range a reader should be shown
+      ? [{ key: 'prog', label: t('reg.contracts.chipProg', { range: bucketRangeLabel(progParam) }), count: rows.length, active: true, onRemove: () => writeHashParam('prog', null) }]
+      : []),
+    ...(stageParam
+      ? [{ key: 'stage', label: t('reg.contracts.chipStage', { stage: stageLabel(stageParam, lang) }), count: rows.length, active: true, onRemove: () => writeHashParam('stage', null) }]
+      : []),
   ];
 
   // One column contract drives the table and the CSV — labels stay machine field names.
@@ -131,9 +162,18 @@ export default function Contracts() {
         ))}
       </div>
 
+      {/* Client request 12(c) — the completion shape of the whole portfolio, above the table it
+          filters. Each column is a real link carrying its own bucket. */}
+      {contracts.length > 0 && (
+        <div className="ad-panel ad-panel--fig" style={{ marginBlockStart: 14 }}>
+          <CompletionHistogram buckets={buckets} lang={lang} />
+        </div>
+      )}
+
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.contracts.searchPh')} style={{ width: 300 }} />
         <FilterChips chips={filterChips} onSelect={(key) => setTier(key as TierFilter)} lang={lang} />
+        {linkChips.length > 0 && <FilterChips chips={linkChips} onSelect={() => {}} lang={lang} />}
       </div>
 
       {contracts.length === 0 ? (
@@ -146,7 +186,11 @@ export default function Contracts() {
       ) : rows.length === 0 ? (
         <EmptyState
           mode="noMatch"
-          action={<button className="op-btn-ghost" onClick={() => { setQ(''); setTier(''); }}>{t('reg.contracts.clearFilters')}</button>}
+          action={<button className="op-btn-ghost" onClick={() => {
+            setQ(''); setTier('');
+            const h = window.location.hash;
+            window.location.hash = h.includes('?') ? h.slice(0, h.indexOf('?')) : h;
+          }}>{t('reg.contracts.clearFilters')}</button>}
         >
           {t('reg.contracts.noMatch')}
         </EmptyState>

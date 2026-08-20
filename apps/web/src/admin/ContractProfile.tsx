@@ -123,6 +123,12 @@ export default function ContractProfile({ id }: { id: string }) {
   const amountMin = drawer === 'renew' ? 0.25 : isDaysKind ? 1 : 0.01;
   const dateLabel = drawer === 'ld' ? t('contracts.appliedOn') : drawer === 'guar' ? t('contracts.expiresOn') : t('contracts.approvedOn');
 
+  /**
+   * What the completion bar would read the instant this stage closes — the same
+   * `contractProgress` arithmetic with one more stage counted, never a guess.
+   */
+  const afterPct = prog.total ? Math.round(((prog.done + 1) / prog.total) * 100) : 0;
+
   const varianceText = variance === 0 ? t('contracts.onTrack') : variance > 0 ? `+${variance}%` : `${variance}%`;
   const kpis: { l: string; v: string; tone?: 'ok' | 'late' }[] = [
     { l: t('contracts.value'), v: fmtMoney(c.valueUSD) },
@@ -237,6 +243,12 @@ export default function ContractProfile({ id }: { id: string }) {
                 <span className="ctr-bar__l">{t('contracts.actualProgress')}</span>
                 <span className="ctr-bar__track"><span className="ctr-bar__fill" style={{ width: `${prog.pct}%`, background: variance < 0 ? 'var(--status-delayed)' : 'var(--status-done)' }} /></span>
                 <span className="ctr-bar__v">{prog.pct}%</span>
+              </div>
+              {/* Client request 12 — «من أين تأتي النسبة وكيف أتحكّم بها». The arithmetic is stated
+                  in one line under the bar it produces, with the live denominator read off the
+                  contract's own stage list, so the reader never has to infer why a number moved. */}
+              <div className="ctr-formula">
+                {t('contracts.progFormula', { done: fmtCount(prog.done, lang), total: fmtCount(prog.total, lang), pct: fmtCount(prog.pct, lang) })}
               </div>
               <div className="ctr-variance" style={{ color: variance < 0 ? 'var(--status-delayed)' : 'var(--status-done)' }}>
                 {variance === 0 ? t('contracts.onTrack') : variance > 0 ? t('contracts.ahead', { n: variance }) : t('contracts.behind', { n: Math.abs(variance) })}
@@ -394,6 +406,16 @@ export default function ContractProfile({ id }: { id: string }) {
           footer={<><button className="op-btn-ghost" onClick={close}>{t('contracts.cancel')}</button><span style={{ flex: 1 }} /><button className="op-btn-primary" onClick={confirm}>{t('contracts.confirm')}</button></>}
         >
           <p className="hint" style={{ marginTop: 0 }}>{t('contracts.advanceConfirm', { stage: stageLabel(stageKey, lang) })}</p>
+          {/* Design Principle 2 — the confirmation previews the AFTER-STATE. Closing a stage is
+              the only act that moves the completion percentage, and this is where the reader is
+              told by exactly how much, before committing. Both figures are derived from the same
+              `contractProgress` arithmetic the bar above uses; nothing is estimated. */}
+          <div className="ctr-prev">
+            <span className="ctr-prev__v">{fmtCount(prog.pct, lang)}%</span>
+            <span className="ctr-prev__arrow"><Icon name="chevronStart" size={14} strokeWidth={2} className="op-chev-fwd" /></span>
+            <span className="ctr-prev__v ctr-prev__v--after">{fmtCount(afterPct, lang)}%</span>
+            <span className="ctr-prev__l">{t('contracts.advancePreview', { done: fmtCount(prog.done + 1, lang), total: fmtCount(prog.total, lang) })}</span>
+          </div>
           <div className="wz-gate" style={{ marginTop: 8 }}>{t('contracts.advanceNote')} <span className="op-code">{today}</span></div>
         </Modal>
       )}

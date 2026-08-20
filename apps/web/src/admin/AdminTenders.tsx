@@ -1,6 +1,6 @@
 import { METHODS, stageByKey } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DevChip } from '../operator/DevChip';
 import { fmtCount, tenderDeviationWd, tenderStatus, type OpStatus } from '../operator/derive';
@@ -14,17 +14,21 @@ import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
 import { calendarOf, currentStage, todayIso, useStore, type Tender } from '../store';
 import { useAdminUi } from './AdminShell';
+import { pendingRatification } from './adminDerive';
 
 /** The four live statuses a tender can hold (from tenderStatus), in reading order. */
 const STATUS_ORDER: OpStatus[] = ['progress', 'risk', 'delayed', 'done'];
-type StatusFilter = '' | OpStatus;
-
-/** A tender is awaiting the MDOC ratification decision when RATIFY would be accepted (mirrors the reducer guard). */
-function isPendingRatification(t: Tender): boolean {
-  return !t.lifecycle && !t.ratification && currentStage(t)?.key === 'ratify';
-}
+/**
+ * `open` is not a `tenderStatus` — it is the union of the three live ones, and it exists so the
+ * follow-up room's «المناقصات المفتوحة» tile can land on a registry holding EXACTLY the rows it
+ * counted. It arrives only through the URL, so it is not offered as a chip beside the four
+ * statuses it contains (that would read as a fifth, parallel state); it shows as the removable
+ * chip that says why the registry is short.
+ */
+type StatusFilter = '' | OpStatus | 'open';
 
 export default function AdminTenders() {
   const { t, i18n } = useTranslation();
@@ -37,20 +41,45 @@ export default function AdminTenders() {
   const [q, setQ] = useState('');
   const [method, setMethod] = useState(0);
   const [fieldId, setFieldId] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+
+  /**
+   * The URL contract (§5-ج). Every clickable statistic in the follow-up room — a KPI tile, a
+   * company bar — lands here, and it lands on a registry that is often the screen the reader is
+   * already looking at. Reading these once at mount (the defect this wave fixes) would leave the
+   * table unchanged; `useHashParams` re-reads them on every `hashchange`.
+   */
+  const params = useHashParams();
+  const opParam = hashParam(params, 'op', state.operators.map((o) => o.id));
+  const statusParam = hashParam(params, 'status') as StatusFilter;
+  const pendingParam = hashParam(params, 'pending') === '1';
+
+  const [opFilter, setOpFilter] = useState(opParam);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(statusParam);
+  useEffect(() => { setOpFilter(opParam); }, [opParam]);
+  useEffect(() => { setStatusFilter(statusParam); }, [statusParam]);
+  const setOp = (id: string) => { setOpFilter(id); writeHashParam('op', id || null); };
+  // choosing a status by hand supersedes the one the link brought, so the hash follows the choice
+  const setStatus = (v: StatusFilter) => { setStatusFilter(v); writeHashParam('status', v || null); };
 
   const qn = q.trim().toLowerCase();
 
-  // Method + field + free-text search, before the status chip narrows further — chip counts read off this set.
+  // Company + method + field + free-text search + the pending gate, before the status chip
+  // narrows further — the chip counts read off this set.
   const searched = useMemo(() => state.tenders.filter((tn) => {
+    if (opFilter && tn.operatorId !== opFilter) return false;
     if (method !== 0 && tn.methodId !== method) return false;
     if (fieldId && tn.fieldId !== fieldId) return false;
+    if (pendingParam && !pendingRatification(tn)) return false;
     if (qn && !(`${tn.code} ${tn.title.ar} ${tn.title.en}`.toLowerCase().includes(qn))) return false;
     return true;
-  }), [state.tenders, method, fieldId, qn]);
+  }), [state.tenders, opFilter, method, fieldId, pendingParam, qn]);
 
   const rows = useMemo(
-    () => (statusFilter ? searched.filter((tn) => tenderStatus(tn, today, cal) === statusFilter) : searched),
+    () => (statusFilter
+      ? searched.filter((tn) => (statusFilter === 'open'
+        ? currentStage(tn) !== undefined
+        : tenderStatus(tn, today, cal) === statusFilter))
+      : searched),
     [searched, statusFilter, today],
   );
 
@@ -63,7 +92,7 @@ export default function AdminTenders() {
   const { pageRows, page, setPage, pageSize, setPageSize, total, start, end } = usePagination(sorted, 10);
 
   // KPIs read the filtered set — as you narrow the registry the counts follow the view (honest, derived).
-  const pending = rows.filter(isPendingRatification).length;
+  const pending = rows.filter(pendingRatification).length;
   const late = rows.filter((tn) => tenderStatus(tn, today, cal) === 'delayed').length;
   const done = rows.filter((tn) => tenderStatus(tn, today, cal) === 'done').length;
   const kpis = [
@@ -73,6 +102,17 @@ export default function AdminTenders() {
     { l: t('reg.atenders.kpiDone'), v: done, tone: done > 0 ? 'var(--status-done)' : undefined },
   ];
 
+  const operatorName = (id: string) => {
+    const o = state.operators.find((x) => x.id === id);
+    return o ? (lang === 'ar' ? o.name : o.nameEn ?? o.name) : id;
+  };
+
+  /**
+   * The chips: the four statuses as toggles, plus a STANDING chip for each filter the URL brought
+   * in. The standing chips carry their own dismiss, and dismissing rewrites the hash — so the
+   * reader always sees why the registry is short, can widen it in one click, and the address bar
+   * never describes a screen other than the one on it.
+   */
   const statusChips: FilterChip[] = [
     { key: '', label: t('reg.atenders.allStatus'), count: searched.length, active: statusFilter === '' },
     ...STATUS_ORDER.map((s) => ({
@@ -81,6 +121,17 @@ export default function AdminTenders() {
       count: searched.filter((tn) => tenderStatus(tn, today, cal) === s).length,
       active: statusFilter === s,
     })),
+  ];
+  const linkChips: FilterChip[] = [
+    ...(statusFilter === 'open'
+      ? [{ key: 'st-open', label: t('reg.atenders.chipOpen'), count: rows.length, active: true, onRemove: () => setStatus('') }]
+      : []),
+    ...(opFilter
+      ? [{ key: 'op', label: t('reg.atenders.chipOp', { name: operatorName(opFilter) }), count: rows.length, active: true, onRemove: () => setOp('') }]
+      : []),
+    ...(pendingParam
+      ? [{ key: 'pending', label: t('reg.atenders.chipPending'), count: rows.length, active: true, onRemove: () => writeHashParam('pending', null) }]
+      : []),
   ];
 
   // One column contract drives the table read-out and the CSV — the export is exactly the sorted, filtered view.
@@ -99,7 +150,13 @@ export default function AdminTenders() {
     toast(t('reg.atenders.toastExport'));
   };
 
-  const clearFilters = () => { setQ(''); setMethod(0); setFieldId(''); setStatusFilter(''); };
+  const clearFilters = () => {
+    setQ(''); setMethod(0); setFieldId(''); setStatusFilter(''); setOpFilter('');
+    // one hash rewrite for the three link-borne filters — «أزل كل المرشّحات» has to clear the
+    // address too, or the next render re-seeds the filters it just cleared
+    const h = window.location.hash;
+    window.location.hash = h.includes('?') ? h.slice(0, h.indexOf('?')) : h;
+  };
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -129,7 +186,20 @@ export default function AdminTenders() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.atenders.searchPh')} style={{ width: 280 }} />
-        <FilterChips chips={statusChips} onSelect={(key) => setStatusFilter(key as StatusFilter)} lang={lang} />
+        <FilterChips chips={statusChips} onSelect={(key) => setStatus(key as StatusFilter)} lang={lang} />
+        {linkChips.length > 0 && <FilterChips chips={linkChips} onSelect={() => {}} lang={lang} />}
+        {/* filter by operating company — the destination every per-company chart row lands on */}
+        {state.operators.length > 0 && (
+          <select
+            className="op-filter-select"
+            value={opFilter}
+            aria-label={t('fields.allOperators')}
+            onChange={(e) => setOp(e.target.value)}
+          >
+            <option value="">{t('fields.allOperators')}</option>
+            {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
+          </select>
+        )}
         {/* filter by the named procurement path (§11), not a bare id nobody memorises */}
         <select
           className="op-filter-select"

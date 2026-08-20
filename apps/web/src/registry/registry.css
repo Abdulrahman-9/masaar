@@ -110,6 +110,32 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
   .reg-explain__caret { transition-duration: 0.01ms; }
 }
 
+/* ---- the URL-borne filter chip (§5-ج) ----
+   A standing chip carrying its own dismiss: the reader sees WHY the registry is short and can
+   widen it in one click, and the click rewrites the hash so the address stays shareable. It is
+   a <span> (not a toggle) because a pressed toggle cannot say who pressed it. */
+.reg-chip { display: inline-flex; align-items: center; gap: 6px; }
+.reg-chip__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  padding: 0;
+  margin-inline-start: 1px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.reg-chip__x:hover, .reg-chip__x:focus-visible { opacity: 1; }
+/* the chip body is navy-on-white-text, so the default navy focus ring would sit navy-on-navy —
+   amber is the one ring that reads on this surface (the same pairing §1-ج prescribes for dark) */
+.reg-chip__x:focus-visible { outline-color: var(--brand-amber-400); }
+
 /* FilterChips badge — .acc-count lives in admin.css which the operator portal never loads;
    registry.css is bundled in both portals (identical to the admin.css rule, harmless duplicate). */
 .acc-count {

@@ -15,7 +15,21 @@ import { currentStageKey, scheduleVariancePct } from './contractDerive';
  * is structural (stage + decision), not time-based, so no `today` is needed.
  */
 export function decisionQueue(state: State): Tender[] {
-  return state.tenders.filter((t) => currentStage(t)?.key === 'ratify' && !t.ratification);
+  return state.tenders.filter(pendingRatification);
+}
+
+/**
+ * Is THIS tender awaiting the ratification decision? The predicate the reducer's RATIFY guard
+ * runs, lifted to one place: parked at `ratify`, undecided, and not cancelled or suspended —
+ * a halted request owes nobody a signature.
+ *
+ * It is exported because three surfaces count it and they must count it identically: the
+ * sidebar badge, the follow-up room's «بانتظار التصديق» tile, and the tenders registry the
+ * tile links to (`#/admin/tenders?pending=1`). A tile that opens a registry holding a different
+ * number of rows than the tile printed is the exact failure this wave exists to prevent.
+ */
+export function pendingRatification(t: Tender): boolean {
+  return !t.lifecycle && !t.ratification && currentStage(t)?.key === 'ratify';
 }
 
 /**

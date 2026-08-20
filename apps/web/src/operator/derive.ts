@@ -166,6 +166,19 @@ export function fmtMoney(usd: number): string {
 }
 
 /**
+ * Money in a narrow column («$132.4M»), for chart rows where the full grouped figure would not
+ * fit. Same Latin-digit, dollar-sign discipline as `fmtMoney`; the suffixes are unit letters,
+ * not translated words, so the string stays an LTR machine island in both languages. Anything
+ * below a million keeps its exact grouped value — rounding a small figure hides it.
+ */
+export function fmtMoneyShort(usd: number): string {
+  const abs = Math.abs(usd);
+  if (abs >= 1_000_000_000) return `$${(usd / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  return fmtMoney(usd);
+}
+
+/**
  * ASCII-fold any Arabic-Indic (U+0660–0669) or Persian (U+06F0–06F9) digit.
  * The character class is built from code points so the source stays ASCII-only — the
  * `latin-digits` source guard would otherwise flag the very function that strips them.

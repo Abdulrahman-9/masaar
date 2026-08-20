@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
+import { orgName } from '../orgIdentity';
 import { loadSession } from '../session';
 import {
   aboveOwnFA, useStore,
@@ -16,6 +17,7 @@ import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
 import OperatorFieldsWizard from './OperatorFieldsWizard';
@@ -53,7 +55,9 @@ export default function Operators() {
   const [q, setQ] = useState('');
   const [chipFilter, setChipFilter] = useState<ChipFilter>('');
 
-  const nameOf = (o: OperatorOrg) => (lang === 'ar' ? o.name : o.nameEn ?? o.name);
+  // one resolver (orgIdentity.orgName) for every company name on this screen — the table cell,
+  // the sort key and the standing filter chip all print the same string
+  const nameOf = (o: OperatorOrg) => orgName(o, lang);
 
   // Every company with its live counts, computed once from the store — the
   // single source that feeds the KPI strip, the table and the CSV export.
@@ -79,8 +83,17 @@ export default function Operators() {
 
   const orphanTenders = state.tenders.filter((x) => !x.operatorId).length;
 
+  /** `?op=` — the company-detail table in the follow-up room links each name here (§5-ج). */
+  const params = useHashParams();
+  const opParam = hashParam(params, 'op', state.operators.map((o) => o.id));
+  /** The record behind that id. The whitelist above guarantees it resolves, but the CHIP is built
+   *  from the record rather than from the id, so there is no branch in which a label could fall
+   *  back to «op-alwaha»: no record, no chip. */
+  const opRecord = state.operators.find((o) => o.id === opParam);
+
   const qn = q.trim().toLowerCase();
   const filtered = useMemo(() => allRows.filter((r) => {
+    if (opParam && r.op.id !== opParam) return false;
     if (qn && !(
       r.op.name.toLowerCase().includes(qn) ||
       (r.op.nameEn ?? '').toLowerCase().includes(qn) ||
@@ -89,7 +102,7 @@ export default function Operators() {
     if (chipFilter === 'costCycle' && !(r.aboveFa > 0)) return false;
     if (chipFilter === 'noAccounts' && r.accountsTotal !== 0) return false;
     return true;
-  }), [allRows, qn, chipFilter]);
+  }), [allRows, qn, chipFilter, opParam]);
 
   // Tri-state sort — the company name is Arabic-collated; the numeric columns sort by value.
   const compare = useMemo(() => ({
@@ -114,6 +127,15 @@ export default function Operators() {
   ];
 
   const filterChips: FilterChip[] = [
+    ...(opRecord
+      ? [{
+          key: 'op',
+          label: t('reg.operators.chipOne', { name: nameOf(opRecord) }),
+          count: filtered.length,
+          active: true,
+          onRemove: () => writeHashParam('op', null),
+        }]
+      : []),
     { key: '', label: t('reg.operators.chipAll'), count: allRows.length, active: chipFilter === '' },
     { key: 'costCycle', label: t('reg.operators.chipCostCycle'), count: allRows.filter((r) => r.aboveFa > 0).length, active: chipFilter === 'costCycle', title: t('operators.aboveFaNote') },
     { key: 'noAccounts', label: t('reg.operators.chipNoAccounts'), count: allRows.filter((r) => r.accountsTotal === 0).length, active: chipFilter === 'noAccounts' },

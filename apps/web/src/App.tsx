@@ -39,9 +39,12 @@ import RequestWizard from './operator/wizard/RequestWizard';
 import TenderStatusReport from './report/TenderStatusReport';
 import WeeklyDeviationReport from './report/WeeklyDeviationReport';
 import { roleKey } from './admin/access';
+import { TierSplitBar } from './charts/TierSplitBar';
+import { fmtCount, fmtMoneyShort } from './operator/derive';
 import { clearSession, isOperatorRole, loadSession, type ApiRole } from './session';
 import { currentStage, expectedAwardDate, StoreProvider, useStore } from './store';
 import { decisionQueue } from './admin/adminDerive';
+import { activeTenders, awardedContracts, tierCountsOf } from './admin/dashboardDerive';
 import { ToastsProvider } from './Toasts';
 
 const ACCREDITED_ESTIMATE = 4_200_000;
@@ -63,6 +66,12 @@ function Home() {
 
   const [bid, setBid] = useState(4_620_000);
   const [value, setValue] = useState(1_000_000);
+
+  // Client requests 6 + 13 — the awarded-contract headline and the live tender ladder, both
+  // DERIVED from the store like every other figure on this page. Pre-login in API mode the
+  // store is empty until hydration, so these read honest zeroes rather than a placeholder.
+  const awarded = awardedContracts(state);
+  const tierCounts = tierCountsOf(state, activeTenders(state));
 
   const verdict = awardVerdict(bid, ACCREDITED_ESTIMATE);
   const routing = suggestMethod({ estimatedValueUSD: value });
@@ -86,6 +95,36 @@ function Home() {
         <KpiTile label={t('kpi.awaitingRatification')} value={awaitingRatification} />
         <KpiTile label={t('kpi.scheduleCompliance')} value={scheduleCompliance} suffix="%" />
         <KpiTile label={t('kpi.avgAwardDays')} value={avgAwardDays} />
+      </section>
+
+      {/* The awarded-contract strip (request 13) and the ladder split of live requests
+          (request 6). This is the public surface: the numbers are stated and explained, and
+          nothing is a link — a visitor holds no session, so a «filter the registry» affordance
+          here would be a control that cannot do what it offers. */}
+      <section className="card">
+        <h2>{t('home.awarded.title')}</h2>
+        <p className="hint">{t('home.awarded.hint')}</p>
+        <div className="ch-stats">
+          <div className="ch-stat">
+            <span className="ch-stat__l">{t('home.awarded.count')}</span>
+            <span className="ch-stat__v">{fmtCount(awarded.count, lang)}</span>
+          </div>
+          <div className="ch-stat">
+            <span className="ch-stat__l">{t('home.awarded.value')}</span>
+            <span className="ch-stat__v">{fmtMoneyShort(awarded.valueUSD)}</span>
+          </div>
+          <div className="ch-stat">
+            <span className="ch-stat__l">{t('home.awarded.completed')}</span>
+            <span className="ch-stat__v">{fmtCount(awarded.completed, lang)}</span>
+          </div>
+          <div className="ch-stat">
+            <span className="ch-stat__l">{t('home.awarded.inExecution')}</span>
+            <span className="ch-stat__v">{fmtCount(awarded.inExecution, lang)}</span>
+          </div>
+        </div>
+        <div style={{ marginBlockStart: 20 }}>
+          <TierSplitBar counts={tierCounts} lang={lang} title={t('home.ladder.title')} />
+        </div>
       </section>
 
       <section className="card">

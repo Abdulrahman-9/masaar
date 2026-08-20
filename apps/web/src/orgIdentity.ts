@@ -1,6 +1,6 @@
 import { serviceContractEffective } from '@masaar/scpp-rules';
 import { loadSession } from './session';
-import type { State } from './store';
+import type { OperatorOrg, State } from './store';
 
 /**
  * Who the signed-in operator actually works for — resolved from the registries, never named
@@ -38,13 +38,24 @@ export function resolveSessionOrg(state: State, lang: 'ar' | 'en'): SessionOrg {
   return { ...(name ? { name } : {}), ...(operatorId ? contractRefOf(state, operatorId) : {}) };
 }
 
+/**
+ * An operating company RECORD's display name in the active language.
+ *
+ * The English fallback is the Arabic name, never the record id: `nameEn` is optional on
+ * `OperatorOrg`, and a company registered without one must read «شركة نفط الواحة الصينية» to an
+ * English reader, not «op-alwaha». An id in a sentence is a leaked primary key — it names nothing
+ * the reader can act on and reads as a defect. This is the one resolver every surface calls.
+ */
+export function orgName(o: OperatorOrg, lang: 'ar' | 'en'): string {
+  return lang === 'ar' ? o.name : o.nameEn ?? o.name;
+}
+
 /** An operating company's display name straight from the registry — undefined when unknown.
  *  Used where the company is a property of the RECORD (a tender's operator) rather than of
  *  the session, so a document names the company that owns it, not whoever printed it. */
 export function operatorName(state: State, operatorId: string | undefined, lang: 'ar' | 'en'): string | undefined {
   const o = operatorId ? state.operators.find((x) => x.id === operatorId) : undefined;
-  if (!o) return undefined;
-  return lang === 'ar' ? o.name : o.nameEn ?? o.name;
+  return o ? orgName(o, lang) : undefined;
 }
 
 /**

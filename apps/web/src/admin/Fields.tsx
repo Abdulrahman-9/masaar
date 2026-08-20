@@ -1,5 +1,5 @@
 import { contractFinancialAuthority, serviceContractEffective } from '@masaar/scpp-rules';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
@@ -15,16 +15,11 @@ import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
 import { Modal } from './Modal';
 import { useActor } from './UserActions';
-
-/** Read the ?op=<id> filter the Operators screen links in. */
-function opParam(): string {
-  const q = window.location.hash.split('?')[1];
-  return q ? new URLSearchParams(q).get('op') ?? '' : '';
-}
 
 interface FieldRow {
   f: Field;
@@ -54,7 +49,18 @@ export default function Fields() {
   const isSuper = session?.role === 'SUPER_ADMIN';
 
   const [q, setQ] = useState('');
-  const [opFilter, setOpFilter] = useState(opParam());
+  /**
+   * The `?op=` deep link. THE FIX (§5-ج): this used to be `useState(opParam())` — read once at
+   * mount — so following a link that changed only the query string left the table exactly where
+   * it was. The hook makes it state that re-syncs on every `hashchange`, and the select writes
+   * the hash back, so the address bar and the screen are the same fact and the URL stays
+   * shareable. An id the store does not know filters nothing rather than emptying the registry.
+   */
+  const params = useHashParams();
+  const opParam = hashParam(params, 'op', state.operators.map((o) => o.id));
+  const [opFilter, setOpFilter] = useState(opParam);
+  useEffect(() => { setOpFilter(opParam); }, [opParam]);
+  const setOp = (id: string) => { setOpFilter(id); writeHashParam('op', id || null); };
   const [arch, setArch] = useState<ArchiveFilter>('live');
   const [dialog, setDialog] = useState<
     | null
@@ -160,7 +166,7 @@ export default function Fields() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('fields.searchPh')} style={{ width: 280 }} />
-        <select className="acc-scope-select" value={opFilter} onChange={(e) => setOpFilter(e.target.value)} aria-label={t('fields.allOperators')}>
+        <select className="acc-scope-select" value={opFilter} onChange={(e) => setOp(e.target.value)} aria-label={t('fields.allOperators')}>
           <option value="">{t('fields.allOperators')}</option>
           {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
         </select>
@@ -172,7 +178,7 @@ export default function Fields() {
       ) : filtered.length === 0 ? (
         // the archive chip is a filter like any other: «أزل كل المرشّحات» must clear it too,
         // or a registry whose fields are all archived reads as an empty registry
-        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={() => { setQ(''); setOpFilter(''); setArch(''); }}>{t('fields.clearFilters')}</button>}>
+        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={() => { setQ(''); setOp(''); setArch(''); }}>{t('fields.clearFilters')}</button>}>
           {t('fields.noMatch')}
         </EmptyState>
       ) : (

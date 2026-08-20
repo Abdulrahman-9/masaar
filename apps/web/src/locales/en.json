@@ -659,9 +659,19 @@
     "decideRatify": "Award ratification",
     "awaiting": "Awaiting decision",
     "openDecision": "Open decision",
-    "lateStages": "Stages past plan",
-    "lateStagesSub": "across the whole portfolio · in working days",
-    "noLate": "No late stages — the whole portfolio is within its deadlines."
+    "kpiLate": "Late stages",
+    "kpiExecuting": "Contracts in execution",
+    "openFiltered": "Open the filtered registry",
+    "companies": "Operating companies in detail",
+    "companiesSub": "Per company: its fields, project types, late requests and contracts",
+    "companiesNote": "A contract is attributed to a company through the tender that produced it; a contract with no originating tender is attributed to nobody.",
+    "colCompany": "Operating company",
+    "colFields": "Fields",
+    "colTenders": "Tenders",
+    "colLate": "Late",
+    "colContracts": "Contracts",
+    "colContractValue": "Contract value",
+    "windowAllTime": "All-time"
   },
   "adtenders": {
     "colRatify": "Ratification"
@@ -863,7 +873,8 @@
     "noMatch": "No tender matches the current filters.",
     "clearFilters": "Clear filters",
     "exportCsv": "Export CSV",
-    "toastExport": "Approval chain exported with the current filters."
+    "toastExport": "Approval chain exported with the current filters.",
+    "chipPending": "Awaiting decision only"
   },
   "match": {
     "def": "«Plan conformance» compares what was actually done with what was planned: for each stage the difference between its planned and its actual completion date is counted in working days (weekends and public holidays excluded); positive is late, negative is early — and the tender's status follows where today sits against the end of its current stage.",
@@ -978,7 +989,9 @@
     "moreActions": "More actions",
     "clientOnlyTitle": "Client-only action — no server endpoint yet; applied and saved in this browser only",
     "vendorUnlinked": "Unlinked entity — no vendor record is tied to this contractor",
-    "fromTender": "From tender {{code}}"
+    "fromTender": "From tender {{code}}",
+    "progFormula": "Completion = stages closed out of the total: {{done}} of {{total}} = {{pct}}% — it advances when a stage closes, and never otherwise.",
+    "advancePreview": "becomes {{done}} of {{total}} stages"
   },
   "paths": {
     "title": "The eight-method guide",
@@ -1375,7 +1388,10 @@
       "noMatch": "No tender matches your search or the current filters.",
       "clearFilters": "Clear filters",
       "openReview": "Open review",
-      "kpiDone": "Completed"
+      "kpiDone": "Completed",
+      "chipOpen": "Open (not yet completed)",
+      "chipOp": "Company: {{name}}",
+      "chipPending": "Awaiting ratification only"
     },
     "contracts": {
       "title": "Post-award contract registry",
@@ -1407,7 +1423,9 @@
       "emptyStore": "No contracts yet — a contract file is created here automatically once a tender award is ratified.",
       "emptyGoTenders": "Go to the tenders registry",
       "noMatch": "No contracts match the current search or filters.",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "chipProg": "Completion: {{range}}%",
+      "chipStage": "Stage: {{stage}}"
     },
     "vendors": {
       "all": "All",
@@ -1434,7 +1452,11 @@
       "chipNoAccounts": "No accounts",
       "empty": "No operating companies registered yet. Press «Add operator» to register the first one — no operator account or Financial Authority can be set before that.",
       "noMatch": "No companies match the current search or filters.",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "chipOne": "Company: {{name}}"
+    },
+    "filter": {
+      "remove": "Remove filter: {{label}}"
     }
   },
   "bidderadd": {
@@ -1605,5 +1627,51 @@
     "doneVerified": "Every line above is read back from the registry after the commit, not from the form",
     "doneAudit": "Every creation was recorded with its justification and your name in the audit log",
     "doneClose": "Close"
+  },
+  "ch": {
+    "none": "—",
+    "part": {
+      "active": "Active",
+      "completed": "Completed",
+      "halted": "Suspended or cancelled"
+    },
+    "bars": {
+      "title": "Tenders per operating company",
+      "sub": "{{n}} companies — bar length relative to the largest portfolio, split by request state",
+      "aria": "{{name}} — {{n}} tenders worth {{value}}: {{active}} active, {{completed}} completed, {{halted}} suspended or cancelled. Open the tenders registry filtered to this company."
+    },
+    "donut": {
+      "title": "Tenders by approval tier",
+      "sub": "Global ladder: up to {{op}} the operator, up to {{jmc}} the Joint Management Committee, above that MDOC",
+      "unit": "tenders",
+      "aria": "{{label}} — {{n}} tenders, {{pct}} of the portfolio. Open the approval chain filtered to this tier."
+    },
+    "hist": {
+      "title": "Contracts by completion",
+      "sub": "Completion is derived from the contract stages already closed",
+      "aria": "From {{from}} to {{to}} percent — {{n}} contracts. Open the contracts registry filtered to this bucket."
+    },
+    "spark": {
+      "title": "Schedule compliance month by month",
+      "sub": "Per month: the share of stages due that month that actually closed on time — an independent point, not a running total",
+      "cap": "last {{n}} months with a measurement",
+      "note": "The «Schedule compliance» tile above is computed all-time over every closed stage; each point here is one month on its own. Same measure, two different windows."
+    },
+    "split": {
+      "sub": "Tenders in flight: {{n}}"
+    }
+  },
+  "home": {
+    "awarded": {
+      "title": "Awarded contracts",
+      "hint": "Computed straight from the contracts registry — count, value, and how much is delivered.",
+      "count": "Contracts",
+      "value": "Total value",
+      "completed": "Completed (every stage closed)",
+      "inExecution": "In execution"
+    },
+    "ladder": {
+      "title": "Tenders in flight by approval tier"
+    }
   }
 }

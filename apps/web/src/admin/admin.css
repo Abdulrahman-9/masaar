@@ -57,13 +57,41 @@
 .ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 /* a three-question strip fills its row instead of leaving a fourth column of paper */
 .ad-kpis--3 { grid-template-columns: repeat(3, 1fr); }
-/* the follow-up room asks five questions since the approval ladder replaced the cost cycle */
-.ad-kpis--5 { grid-template-columns: repeat(5, 1fr); }
+/* The room asks seven questions (client requests 1 + 5). A fixed column count would either
+   crush them on a laptop or leave a hole on a wide screen, so the row sizes itself: at the
+   1240px page width this settles on seven columns, and it sheds columns gracefully below. */
+.ad-kpis--wrap { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
 .ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 6px; }
 /* a KPI that IS a queue: the tile opens the registry listing exactly what it counted */
-.ad-kpi--link { text-decoration: none; color: inherit; transition: border-color 160ms ease-out, box-shadow 160ms ease-out; }
-.ad-kpi--link:hover { border-color: var(--brand-navy-800); box-shadow: var(--shadow-2); }
-.ad-kpi__go { margin-inline-start: auto; color: var(--ink-3); flex: none; }
+a.ad-kpi--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+a.ad-kpi--link:hover, a.ad-kpi--link:focus-visible { border-color: var(--border-3); box-shadow: var(--shadow-2); }
+a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { color: var(--ink-1); }
+/* The click affordance, printed in the RESTING state — a hint that appears only under a pointer
+   does not exist for a touch or keyboard reader. A tile with no destination never renders it. */
+.ad-kpi__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-block-start: auto;
+  padding-block-start: 2px;
+  font-size: 11px;
+  color: var(--ink-3);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+/* The same slot as `.ad-kpi__go`, on the one tile that has no registry to open: a ratio over
+   closed-stages-ever has no rows to list, so the tile states the WINDOW it measures instead of
+   an affordance it cannot honour. No hover colour change — nothing here responds to a pointer. */
+.ad-kpi__win {
+  margin-block-start: auto;
+  padding-block-start: 2px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
 .ad-kpi__head { display: flex; align-items: center; gap: 7px; }
 .ad-kpi__dot { width: 8px; height: 8px; border-radius: var(--r-pill); }
 .ad-kpi__l { font-size: 12px; color: var(--ink-3); }
@@ -79,6 +107,31 @@
 .ad-panel__count { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-size: 11px; font-weight: var(--fw-semibold); padding: 2px 9px; border-radius: var(--r-pill); }
 .ad-panel__count--amber { background: var(--status-risk-bg); color: var(--status-risk); }
 .ad-panel__count--red { background: var(--status-delayed-bg); color: var(--status-delayed); }
+
+/* A panel whose whole content is one <figure>: the chart lives DIRECTLY in the panel — never in
+   a card inside a card (a standing ban) — so the panel only has to supply the padding the
+   figure's own caption then owns. */
+.ad-panel--fig { padding: 16px 20px; }
+
+/* ---- a panel that is itself a disclosure (the per-company detail, request 2) ---- */
+.ad-disc { margin-block-start: 14px; }
+.ad-disc > .ad-disc__sum { cursor: pointer; list-style: none; border-block-end: none; }
+.ad-disc > .ad-disc__sum::-webkit-details-marker { display: none; }
+.ad-disc > .ad-disc__sum:hover { background: var(--bg-page); }
+.ad-disc[open] > .ad-disc__sum { border-block-end: 1px solid var(--border-1); }
+.ad-disc__caret { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out); }
+/* the same caret grammar as `.reg-explain__caret`: closed it points along the reading direction
+   (mirrored under RTL), open it points DOWN — and a rotation needs no mirror of its own */
+html[dir='rtl'] .ad-disc__caret { transform: scaleX(-1); }
+.ad-disc[open] .ad-disc__caret,
+html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
+/* the same guard `.reg-explain__caret` carries: a reader who asked for less motion still gets the
+   state change, it just arrives without the sweep */
+@media (prefers-reduced-motion: reduce) {
+  .ad-disc__caret,
+  a.ad-kpi--link,
+  .ad-kpi__go { transition-duration: 0.01ms; }
+}
 
 .ad-decision { padding: 14px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 14px; text-align: start; width: 100%; background: transparent; border-inline: none; border-top: none; font-family: inherit; cursor: pointer; }
 .ad-decision:last-child { border-bottom: none; }
@@ -146,6 +199,15 @@
 .ctr-bar__fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-out); }
 .ctr-bar__v { font-family: var(--font-mono); direction: ltr; font-size: 12px; text-align: end; color: var(--ink-1); }
 .ctr-variance { margin-top: 8px; font-size: 12.5px; font-weight: var(--fw-semibold); }
+/* Client request 12 — «كيف أتحكّم بهذه النسبة». The arithmetic behind the bar, stated in one
+   line right under it instead of left to be inferred from a number that moves on its own. */
+.ctr-formula { margin-block-start: 6px; font-size: 11.5px; line-height: var(--lh-loose); color: var(--ink-3); }
+/* the before → after the advance-stage confirmation previews (Design Principle 2) */
+.ctr-prev { display: flex; align-items: center; gap: 10px; margin-block-start: 12px; }
+.ctr-prev__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 20px; font-weight: var(--fw-semibold); color: var(--ink-3); }
+.ctr-prev__v--after { color: var(--status-done); }
+.ctr-prev__arrow { color: var(--ink-3); display: inline-flex; }
+.ctr-prev__l { font-size: 11.5px; color: var(--ink-3); margin-inline-start: auto; }
 
 /* ---- Filter select — a data filter, not the language switcher it used to borrow ---- */
 .op-filter-select {

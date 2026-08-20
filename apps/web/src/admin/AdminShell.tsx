@@ -4,9 +4,10 @@ import { NoticeBell } from '../NoticeBell';
 import { fmtCount } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
-import { currentStage, useRegisterDispatchFail, useStore } from '../store';
+import { useRegisterDispatchFail, useStore } from '../store';
 import { ToastViewport, useToasts, type ToastOpts } from '../Toasts';
 import { roleKey } from './access';
+import { decisionQueue } from './adminDerive';
 import './admin.css';
 
 export type AdminView =
@@ -64,7 +65,8 @@ export default function AdminShell({ view, onLogout, children }: { view: AdminVi
 
   const ui = useMemo<AdminUi>(() => ({ toast }), [toast]);
 
-  const decisions = state.tenders.filter((x) => currentStage(x)?.key === 'ratify' && !x.ratification).length;
+  // one definition, shared with the follow-up room's tile and the `?pending=1` registry it opens
+  const decisions = decisionQueue(state).length;
   const counts = { decisions, tenders: state.tenders.length, accounts: state.users.filter((u) => !u.disabled).length };
 
   const qn = q.trim().toLowerCase();

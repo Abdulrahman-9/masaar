@@ -82,6 +82,23 @@
   --border-3: rgba(11, 19, 32, 0.22);   /* strong */
   --border-focus: var(--brand-navy-600);
 
+  /* ---------- Approval ladder — an ORDINAL authority scale, not a status ----------
+     ops/VISUAL-REFRESH-SPEC.md §3-أ: the tier is a rising scale of authority, and the
+     standard encoding for an ordinal variable is a LIGHTNESS RAMP inside one hue — never
+     hops between hues. None of the six --status-* tokens may be spent here: every one of
+     them already means a lifecycle fact on the same screen (an amber arc would read
+     «warning», a crimson one «late»), and the closed status vocabulary stays closed.
+     Navy is the identity hue and carries no status meaning anywhere in the system, so it
+     is the only free ramp. Contrast against --bg-card / --bg-page / --chart-track:
+       OPERATOR #2E6BA1  5.62 / 5.35 / 4.56
+       JMC      #143A5E 11.69 / 11.11 / 9.48
+       MDOC     #061826 18.00 / 17.11 / 14.60
+     Adjacent-segment contrast is deliberately NOT relied upon: a 2px separator, a printed
+     label+number beside every mark, and a fixed ط1→ط2→ط3 order carry the distinction. */
+  --tier-operator: var(--brand-navy-500);
+  --tier-jmc:      var(--brand-navy-700);
+  --tier-mdoc:     var(--brand-navy-900);
+
   /* ---------- Typography ----------
      IBM Plex Sans Arabic = primary UI (Arabic + Latin support)
      IBM Plex Mono = numerics, codes, timestamps, budget codes

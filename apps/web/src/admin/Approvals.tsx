@@ -1,5 +1,5 @@
 import { stageByKey, type ApprovalTier } from '@masaar/scpp-rules';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
@@ -13,6 +13,7 @@ import { SectionExplainer } from '../registry/SectionExplainer';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
 import { currentStage, todayIso, useStore } from '../store';
 import { approvalChain, awaitingTier, ratifiedInMonth, type ApprovalRow } from './adminDerive';
 import { useAdminUi } from './AdminShell';
@@ -24,17 +25,6 @@ const GATED: Exclude<ApprovalTier, 'OPERATOR'>[] = ['JMC', 'MDOC'];
 
 /** Ladder order for the sortable tier column — the two gates in ascending authority. */
 const TIER_RANK: Record<string, number> = { JMC: 1, MDOC: 2 };
-
-/**
- * Read the `?tier=` deep link (same convention as `#/admin/fields?op=`): the follow-up room's
- * pending-approval tiles land here already narrowed to the band they counted. An unknown value is
- * ignored rather than emptying the registry — a bad link must not read as «nothing is pending».
- */
-function tierParam(): TierFilter {
-  const q = window.location.hash.split('?')[1];
-  const v = q ? new URLSearchParams(q).get('tier') : null;
-  return v === 'JMC' || v === 'MDOC' ? v : '';
-}
 
 /**
  * «سلسلة الموافقات» — the approval chain (client decision ق1, replacing the MCT screen per ق3).
@@ -55,7 +45,30 @@ export default function Approvals() {
   const tiers = state.approvalTiers;
 
   const [q, setQ] = useState('');
-  const [tierFilter, setTierFilter] = useState<TierFilter>(tierParam);
+  /**
+   * The `?tier=` deep link — the follow-up room's tiles and the donut's legend land here already
+   * narrowed to the band they counted. It carried the same mount-only defect `Fields.tsx` did:
+   * moving from `?tier=JMC` to `?tier=MDOC` without leaving the screen changed the address and
+   * nothing else. `useHashParams` makes it re-sync, and `OPERATOR` is rejected by this screen's
+   * own set because the chain, by definition (ق1), never holds a ط1 row.
+   */
+  const params = useHashParams();
+  const tierParam = hashParam(params, 'tier') as ApprovalTier | '';
+  const seedTier: TierFilter = tierParam === 'JMC' || tierParam === 'MDOC' ? tierParam : '';
+  const [tierFilter, setTierFilter] = useState<TierFilter>(seedTier);
+  useEffect(() => { setTierFilter(seedTier); }, [seedTier]);
+  const setTier = (v: TierFilter) => { setTierFilter(v); writeHashParam('tier', v || null); };
+  /**
+   * `?pending=1` — the gate that makes this screen able to HOLD what the follow-up room's
+   * «بانتظار موافقة …» tiles counted. Those tiles count `decision === 'pending'` within a band;
+   * `?tier=JMC` alone opens the whole band, ratified and returned requests included, so the tile
+   * said «1» and the registry listed «2» the moment anything in the band was decided. The
+   * parameter is already in the §5-ج whitelist; this screen simply had no reader for it.
+   *
+   * It is URL-borne only — never offered as a toggle beside the tier chips, because «awaiting a
+   * decision» is not a fourth band; it shows as the removable chip that says why the list is short.
+   */
+  const pendingOnly = hashParam(params, 'pending') === '1';
   const [operatorId, setOperatorId] = useState('');
   const [fieldId, setFieldId] = useState('');
 
@@ -71,13 +84,19 @@ export default function Approvals() {
   };
 
   const qn = q.trim().toLowerCase();
-  const rows = useMemo(() => chain.filter((r) => {
-    if (tierFilter && r.tier !== tierFilter) return false;
+  // everything EXCEPT the tier chip — the chip counts read off this set, so a chip never promises
+  // rows the pending gate or the search has already removed
+  const searched = useMemo(() => chain.filter((r) => {
+    if (pendingOnly && r.decision !== 'pending') return false;
     if (operatorId && r.tender.operatorId !== operatorId) return false;
     if (fieldId && r.tender.fieldId !== fieldId) return false;
     if (qn && !(`${r.tender.code} ${r.tender.title.ar} ${r.tender.title.en}`.toLowerCase().includes(qn))) return false;
     return true;
-  }), [chain, tierFilter, operatorId, fieldId, qn]);
+  }), [chain, pendingOnly, operatorId, fieldId, qn]);
+  const rows = useMemo(
+    () => (tierFilter ? searched.filter((r) => r.tier === tierFilter) : searched),
+    [searched, tierFilter],
+  );
 
   const compare = useMemo(() => ({
     tender: arCompare<ApprovalRow>((r) => r.tender.title[lang]),
@@ -99,14 +118,18 @@ export default function Approvals() {
   ];
 
   const tierChips: FilterChip[] = [
-    { key: '', label: t('approvals.allTiers'), count: chain.length, active: tierFilter === '' },
+    { key: '', label: t('approvals.allTiers'), count: searched.length, active: tierFilter === '' },
     ...GATED.map((tier) => ({
       key: tier,
       label: t(`tier.pill.${tier}`),
-      count: chain.filter((r) => r.tier === tier).length,
+      count: searched.filter((r) => r.tier === tier).length,
       active: tierFilter === tier,
     })),
   ];
+  /** The URL-borne filter, as a standing chip carrying its own dismiss (§5-ج). */
+  const linkChips: FilterChip[] = pendingOnly
+    ? [{ key: 'pending', label: t('approvals.chipPending'), count: rows.length, active: true, onRemove: () => writeHashParam('pending', null) }]
+    : [];
 
   const csvColumns: ReportColumn<ApprovalRow>[] = [
     { key: 'code', label: 'code', value: (r) => r.tender.code },
@@ -123,7 +146,13 @@ export default function Approvals() {
     toast(t('approvals.toastExport'));
   };
 
-  const clearFilters = () => { setQ(''); setTierFilter(''); setOperatorId(''); setFieldId(''); };
+  // «مسح الفلاتر» has to clear the ADDRESS too, or the next render re-seeds the tier it just
+  // cleared and the pending gate stays on invisibly
+  const clearFilters = () => {
+    setQ(''); setTierFilter(''); setOperatorId(''); setFieldId('');
+    const h = window.location.hash;
+    window.location.hash = h.includes('?') ? h.slice(0, h.indexOf('?')) : h;
+  };
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -163,7 +192,8 @@ export default function Approvals() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('approvals.searchPh')} style={{ width: 280 }} />
-        <FilterChips chips={tierChips} onSelect={(key) => setTierFilter(key as TierFilter)} lang={lang} />
+        <FilterChips chips={tierChips} onSelect={(key) => setTier(key as TierFilter)} lang={lang} />
+        {linkChips.length > 0 && <FilterChips chips={linkChips} onSelect={() => {}} lang={lang} />}
         {/* the registries are empty in API mode (no /operators, /fields route) — an empty select
             would be a control with nothing to choose, so it is simply not rendered */}
         {state.operators.length > 0 && (

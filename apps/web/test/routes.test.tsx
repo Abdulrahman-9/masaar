@@ -176,16 +176,19 @@ describe('#/admin — the follow-up room speaks the approval ladder, not MCT', (
     // seed: t3 (7.80M) awaits the JMC, t4 (12.40M) awaits MDOC — one each, both undecided
     const jmc = screen.getByText('بانتظار موافقة اللجنة المشتركة JMC').closest('a') as HTMLAnchorElement;
     const mdoc = screen.getByText('بانتظار موافقة نفط الوسط').closest('a') as HTMLAnchorElement;
-    expect(jmc.getAttribute('href')).toBe('#/admin/approvals?tier=JMC');
-    expect(mdoc.getAttribute('href')).toBe('#/admin/approvals?tier=MDOC');
+    // the tiles count the UNDECIDED rows of a band, so the destination carries the same gate —
+    // `?tier=` alone opens the whole band and would list rows the tile never counted
+    expect(jmc.getAttribute('href')).toBe('#/admin/approvals?tier=JMC&pending=1');
+    expect(mdoc.getAttribute('href')).toBe('#/admin/approvals?tier=MDOC&pending=1');
     expect(within(jmc).getByText('1')).toBeTruthy();
     expect(within(mdoc).getByText('1')).toBeTruthy();
   });
 
-  it('the tile deep link lands on the registry already narrowed to that band', () => {
-    at('#/admin/approvals?tier=JMC');
-    expect(screen.getByText('MN-EPC-0305')).toBeTruthy();   // the JMC row
+  it('the tile deep link lands on the registry already narrowed to that band and gate', () => {
+    at('#/admin/approvals?tier=JMC&pending=1');
+    expect(screen.getByText('MN-EPC-0305')).toBeTruthy();   // the JMC row, still undecided
     expect(screen.queryByText('B7-FAC-0331')).toBeNull();   // the MDOC row is filtered out
+    expect(screen.getByText('بانتظار القرار فقط')).toBeTruthy();
   });
 });
 

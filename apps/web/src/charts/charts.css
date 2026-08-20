@@ -1,0 +1,187 @@
+/* ========================================================================
+   Derived charts — ops/VISUAL-REFRESH-SPEC.md §3.
+   SVG only where the geometry forces it (arcs, polylines); rectangles are
+   CSS grid + <span>, because SVG rectangles lose keyboard reach, force text
+   measurement and fight RTL for nothing.
+   Tokens only · logical properties only · no raw hex · no nested cards.
+   ======================================================================== */
+
+:root {
+  /* The chart substrate. §1-د promotes these three into tokens.css with the rest of the
+     contrast wave (phase 6); until that lands they live here so this stylesheet never
+     references an undefined custom property — each one ALIASES an existing token, so the
+     promotion is a move, not a value change. */
+  --chart-track:   var(--bg-inset);       /* the empty part of a bar or ring, and the 2px gap
+                                             that separates two adjacent segments — always */
+  --chart-neutral: var(--brand-navy-600); /* the single fill of the histogram (8.25 on card) */
+}
+
+/* ---- figure shell (shared by all four) ---- */
+.ch { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.ch__cap { display: flex; flex-direction: column; gap: 2px; }
+.ch__t { font-size: 14px; font-weight: var(--fw-semibold); color: var(--ink-1); }
+.ch__s { font-size: 11.5px; color: var(--ink-3); }
+.ch__note { font-size: 11px; color: var(--ink-3); line-height: var(--lh-loose); }
+
+/* ---- (أ) per-company tender bars ---- */
+.ch-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ch-bar {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.1fr) 3fr 40px 78px;
+  align-items: center;
+  gap: 12px;
+  padding-block: 7px;
+  padding-inline: 10px;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ch-bar:hover, .ch-bar:focus-visible { background: var(--bg-muted); }
+.ch-bar:hover .ch-bar__v, .ch-bar:focus-visible .ch-bar__v { color: var(--ink-1); }
+
+.ch-bar__name {
+  font-size: 12.5px; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ch-bar__track {
+  display: flex;
+  gap: 2px;                      /* the separator: 2px of the container's own colour */
+  block-size: 14px;
+  background: var(--chart-track);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.ch-bar__seg { display: block; block-size: 100%; min-inline-size: 3px; }
+/* the lifecycle partition of a company's requests — the closed --status-* vocabulary, used for
+   exactly the three things it already means everywhere else in the system */
+.ch-bar__seg[data-part='active']    { background: var(--status-progress); }
+.ch-bar__seg[data-part='completed'] { background: var(--status-done); }
+.ch-bar__seg[data-part='halted']    { background: var(--status-blocked); }
+/* the ladder split (donut, and the public tier strip) — the ordinal navy ramp, never a status */
+.ch-bar__seg[data-tier='OPERATOR'] { background: var(--tier-operator); }
+.ch-bar__seg[data-tier='JMC']      { background: var(--tier-jmc); }
+.ch-bar__seg[data-tier='MDOC']     { background: var(--tier-mdoc); }
+
+.ch-bar__n, .ch-bar__v {
+  font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate;
+  font-size: 12px; text-align: end; color: var(--ink-2);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.ch-bar__n { color: var(--ink-3); }
+
+/* ---- (ب) tier donut ---- */
+.ch--donut { align-items: stretch; }
+.ch-donut { position: relative; inline-size: 160px; block-size: 160px; margin-inline: auto; }
+.ch-donut__svg { inline-size: 100%; block-size: 100%; display: block; }
+.ch-donut__seg {
+  pointer-events: stroke;      /* required: fill="none" leaves no hit area without it */
+  transition: stroke-width var(--dur-fast) var(--ease-out);
+}
+.ch-donut__seg--link { cursor: pointer; }
+.ch-donut__seg--hot { stroke-width: 26; }
+
+.ch-donut__center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; pointer-events: none;
+}
+.ch-donut__n {
+  font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate;
+  font-size: 28px; font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em; color: var(--ink-1);
+}
+.ch-donut__l { font-size: 11px; color: var(--ink-3); }
+
+/* ---- legend (donut + any stacked track) ---- */
+.ch-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.ch-legend__i {
+  display: grid; grid-template-columns: 10px 1fr auto auto;
+  align-items: center; gap: 9px;
+  padding-block: 6px; padding-inline: 8px;
+  border-radius: var(--r-sm); text-decoration: none; color: inherit;
+  font-size: 12.5px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { background: var(--bg-muted); }
+/* the key under a stacked bar: marks + names only, the numbers live on each row */
+.ch-legend--inline { flex-direction: row; flex-wrap: wrap; gap: 14px; padding-inline: 10px; }
+.ch-legend--inline .ch-legend__i { grid-template-columns: 10px auto; gap: 6px; padding: 0; font-size: 11.5px; }
+.ch-legend__sw { inline-size: 10px; block-size: 10px; border-radius: var(--r-xs); }
+.ch-legend__sw[data-tier='OPERATOR'] { background: var(--tier-operator); }
+.ch-legend__sw[data-tier='JMC']      { background: var(--tier-jmc); }
+.ch-legend__sw[data-tier='MDOC']     { background: var(--tier-mdoc); }
+.ch-legend__sw[data-part='active']    { background: var(--status-progress); }
+.ch-legend__sw[data-part='completed'] { background: var(--status-done); }
+.ch-legend__sw[data-part='halted']    { background: var(--status-blocked); }
+.ch-legend__l { color: var(--ink-2); }
+.ch-legend__n { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-weight: var(--fw-semibold); color: var(--ink-1); }
+.ch-legend__p { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; color: var(--ink-3); min-inline-size: 38px; text-align: end; }
+
+/* ---- (ج) contract completion histogram ---- */
+.ch-hist { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end; }
+.ch-hist__col {
+  display: grid; grid-template-rows: auto 1fr auto;
+  align-items: end; justify-items: center; gap: 6px;
+  block-size: 132px;
+  padding-block: 6px; padding-inline: 4px;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ch-hist__col:hover, .ch-hist__col:focus-visible { background: var(--bg-muted); }
+.ch-hist__bar {
+  inline-size: 100%; align-self: end;
+  min-block-size: 3px;                   /* a non-zero count never disappears */
+  background: var(--chart-neutral);
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ch-hist__col:hover .ch-hist__bar,
+.ch-hist__col:focus-visible .ch-hist__bar { background: var(--brand-navy-800); }
+.ch-hist__col[data-empty='true'] .ch-hist__bar { background: var(--chart-track); min-block-size: 2px; }
+.ch-hist__n { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 13px; font-weight: var(--fw-semibold); color: var(--ink-1); }
+.ch-hist__l { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 10.5px; color: var(--ink-3); }
+
+/* ---- (د) schedule-compliance sparkline ---- */
+.ch-sparkwrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* the month the big value belongs to, printed at CAPTION size directly under it: the KPI tile
+   above this strip carries an all-time ratio at a comparable weight, and two percentages that
+   measure different windows must each say which window they measure */
+.ch-spark__val { display: flex; flex-direction: column; align-items: start; gap: 1px; }
+.ch-spark__vm { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; color: var(--ink-3); }
+.ch-spark {
+  direction: ltr;              /* a time axis is machine-formatted data → an LTR island */
+  inline-size: 120px; block-size: 32px; flex: none; display: block;
+}
+.ch-spark__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 20px; font-weight: var(--fw-semibold); color: var(--ink-1); }
+.ch-spark__cap { font-size: 11.5px; color: var(--ink-3); }
+
+/* ---- reduced motion ----
+   Every transition in this stylesheet is hover/focus state feedback on a chart element (a bar
+   tint, the donut's stroke-width lift, a legend row). A reader who asked for less motion keeps
+   all of it as an instant state change — the 0.01ms convention used across the app. */
+@media (prefers-reduced-motion: reduce) {
+  .ch-bar,
+  .ch-bar__n,
+  .ch-bar__v,
+  .ch-donut__seg,
+  .ch-legend__i,
+  .ch-hist__col,
+  .ch-hist__bar { transition-duration: 0.01ms; }
+}
+
+/* ---- stat row (public home) ----
+   The §5-أ KPI anatomy minus the link affordance: the public page has no filtered registry to
+   open, and an affordance without a destination is a placebo button. `.ad-kpi` itself is not
+   reusable here — it lives in admin.css, which the public shell never loads. */
+.ch-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.ch-stat {
+  display: flex; flex-direction: column; gap: 5px;
+  padding-block: 12px; padding-inline: 14px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+}
+.ch-stat__l { font-size: 12px; color: var(--ink-3); }
+.ch-stat__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 22px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
