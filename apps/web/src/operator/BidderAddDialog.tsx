@@ -45,8 +45,9 @@ export function canAddBidders(t: Tender): { ok: boolean; reason?: BidderGateReas
 }
 
 export interface VendorBlock {
-  code: 'suspended' | 'blacklisted' | 'in-dispute' | 'banned';
-  clause: '10.4' | '14.3';
+  code: 'suspended' | 'blacklisted' | 'in-dispute' | 'banned' | 'archived';
+  /** the SCPP article the block cites — `registry` for the one block that is not a sanction */
+  clause: '10.4' | '14.3' | 'registry';
 }
 export interface VendorEligibility {
   selectable: boolean;
@@ -57,14 +58,20 @@ export interface VendorEligibility {
  * Whether a registry vendor may be entered as a bidder — mirrors the server
  * gate in tenders.service.ts:addBidder: 10.4 eligibility (suspended /
  * blacklisted / in-dispute) plus an active 14.3 refusal-to-sign ban. Pure.
+ *
+ * `archived` (client decision ق7) is the fourth block and the only one that is NOT a sanction:
+ * the entity was withdrawn from the active registry, so it is not offered for new participation.
+ * It cites `registry` rather than an article precisely so the dialog cannot present an
+ * administrative withdrawal as a legal disqualification — a restore lifts it with no clause in play.
  */
 export function vendorBidEligibility(
-  v: Pick<VendorState, 'suspended' | 'blacklisted' | 'inDispute' | 'banUntil'>,
+  v: Pick<VendorState, 'suspended' | 'blacklisted' | 'inDispute' | 'banUntil' | 'archived'>,
   today: string,
 ): VendorEligibility {
   const elig = vendorEligible({ suspended: v.suspended, blacklisted: v.blacklisted, inDispute: v.inDispute });
   const blocks: VendorBlock[] = elig.reasons.map((code) => ({ code: code as VendorBlock['code'], clause: '10.4' }));
   if (v.banUntil && v.banUntil > today) blocks.push({ code: 'banned', clause: '14.3' });
+  if (v.archived) blocks.push({ code: 'archived', clause: 'registry' });
   return { selectable: blocks.length === 0, blocks };
 }
 
@@ -118,6 +125,7 @@ export default function BidderAddDialog({ tender, onClose }: { tender: Tender; o
     }
     if (b.code === 'suspended') return t('bidderadd.blockSuspended');
     if (b.code === 'blacklisted') return t('bidderadd.blockBlacklisted');
+    if (b.code === 'archived') return t('bidderadd.blockArchived');
     return t('bidderadd.blockDispute');
   };
 

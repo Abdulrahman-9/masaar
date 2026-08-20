@@ -1,7 +1,11 @@
 import { StatusPill } from '@masaar/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isApiMode } from '../config';
 import { fmtCount } from '../operator/derive';
+import { DevBadge } from '../operator/DevBadge';
+import { Icon } from '../operator/Icon';
+import { loadSession } from '../session';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
@@ -11,14 +15,18 @@ import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
-import { todayIso, useStore, type VendorState } from '../store';
+import { govReasonValid, todayIso, useStore, type VendorState } from '../store';
 import { useAdminUi } from './AdminShell';
+import { roleKey } from './access';
 import { deriveParticipation, vendorStats, vendorStatus, type VendorGovStatus } from './entities';
+import { Modal } from './Modal';
+import { useActor } from './UserActions';
 
 const STATUS_PILL = { eligible: 'done', suspended: 'delayed', banned: 'blocked' } as const;
 
-/** '' = all, 'moo' = MoO-list membership, or one of the governance statuses. */
-type VendorFilter = '' | 'moo' | VendorGovStatus;
+/** '' = all (INCLUDING archived — request 14), 'moo' = MoO list, 'archived' = withdrawn,
+ *  or one of the derived governance statuses. */
+type VendorFilter = '' | 'moo' | 'archived' | VendorGovStatus;
 
 /** A registry row: the vendor plus its derived governance status and participation counts. */
 interface Row {
@@ -28,16 +36,26 @@ interface Row {
   wins: number;
 }
 
-/** Entity registry — classification, capability, participation, per-row 360° file. */
+/**
+ * Entity registry (سجل الجهات) — classification, capability, participation, per-row 360° file.
+ *
+ * Client request 14: the default view is EVERY entity, archived ones included and visibly muted,
+ * with the actions the client asked for on the surface — «إضافة جهة» in the header, «تعديل» on
+ * every row (it opens the 360° file, which is where an entity is actually edited), and archive /
+ * restore inside that file's governance row (ق7 — archive, never delete).
+ */
 export default function Vendors() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state } = useStore();
   const { toast } = useAdminUi();
   const today = todayIso();
+  const session = loadSession();
+  const isSuper = session?.role === 'SUPER_ADMIN';
 
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<VendorFilter>('');
+  const [adding, setAdding] = useState(false);
 
   // One pass over the store: status + participation counts are the shape the table,
   // KPIs, sort and export all read from.
@@ -50,6 +68,9 @@ export default function Vendors() {
   const rows = useMemo(() => derived.filter((r) => {
     if (qn && !r.vendor.name.toLowerCase().includes(qn)) return false;
     if (filter === 'moo') return r.vendor.mooListed;
+    if (filter === 'archived') return !!r.vendor.archived;
+    // '' shows EVERY entity, archived included (request 14): a registry that silently omits rows
+    // is the thing the client complained about. Archiving mutes a row; it never hides it here.
     if (filter) return r.status === filter;
     return true;
   }), [derived, qn, filter]);
@@ -78,6 +99,7 @@ export default function Vendors() {
     { key: 'eligible', label: t('entity.status_eligible'), count: derived.filter((r) => r.status === 'eligible').length, active: filter === 'eligible' },
     { key: 'suspended', label: t('entity.status_suspended'), count: derived.filter((r) => r.status === 'suspended').length, active: filter === 'suspended' },
     { key: 'banned', label: t('entity.status_banned'), count: derived.filter((r) => r.status === 'banned').length, active: filter === 'banned' },
+    { key: 'archived', label: t('entity.chipArchived'), count: derived.filter((r) => r.vendor.archived).length, active: filter === 'archived', title: t('entity.archivedNote') },
   ];
 
   // One column contract drives the on-screen table and the CSV — the exported rows
@@ -92,6 +114,7 @@ export default function Vendors() {
     { key: 'bids', label: 'bids', value: (r) => r.bids },
     { key: 'wins', label: 'wins', value: (r) => r.wins },
     { key: 'banUntil', label: 'banUntil', value: (r) => r.vendor.banUntil ?? '' },
+    { key: 'archived', label: 'archived', value: (r) => String(!!r.vendor.archived) },
   ];
 
   const doExport = () => {
@@ -108,9 +131,28 @@ export default function Vendors() {
           <div className="op-page__sub">{t('vendors.hint')}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="op-btn-primary" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => setAdding(true)}>
+            {t('entity.add')}
+          </button>
           <button className="op-btn-ghost" onClick={doExport}>{t('reg.vendors.exportCsv')}</button>
         </div>
       </div>
+
+      {!isSuper && (
+        <div className="wz-note wz-note--warn" style={{ marginBlockEnd: 12 }}>
+          {t('access.gateBanner', { role: session ? t(`roles.names.${roleKey(session.role)}`) : '—' })}
+        </div>
+      )}
+      {/* NAMED DEBT: /api/vendors has suspend/lift/ban/scores and nothing else — no create route
+          and no archive flag. Both new actions apply locally in either mode, and the banner says so
+          rather than letting API mode imply a server write (precedent: Fields.tsx / Operators.tsx). */}
+      {isApiMode && (
+        <div className="wz-note wz-note--warn" style={{ marginBlockEnd: 12 }}>
+          <Icon name="alert" size={15} />
+          <span>{t('entity.localOnly')}</span>
+          <DevBadge label={t('dev.local')} title={t('entity.localOnly')} />
+        </div>
+      )}
 
       <div className="ad-kpis" style={{ marginTop: 4 }}>
         {kpis.map((k) => (
@@ -151,8 +193,13 @@ export default function Vendors() {
               </thead>
               <tbody>
                 {pageRows.map((r) => (
-                  <tr key={r.vendor.id} className="op-tbl__row">
-                    <td><div className="op-tbl__name" dir="auto">{r.vendor.name}</div></td>
+                  <tr key={r.vendor.id} className={`op-tbl__row${r.vendor.archived ? ' arch-row' : ''}`}>
+                    <td>
+                      <div className="op-tbl__name" dir="auto">
+                        {r.vendor.name}
+                        {r.vendor.archived && <span className="arch-pill" style={{ marginInlineStart: 8 }}>{t('entity.archived')}</span>}
+                      </div>
+                    </td>
                     <td><StatusPill status={r.vendor.mooListed ? 'done' : 'planned'}>{r.vendor.mooListed ? t('vendors.mooYes') : t('vendors.mooNo')}</StatusPill></td>
                     <td>
                       <ScoreBar label={t('vendors.tech')} value={r.vendor.techScore} />
@@ -167,8 +214,11 @@ export default function Vendors() {
                       <span className="op-code" style={{ fontSize: 12 }}>{fmtCount(r.bids, lang)}</span> {t('entity.bids')} · <span className="op-code" style={{ fontSize: 12, color: 'var(--status-done)' }}>{fmtCount(r.wins, lang)}</span> {t('entity.wins')}
                     </td>
                     <td className="op-end">
-                      {/* a real link — the file is reachable by keyboard, unlike a bare <tr onClick> */}
-                      <a className="op-btn-nav" href={`#/admin/entities/${r.vendor.id}`}>{t('entity.openFile')}</a>
+                      {/* Request 14 asked for a visible per-row EDIT button. The 360° file IS the
+                          edit surface (scores, suspension, ban, archive), so the row action is
+                          labelled for what it lets you do rather than for the page it opens — one
+                          real link, keyboard-reachable, no duplicate affordance to the same URL. */}
+                      <a className="op-btn-nav" href={`#/admin/entities/${r.vendor.id}`} title={t('entity.editHint')}>{t('entity.edit')}</a>
                     </td>
                   </tr>
                 ))}
@@ -187,6 +237,81 @@ export default function Vendors() {
           />
         </>
       )}
+
+      <div className="ad-empty-inline" style={{ marginBlockStart: 10 }}>{t('entity.noDelete')}</div>
+
+      {adding && <AddVendorModal onClose={() => setAdding(false)} />}
     </div>
+  );
+}
+
+/**
+ * Quick-add (م4) — the minimum an entity needs to exist: a name and its MoO-list membership.
+ *
+ * `isStateCompany` is deliberately NOT offered. The five Iraqi state companies are seeded law
+ * (Article 25 / §9 C8.4) — they are the participation targets the 20% clause names, not registry
+ * data an administrator invents; a checkbox here would let anyone mint one and change what §9
+ * compliance means. Capability scores start at zero for the same reason: nobody has assessed
+ * this entity yet, and a fabricated 70 would read as a measurement.
+ */
+function AddVendorModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const { state, dispatch } = useStore();
+  const { toast } = useAdminUi();
+  const actor = useActor();
+  const [name, setName] = useState('');
+  const [mooListed, setMooListed] = useState(false);
+  const [reason, setReason] = useState('');
+
+  // 12.4.2 matches a bidder to its entity BY NAME — a duplicate name makes every participation
+  // ambiguous, so it is refused here exactly as the reducer refuses it.
+  const dupName = !!name.trim() && state.vendors.some((v) => v.name.trim() === name.trim());
+  const gate =
+    !name.trim() ? t('entity.nameRequired')
+    : dupName ? t('entity.dupName')
+    : !govReasonValid(reason) ? t('access.reasonMin')
+    : null;
+
+  const submit = () => {
+    if (gate || !actor) return;
+    const vendorId = `v-${Date.now().toString(36)}`;
+    void dispatch({ type: 'CREATE_VENDOR', vendorId, name: name.trim(), mooListed, reason: reason.trim(), by: actor })
+      .then((r) => {
+        if (!r.ok) return;
+        toast(t('entity.toastAdd', { name: name.trim() }));
+        onClose();
+      });
+  };
+
+  return (
+    <Modal
+      title={t('entity.add')} sub={t('vendors.title')} onClose={onClose}
+      footer={<>
+        <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
+        <span style={{ flex: 1 }} />
+        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>{t('entity.addConfirm')}</button>
+      </>}
+    >
+      <div className="wz-field">
+        <label className="wz-field__l" htmlFor="ven-name">{t('vendors.name')}</label>
+        <input id="ven-name" className="wz-in" dir="auto" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <button
+        type="button"
+        className={`wz-check${mooListed ? ' wz-check--on' : ''}`}
+        aria-pressed={mooListed}
+        style={{ marginBlockStart: 12 }}
+        onClick={() => setMooListed((v) => !v)}
+      >
+        <span className="wz-check__m"><Icon name="check" size={11} strokeWidth={3} /></span>
+        {t('entity.mooField')}
+      </button>
+      <div className="wz-note wz-note--info" style={{ marginBlockStart: 12 }}>{t('entity.addNote')}</div>
+      <div style={{ marginBlockStart: 12 }}>
+        <label className="wz-field__l" htmlFor="ven-reason">{t('access.reason')}</label>
+        <textarea id="ven-reason" className="wz-ta" rows={2} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('access.reasonPh')} style={{ width: '100%', marginTop: 6 }} />
+      </div>
+      <div className="wz-gate" style={{ marginBlockStart: 6 }}>{gate ?? t('access.auditNote')}</div>
+    </Modal>
   );
 }

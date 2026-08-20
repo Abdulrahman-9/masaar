@@ -171,4 +171,16 @@ describe('the interpolated vocabularies exist in both languages', () => {
   it('defines the computation behind every status pill the registries show', () => {
     covers(['progress', 'risk', 'delayed', 'done'].map((s) => `match.status.${s}`));
   });
+
+  /**
+   * The entity trail renders t(`entity.ev_${kind}`) off the VendorEvent union, so the two kinds
+   * the archive model (ق7) added are exactly the kind of half-added key that ships a raw dotted
+   * path onto a governance file. The field trail is read through explicit keys, pinned with them.
+   */
+  it('names every governance event the two registries can render, in both languages', () => {
+    covers(['suspend', 'lift', 'ban', 'scores', 'archive', 'restore'].map((k) => `entity.ev_${k}`));
+    covers(['fields.archive', 'fields.restore', 'fields.rename', 'fields.archived', 'fields.chipArchived']);
+    covers(['entity.archive', 'entity.restore', 'entity.archived', 'entity.archivedBanner', 'entity.add']);
+    covers(['bidderadd.blockArchived']);
+  });
 });

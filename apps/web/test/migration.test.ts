@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StoreProvider, seedState, tenderApprovalTier, useStore, type Tender } from '../src/store';
+import { StoreProvider, liveFields, seedState, tenderApprovalTier, useStore, type Tender } from '../src/store';
+import { selectableVendors } from '../src/operator/BidderAddDialog';
 import { clearSession, loadSession, saveSession } from '../src/session';
 
 /**
@@ -121,14 +122,14 @@ describe('masaar-operator v8 → v9 migration (the universe becomes نفط ال�
   });
 });
 
-describe('v10 blobs load as written', () => {
-  it('leaves a valid v10 blob untouched rather than reseeding it', () => {
-    const v10 = {
+describe('v11 blobs load as written', () => {
+  it('leaves a valid v11 blob untouched rather than reseeding it', () => {
+    const v11 = {
       tenders: [], contracts: [], audit: [], vendors: [], users: [],
       operators: [], fields: [], serviceContracts: [], seq: 3,
       holidays: [{ date: '2026-03-01' }], approvalTiers: { operatorMaxUSD: 1_000_000, jmcMaxUSD: 2_000_000 },
     };
-    localStorage.setItem('masaar-operator-v10', JSON.stringify(v10));
+    localStorage.setItem('masaar-operator-v11', JSON.stringify(v11));
     const s = load();
     expect(s.seq).toBe(3);
     expect(s.audit).toEqual([]); // no migration row — nothing was migrated
@@ -136,7 +137,7 @@ describe('v10 blobs load as written', () => {
   });
 
   it('normalizes an early holidays: string[] blob into { date } objects on load', () => {
-    localStorage.setItem('masaar-operator-v10', JSON.stringify({
+    localStorage.setItem('masaar-operator-v11', JSON.stringify({
       tenders: [], contracts: [], audit: [], vendors: [], users: [],
       operators: [], fields: [], serviceContracts: [], seq: 4,
       holidays: ['2026-01-01', 'garbage', '2026-05-01'],
@@ -145,7 +146,7 @@ describe('v10 blobs load as written', () => {
   });
 
   it('seeds the ladder only when the blob carries NONE — an absent ceiling was never configured', () => {
-    localStorage.setItem('masaar-operator-v10', JSON.stringify({
+    localStorage.setItem('masaar-operator-v11', JSON.stringify({
       tenders: [], contracts: [], audit: [], vendors: [], users: [],
       operators: [], fields: [], serviceContracts: [], seq: 5,
     }));
@@ -157,7 +158,7 @@ describe('v10 blobs load as written', () => {
   // It is carried through as written so `approvalTierFor` — the single judge of a ladder — fails
   // closed to ط3 MDOC, exactly what «approvals.explainFailClosed» promises the user on screen.
   it('carries a half-written ladder through so the engine fails closed instead of inventing ceilings', () => {
-    localStorage.setItem('masaar-operator-v10', JSON.stringify({
+    localStorage.setItem('masaar-operator-v11', JSON.stringify({
       tenders: [], contracts: [], audit: [], vendors: [], users: [],
       operators: [], fields: [], serviceContracts: [], seq: 5,
       approvalTiers: { operatorMaxUSD: 'oops' },
@@ -169,7 +170,7 @@ describe('v10 blobs load as written', () => {
   });
 
   it('carries an INVERTED ladder through — a JMC ceiling under the operator ceiling clears nothing', () => {
-    localStorage.setItem('masaar-operator-v10', JSON.stringify({
+    localStorage.setItem('masaar-operator-v11', JSON.stringify({
       tenders: [], contracts: [], audit: [], vendors: [], users: [],
       operators: [], fields: [], serviceContracts: [], seq: 6,
       approvalTiers: { operatorMaxUSD: 9_000_000, jmcMaxUSD: 1_000_000 },
@@ -178,6 +179,83 @@ describe('v10 blobs load as written', () => {
     expect(s.approvalTiers).toEqual({ operatorMaxUSD: 9_000_000, jmcMaxUSD: 1_000_000 });
     // 4.2M would sit inside a 9M operator band — but the ladder describing it is unusable
     expect(tenderApprovalTier(s, { estimatedValueUSD: 4_200_000 } as Tender)).toBe('MDOC');
+  });
+});
+
+/**
+ * KEY migration → v11 (client decision ق7, 2026-08-20 — the ARCHIVE MODEL). `Field` and
+ * `VendorState` gained an optional `archived` flag and a documented event trail, so the store
+ * shape moved and the key moves with it (execution rule 4 of ops/CLIENT-FEEDBACK-PLAN.md).
+ *
+ * The migration itself is a PASS-THROUGH, and that is the honest form for it: every new field is
+ * optional and its absence already means «live», so a v10 record is a valid v11 record with
+ * nothing rewritten. Which is exactly why no migration row is appended — SEED_MIGRATION_V9 and
+ * ROLE_RENAME_V10 were recorded because those migrations really did change records; a row
+ * asserting a change that never happened is the same fabrication as an unrecorded one.
+ */
+const v10Blob = () => ({
+  tenders: [tender('t10', 'AH-DRL', 'op-alwaha', 4_200_000, { fieldId: 'f-ahdab' })],
+  contracts: [], users: [acct('u1', 'MDOC_ADMIN')], seq: 311,
+  vendors: [{ id: 'v1', name: 'شركة الحفر العراقية', mooListed: true, techScore: 88, financialScore: 76, hseScore: 82, events: [{ kind: 'suspend', reason: 'r', on: '2026-05-01' }] }],
+  operators: [{ id: 'op-alwaha', name: 'شركة نفط الواحة الصينية' }],
+  fields: [{ id: 'f-ahdab', name: 'الأحدب', code: 'AHDAB', operatorId: 'op-alwaha' }],
+  serviceContracts: [{ id: 'sc-ahdab', code: 'SC-AHDAB', fieldId: 'f-ahdab', financialAuthorityUSD: 5_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-31' }],
+  audit: [
+    { ts: '2026-08-01T10:00:00Z', action: 'CREATE_FIELD', target: 'AHDAB', outcome: 'applied', by: { oid: 'oid-super-01', name: 'م. مصطفى الكرخي', role: 'SUPER_ADMIN' } },
+    { ts: '2026-08-02T10:00:00Z', action: 'SUSPEND_VENDOR', target: 'شركة الحفر العراقية' },
+  ],
+  holidays: [{ date: '2026-03-01' }], approvalTiers: { operatorMaxUSD: 3_000_000, jmcMaxUSD: 9_000_000 },
+});
+
+describe('masaar-operator v10 → v11 migration (the archive model)', () => {
+  it('preserves the append-only audit log verbatim, in order, with its attribution', () => {
+    localStorage.setItem('masaar-operator-v10', JSON.stringify(v10Blob()));
+    const s = load();
+
+    expect(s.audit).toHaveLength(2); // nothing appended — nothing was migrated
+    expect(s.audit.map((a) => a.action)).toEqual(['CREATE_FIELD', 'SUSPEND_VENDOR']);
+    expect(s.audit[0]!.by).toEqual({ oid: 'oid-super-01', name: 'م. مصطفى الكرخي', role: 'SUPER_ADMIN' });
+    expect(s.audit[0]!.outcome).toBe('applied');
+  });
+
+  it('keeps the universe whole — this is an additive flag, not a reseed', () => {
+    localStorage.setItem('masaar-operator-v10', JSON.stringify(v10Blob()));
+    const s = load();
+
+    expect(s.tenders.map((t) => t.id)).toEqual(['t10']); // the user's own tender, not the seed's
+    expect(s.seq).toBe(311);
+    expect(s.fields.map((f) => f.code)).toEqual(['AHDAB']);
+    expect(s.serviceContracts).toHaveLength(1);
+    expect(s.users.map((u) => u.role)).toEqual(['MDOC_ADMIN']);
+    expect(s.holidays).toEqual([{ date: '2026-03-01' }]);
+    expect(s.approvalTiers).toEqual({ operatorMaxUSD: 3_000_000, jmcMaxUSD: 9_000_000 }); // an EDITED ladder survives
+    expect(s.vendors[0]!.events).toEqual([{ kind: 'suspend', reason: 'r', on: '2026-05-01' }]); // the trail it already had
+  });
+
+  it('leaves every pre-archive record LIVE — an absent flag means live, never archived', () => {
+    localStorage.setItem('masaar-operator-v10', JSON.stringify(v10Blob()));
+    const s = load();
+
+    expect(s.fields.every((f) => f.archived === undefined)).toBe(true);
+    expect(s.vendors.every((v) => v.archived === undefined)).toBe(true);
+    // …and the pickers therefore offer exactly what they offered before the model existed
+    expect(liveFields(s.fields)).toHaveLength(1);
+    expect(selectableVendors(s.vendors, '2026-07-23').map((v) => v.id)).toEqual(['v1']);
+  });
+
+  it('carries a v9 blob through BOTH hops — the role rename still runs, then the flags no-op', () => {
+    localStorage.setItem('masaar-operator-v9', JSON.stringify(v9Blob([acct('u3', 'ROC_ADMIN')])));
+    const s = load();
+
+    expect(s.users[0]!.role).toBe('MDOC_ADMIN');           // hop one still happens
+    expect(s.audit.map((a) => a.action)).toEqual(['SET_USER_ROLE', 'ROLE_RENAME_V10']);
+    expect(s.fields.every((f) => f.archived === undefined)).toBe(true); // hop two adds nothing
+  });
+
+  it('prefers a live v11 blob over a stale v10 one', () => {
+    localStorage.setItem('masaar-operator-v10', JSON.stringify(v10Blob()));
+    localStorage.setItem('masaar-operator-v11', JSON.stringify({ ...v10Blob(), seq: 999 }));
+    expect(load().seq).toBe(999);
   });
 });
 

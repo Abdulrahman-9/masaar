@@ -191,10 +191,12 @@ describe('#/admin — the follow-up room speaks the approval ladder, not MCT', (
 
 describe('#/admin/operators — the add form shows the global ladder read-only (ق1)', () => {
   it('lists the three tiers with the live ceilings and no per-operator input', () => {
-    // only a SUPER_ADMIN may open the form; the ladder is what the form must state
+    // only a SUPER_ADMIN may open the form; the ladder is what the form must state.
+    // The trigger is the MERGED wizard now (request 9 — one flow for the company and its
+    // fields); the ladder moved into its review section and must still read out of state.
     saveSession({ name: 'م. مصطفى الكرخي', role: 'SUPER_ADMIN', oid: 'oid-super-01' });
     at('#/admin/operators');
-    fireEvent.click(screen.getByRole('button', { name: 'أضف مشغّلاً' }));
+    fireEvent.click(screen.getByRole('button', { name: 'إضافة مشغّل وحقوله' }));
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('سلّم الموافقات العام — يسري على هذه الشركة كما يسري على غيرها')).toBeTruthy();

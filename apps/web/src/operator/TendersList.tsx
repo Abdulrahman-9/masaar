@@ -3,7 +3,7 @@ import { KpiTile, StatusPill } from '@masaar/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadSession } from '../session';
-import { calendarOf, currentStage, fieldsOfOperator, todayIso, useStore, type Tender } from '../store';
+import { calendarOf, currentStage, fieldsOfOperator, liveFields, todayIso, useStore, type Tender } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
@@ -54,7 +54,11 @@ export default function TendersList() {
   // the field filter is scoped to the signed-in company, exactly like the request wizard
   // (RequestWizard: loadSession()?.companyId → the operator's own fields). Unscoped it listed
   // the whole 13-field / 12-company registry inside one operator's portal.
-  const myFields = fieldsOfOperator(state, loadSession()?.companyId);
+  // ARCHIVED fields drop out too (ق7): this is the operator's ACTIVE work surface, and a field
+  // can only be archived once none of its tenders is in flight. The admin registries
+  // (AdminTenders / Approvals / Fields) deliberately keep listing them — they are the record of
+  // record, and a historical tender must stay findable by the field it was raised on.
+  const myFields = liveFields(fieldsOfOperator(state, loadSession()?.companyId));
 
   // One derived task per open tender (its current stage) → its urgency group.
   // Reused, never re-derived, so the KPI counts stay honest to deriveTasks.

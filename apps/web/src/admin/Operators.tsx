@@ -3,10 +3,9 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
-import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
 import {
-  aboveOwnFA, govReasonValid, useStore,
+  aboveOwnFA, useStore,
   type OperatorOrg,
 } from '../store';
 import { EmptyState } from '../registry/EmptyState';
@@ -19,9 +18,7 @@ import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
-import { Modal } from './Modal';
-import { TierPill, tierRange, TIER_ORDER } from './TierPill';
-import { useActor } from './UserActions';
+import OperatorFieldsWizard from './OperatorFieldsWizard';
 
 /** '' = every company, else one of the honest data-derived buckets. */
 type ChipFilter = '' | 'costCycle' | 'noAccounts';
@@ -47,10 +44,9 @@ interface OperatorRow {
 export default function Operators() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
-  const { state, dispatch } = useStore();
+  const { state } = useStore();
   const { toast } = useAdminUi();
   const session = loadSession();
-  const actor = useActor();
   const isSuper = session?.role === 'SUPER_ADMIN';
 
   const [dialog, setDialog] = useState<null | { kind: 'add' }>(null);
@@ -153,7 +149,7 @@ export default function Operators() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="op-btn-primary" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => setDialog({ kind: 'add' })}>
-            {t('operators.add')}
+            {t('opfields.title')}
           </button>
           <button className="op-btn-ghost" onClick={doExport}>{t('reg.operators.exportCsv')}</button>
         </div>
@@ -195,7 +191,9 @@ export default function Operators() {
       {state.operators.length === 0 ? (
         <EmptyState
           mode="empty"
-          action={<button className="op-btn-primary" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => setDialog({ kind: 'add' })}>{t('operators.add')}</button>}
+          /* an empty registry is exactly where the merged flow pays: ONE dialog produces the
+             company AND its first usable field, instead of two screens and a re-pick. */
+          action={<button className="op-btn-primary" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => setDialog({ kind: 'add' })}>{t('opfields.title')}</button>}
         >
           {t('reg.operators.empty')}
         </EmptyState>
@@ -275,80 +273,11 @@ export default function Operators() {
 
       <div className="ad-empty-inline" style={{ marginTop: 10 }}>{t('operators.noDelete')}</div>
 
-      {dialog?.kind === 'add' && <AddOperatorModal onClose={() => setDialog(null)} />}
+      {/* request 9 — registering a company and registering its fields are one errand (every field
+          has exactly one operator), so the old add-operator modal is replaced by the merged
+          checklist form. The GLOBAL approval ladder it used to display moved inside it. */}
+      {dialog?.kind === 'add' && <OperatorFieldsWizard onClose={() => setDialog(null)} />}
     </div>
   );
 
 }
-
-function AddOperatorModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  const { state, dispatch } = useStore();
-  const { toast } = useAdminUi();
-  const actor = useActor();
-  const [name, setName] = useState('');
-  const [nameEn, setNameEn] = useState('');
-  const [reason, setReason] = useState('');
-
-  const dupName = state.operators.some((o) => o.name.trim() === name.trim() && name.trim());
-  const gate =
-    !name.trim() ? t('operators.nameRequired')
-    : dupName ? t('operators.dupName')
-    : !govReasonValid(reason) ? t('access.reasonMin')
-    : null;
-
-  const submit = () => {
-    if (gate || !actor) return;
-    const id = `op-${Date.now().toString(36)}`;
-    // FA is not set here — it arrives with the field's Service Contract (§7.1)
-    dispatch({ type: 'CREATE_OPERATOR', operatorId: id, name: name.trim(), nameEn: nameEn.trim() || undefined, reason: reason.trim(), by: actor });
-    toast(t('operators.toastAdd', { name: name.trim() }));
-    onClose();
-  };
-
-  return (
-    <Modal
-      title={t('operators.add')} sub={t('operators.title')} onClose={onClose}
-      footer={<>
-        <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
-        <span style={{ flex: 1 }} />
-        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>{t('operators.addConfirm')}</button>
-      </>}
-    >
-      <div className="wz-field">
-        <label className="wz-field__l" htmlFor="op-name">{t('operators.name')}</label>
-        <input id="op-name" className="wz-in" dir="auto" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="wz-field" style={{ marginTop: 12 }}>
-        <label className="wz-field__l" htmlFor="op-nameen">{t('operators.nameEn')}</label>
-        <input id="op-nameen" className="wz-in" dir="ltr" value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
-      </div>
-      <div className="wz-note wz-note--info" style={{ marginTop: 12 }}>{t('operators.faViaContract')}</div>
-
-      {/* The GLOBAL approval ladder, read-only (client decision ق1: one ladder for every operating
-          company — there are no per-operator ceilings to enter here). Registering a company is
-          exactly the moment its future requests acquire these gates, so the form states which
-          value bands will need whose signature instead of leaving it to be discovered later. */}
-      <div className="wz-field" style={{ marginTop: 14 }}>
-        <span className="wz-field__l">{t('operators.ladderTitle')}</span>
-        <div className="ad-ladder" style={{ marginTop: 6 }}>
-          {TIER_ORDER.map((tier) => (
-            <div key={tier} className="ad-ladder__row">
-              <TierPill tier={tier} tiers={state.approvalTiers} />
-              <span>{t(`tier.body.${tier}`)}</span>
-              <span className="ad-ladder__band">{tierRange(tier, state.approvalTiers)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="ad-ladder__note">{t('operators.ladderNote')}</div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <label className="wz-field__l" htmlFor="op-reason">{t('access.reason')}</label>
-        <textarea id="op-reason" className="wz-ta" rows={2} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('access.reasonPh')} style={{ width: '100%', marginTop: 6 }} />
-      </div>
-      <div className="wz-gate" style={{ marginTop: 6 }}>{gate ?? t('access.auditNote')}</div>
-    </Modal>
-  );
-}
-

@@ -3,7 +3,7 @@ import { addWorkingDays, toIso, toUtcDate } from '@masaar/working-days';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadSession } from '../../session';
-import { calendarOf, defaultStageKeys, faForFieldId, fieldsOfOperator, todayIso, useStore } from '../../store';
+import { calendarOf, defaultStageKeys, faForFieldId, fieldsOfOperator, liveFields, todayIso, useStore } from '../../store';
 import { fmtCount, fmtMoney } from '../derive';
 import { Icon } from '../Icon';
 import WizardShell, { type WizardStep } from './WizardShell';
@@ -29,9 +29,12 @@ export default function RequestWizard() {
   const [just, setJust] = useState('');
   const [reviewed, setReviewed] = useState(false);
 
-  // the request belongs to a field; the field's Service Contract sets the FA (§7.1)
+  // the request belongs to a field; the field's Service Contract sets the FA (§7.1).
+  // ARCHIVED fields are withdrawn here (ق7): archiving a field means no NEW procurement is
+  // raised on it, and this select is the one place new procurement is raised. Its existing
+  // tenders are untouched and still readable everywhere they already appear.
   const myOperatorId = loadSession()?.companyId;
-  const myFields = fieldsOfOperator(state, myOperatorId);
+  const myFields = liveFields(fieldsOfOperator(state, myOperatorId));
   const [fieldId, setFieldId] = useState(myFields[0]?.id ?? '');
   const myFaRaw = faForFieldId(state, fieldId); // number | null — null = no effective contract
   const faUnresolvable = myFaRaw == null;

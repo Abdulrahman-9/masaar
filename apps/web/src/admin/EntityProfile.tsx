@@ -2,17 +2,21 @@ import { stageByKey } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
+import { DevBadge } from '../operator/DevBadge';
 import { Icon } from '../operator/Icon';
 import { PathChip } from '../operator/PathChip';
 import { ScoreBar } from '../registry/ScoreBar';
-import { banWithinLimit, todayIso, useStore } from '../store';
+import { loadSession } from '../session';
+import { banWithinLimit, govReasonValid, todayIso, useStore } from '../store';
 import { useAdminUi } from './AdminShell';
 import { capHealth } from './contractDerive';
 import { deriveParticipation, vendorStats, vendorStatus } from './entities';
 import { Modal } from './Modal';
+import { useActor } from './UserActions';
 
-type Dialog = null | 'suspend' | 'lift' | 'ban' | 'scores';
+type Dialog = null | 'suspend' | 'lift' | 'ban' | 'scores' | 'archive' | 'restore';
 const STATUS_PILL = { eligible: 'done', suspended: 'delayed', banned: 'blocked' } as const;
 const CAP_PILL = { ok: 'done', risk: 'risk', breach: 'blocked' } as const;
 
@@ -21,7 +25,12 @@ export default function EntityProfile({ id }: { id: string }) {
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state, dispatch } = useStore();
   const { toast } = useAdminUi();
+  const actor = useActor();
   const today = todayIso();
+  // ق7 archive/restore is a registry act, gated exactly like the field archive on the Fields
+  // screen: disabled WITH its reason, never hidden — a capability the reader cannot see is a
+  // capability they cannot ask for.
+  const isSuper = loadSession()?.role === 'SUPER_ADMIN';
 
   const vendor = state.vendors.find((v) => v.id === id);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -53,6 +62,24 @@ export default function EntityProfile({ id }: { id: string }) {
   const confirmLift = () => { dispatch({ type: 'LIFT_VENDOR', vendorId: id, reason: reason.trim() }); toast(t('entity.toastLift', { name: vendor.name })); close(); };
   const confirmBan = () => { dispatch({ type: 'BAN_VENDOR', vendorId: id, banUntil, reason: reason.trim() }); toast(t('entity.toastBan', { name: vendor.name })); close(); };
   const confirmScores = () => { dispatch({ type: 'SET_VENDOR_SCORES', vendorId: id, techScore: scores.tech, financialScore: scores.fin, hseScore: scores.hse, reason: reason.trim() }); toast(t('entity.toastScores', { name: vendor.name })); close(); };
+  /**
+   * ق7 — archive / restore. Unlike a field, an entity archives WHATEVER its history: its bids,
+   * contracts and governance events are immutable and stay on this page. Archiving withdraws it
+   * from the bidder pickers and from the active registry view — nothing is deleted, and the
+   * justification (≥20 chars, attributed to the actor) lands in the audit log like its siblings.
+   */
+  const confirmArchive = (mode: 'archive' | 'restore') => () => {
+    if (!actor || !isSuper || !govReasonValid(reason)) return;
+    void dispatch(
+      mode === 'archive'
+        ? { type: 'ARCHIVE_VENDOR', vendorId: id, reason: reason.trim(), by: actor }
+        : { type: 'RESTORE_VENDOR', vendorId: id, reason: reason.trim(), by: actor },
+    ).then((r) => {
+      if (!r.ok) return;
+      toast(t(mode === 'archive' ? 'entity.toastArchive' : 'entity.toastRestore', { name: vendor.name }));
+      close();
+    });
+  };
 
   const kpis = [
     { l: t('entity.bids'), v: stats.bids },
@@ -71,6 +98,7 @@ export default function EntityProfile({ id }: { id: string }) {
             <span dir="auto" style={{ fontSize: 24, fontWeight: 700 }}>{vendor.name}</span>
             <StatusPill status={vendor.mooListed ? 'done' : 'planned'}>{vendor.mooListed ? t('vendors.mooYes') : t('vendors.mooNo')}</StatusPill>
             <StatusPill status={STATUS_PILL[status]}>{t(`entity.status_${status}`)}</StatusPill>
+            {vendor.archived && <span className="arch-pill">{t('entity.archived')}</span>}
             {status === 'banned' && vendor.banUntil && <span className="op-scpp">14.3 · {t('vendors.until')} {vendor.banUntil}</span>}
           </div>
           <div className="file-meta">{t('entity.profileSub')}</div>
@@ -83,8 +111,35 @@ export default function EntityProfile({ id }: { id: string }) {
           )}
           <button className="op-btn-ghost" onClick={() => open('ban')}>{t('entity.ban')}</button>
           <button className="op-btn-ghost" onClick={() => open('scores')}>{t('entity.editScores')}</button>
+          {/* ق7 — the delete the client asked for, as the archive the record permits (8.1-e) */}
+          {vendor.archived ? (
+            <button className="op-btn-ghost" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => open('restore')}>{t('entity.restore')}</button>
+          ) : (
+            <button className="op-btn-ghost" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => open('archive')}>{t('entity.archive')}</button>
+          )}
         </div>
       </div>
+
+      {/* NAMED DEBT: /api/vendors carries suspend / lift / ban / scores and nothing else — it has
+          no archive flag. So on this page the two archive actions apply in the browser while the
+          four sanction actions reach the server, and API mode says exactly that rather than letting
+          the whole file imply one behaviour (precedent: Vendors.tsx / Fields.tsx). */}
+      {isApiMode && (
+        <div className="wz-note wz-note--warn" style={{ marginBlockStart: 14 }}>
+          <Icon name="alert" size={15} />
+          <span>{t('entity.localOnlyFile')}</span>
+          <DevBadge label={t('dev.local')} title={t('entity.localOnlyFile')} />
+        </div>
+      )}
+
+      {/* An archived entity announces itself before anything else on the page: the file still
+          reads in full, which is the whole point of archiving instead of deleting. */}
+      {vendor.archived && (
+        <div className="wz-note wz-note--warn" style={{ marginBlockStart: 14 }}>
+          <Icon name="alert" size={15} />
+          <span>{t('entity.archivedBanner')}</span>
+        </div>
+      )}
 
       <div className="ad-kpis" style={{ marginTop: 16 }}>
         {kpis.map((k) => (
@@ -160,6 +215,7 @@ export default function EntityProfile({ id }: { id: string }) {
               events.map((e, i) => (
                 <div key={i} className="ad-late">
                   <div className="ad-late__body">
+                    {/* interpolated key — the vocabulary is pinned in both locales by a test */}
                     <div className="ad-late__t">{t(`entity.ev_${e.kind}`)}{e.detail ? ` — ${e.detail}` : ''}</div>
                     <div className="ad-late__s">{e.reason}</div>
                   </div>
@@ -195,6 +251,25 @@ export default function EntityProfile({ id }: { id: string }) {
           <label className="wz-field__l">{t('entity.reason')}</label>
           <textarea className="wz-ta" rows={3} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('entity.banReasonPh')} style={{ width: '100%', marginTop: 6 }} />
           <div className="wz-gate" style={{ marginTop: 6 }}>{!banWithinLimit(banUntil, today) ? t('entity.banInvalid') : !reasonOk ? t('entity.reasonMin') : t('entity.auditNote')}</div>
+        </Modal>
+      )}
+      {(dialog === 'archive' || dialog === 'restore') && (
+        <Modal
+          title={t(dialog === 'archive' ? 'entity.archive' : 'entity.restore')} sub={vendor.name} onClose={close}
+          footer={<>
+            <button className="op-btn-ghost" onClick={close}>{t('entity.archiveUndo')}</button>
+            <span style={{ flex: 1 }} />
+            <button className="op-btn-primary" disabled={!reasonOk} onClick={confirmArchive(dialog)}>
+              {t(dialog === 'archive' ? 'entity.archiveConfirm' : 'entity.restoreConfirm')}
+            </button>
+          </>}
+        >
+          <div className="wz-note wz-note--info">
+            {t(dialog === 'archive' ? 'entity.archiveBody' : 'entity.restoreBody', { n: fmtCount(stats.bids, lang), c: fmtCount(vendorContracts.length, lang) })}
+          </div>
+          <label className="wz-field__l" style={{ marginTop: 12, display: 'block' }}>{t('entity.reason')}</label>
+          <textarea className="wz-ta" rows={3} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('entity.archiveReasonPh')} style={{ width: '100%', marginTop: 6 }} />
+          <div className="wz-gate" style={{ marginTop: 6 }}>{reasonOk ? t('entity.auditNote') : t('entity.reasonMin')}</div>
         </Modal>
       )}
       {dialog === 'scores' && (

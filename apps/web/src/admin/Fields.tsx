@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { loadSession } from '../session';
-import { aboveOwnFA, govReasonValid, todayIso, useStore, type Field, type ServiceContract } from '../store';
+import { Icon } from '../operator/Icon';
+import { DevBadge } from '../operator/DevBadge';
+import { activeTendersOfField, fieldArchivable, govReasonValid, todayIso, useStore, aboveOwnFA, type Field, type ServiceContract } from '../store';
 import { EmptyState } from '../registry/EmptyState';
+import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
 import { exportCsv, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
@@ -30,7 +33,12 @@ interface FieldRow {
   fa: number | null;
   tenders: number;
   aboveFa: number;
+  /** in-flight tenders (ق7) — the count that decides whether the field may be archived */
+  active: number;
 }
+
+/** 'live' = the working registry (default), 'archived' = withdrawn records, '' = both. */
+type ArchiveFilter = 'live' | 'archived' | '';
 
 /**
  * The oil fields (spec §1) and their Service Contracts — the source of every field's Financial
@@ -47,7 +55,15 @@ export default function Fields() {
 
   const [q, setQ] = useState('');
   const [opFilter, setOpFilter] = useState(opParam());
-  const [dialog, setDialog] = useState<null | { kind: 'add' } | { kind: 'fa'; row: FieldRow }>(null);
+  const [arch, setArch] = useState<ArchiveFilter>('live');
+  const [dialog, setDialog] = useState<
+    | null
+    | { kind: 'add' }
+    | { kind: 'fa'; row: FieldRow }
+    | { kind: 'rename'; row: FieldRow }
+    | { kind: 'archive'; row: FieldRow }
+    | { kind: 'restore'; row: FieldRow }
+  >(null);
 
   const nameOf = (f: Field) => (lang === 'ar' ? f.name : f.nameEn ?? f.name);
   const opName = (id: string) => {
@@ -65,15 +81,25 @@ export default function Fields() {
       fa: contract ? contractFinancialAuthority(contract) : null,
       tenders: tendersOfField.length,
       aboveFa: tendersOfField.filter((x) => aboveOwnFA(state, x)).length,
+      active: activeTendersOfField(state, f.id).length,
     };
   }), [state]);
 
   const qn = q.trim().toLowerCase();
   const filtered = useMemo(() => allRows.filter((r) => {
+    if (arch === 'live' && r.f.archived) return false;
+    if (arch === 'archived' && !r.f.archived) return false;
     if (opFilter && r.f.operatorId !== opFilter) return false;
     if (qn && !(r.f.name.toLowerCase().includes(qn) || (r.f.nameEn ?? '').toLowerCase().includes(qn) || r.f.code.toLowerCase().includes(qn))) return false;
     return true;
-  }), [allRows, qn, opFilter]);
+  }), [allRows, qn, opFilter, arch]);
+
+  const archivedCount = allRows.filter((r) => r.f.archived).length;
+  const chips: FilterChip[] = [
+    { key: 'live', label: t('fields.chipLive'), count: allRows.length - archivedCount, active: arch === 'live' },
+    { key: 'archived', label: t('fields.chipArchived'), count: archivedCount, active: arch === 'archived', title: t('fields.archivedNote') },
+    { key: '', label: t('fields.chipAll'), count: allRows.length, active: arch === '' },
+  ];
 
   const compare = useMemo(() => ({
     name: arCompare<FieldRow>((r) => (lang === 'ar' ? r.f.name : r.f.nameEn ?? r.f.name)),
@@ -91,8 +117,18 @@ export default function Fields() {
     { key: 'faUSD', label: 'faUSD', value: (r) => r.fa ?? '' },
     { key: 'effective', label: 'effective', value: (r) => String(r.effective) },
     { key: 'tenders', label: 'tenders', value: (r) => r.tenders },
+    { key: 'archived', label: 'archived', value: (r) => String(!!r.f.archived) },
   ];
-  const doExport = () => { exportCsv('masaar-fields-registry', csvColumns, sorted); toast(t('fields.toastExport')); };
+  /**
+   * WYSIWYG export (design principle 4): the rows are the sorted+filtered rows on screen, so the
+   * FILE has to say which scope it holds. The archive chip is the one filter a reader cannot infer
+   * from the rows themselves — an all-live export and an all-archived export both look like «the
+   * registry» — so the default filename carries it: masaar-fields-live / -archived / -all.
+   */
+  const doExport = () => {
+    exportCsv(`masaar-fields-${arch === '' ? 'all' : arch}`, csvColumns, sorted);
+    toast(t('fields.toastExport'));
+  };
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -115,7 +151,11 @@ export default function Fields() {
         </div>
       )}
       {isApiMode && (
-        <div className="wz-note wz-note--warn" style={{ marginBottom: 12 }}>{t('fields.apiModeNote')}</div>
+        <div className="wz-note wz-note--warn" style={{ marginBottom: 12 }}>
+          <Icon name="alert" size={15} />
+          <span>{t('fields.apiModeNote')}</span>
+          <DevBadge label={t('dev.local')} title={t('fields.apiModeNote')} />
+        </div>
       )}
 
       <div className="acc-filters">
@@ -124,12 +164,15 @@ export default function Fields() {
           <option value="">{t('fields.allOperators')}</option>
           {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
         </select>
+        <FilterChips chips={chips} onSelect={(key) => setArch(key as ArchiveFilter)} lang={lang} />
       </div>
 
       {state.fields.length === 0 ? (
         <EmptyState mode="empty">{t('fields.empty')}</EmptyState>
       ) : filtered.length === 0 ? (
-        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={() => { setQ(''); setOpFilter(''); }}>{t('fields.clearFilters')}</button>}>
+        // the archive chip is a filter like any other: «أزل كل المرشّحات» must clear it too,
+        // or a registry whose fields are all archived reads as an empty registry
+        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={() => { setQ(''); setOpFilter(''); setArch(''); }}>{t('fields.clearFilters')}</button>}>
           {t('fields.noMatch')}
         </EmptyState>
       ) : (
@@ -148,9 +191,12 @@ export default function Fields() {
               </thead>
               <tbody>
                 {pageRows.map((r) => (
-                  <tr key={r.f.id} className="op-tbl__row">
+                  <tr key={r.f.id} className={`op-tbl__row${r.f.archived ? ' arch-row' : ''}`}>
                     <td>
-                      <div className="op-tbl__name" dir="auto">{nameOf(r.f)}</div>
+                      <div className="op-tbl__name" dir="auto">
+                        {nameOf(r.f)}
+                        {r.f.archived && <span className="arch-pill" style={{ marginInlineStart: 8 }}>{t('fields.archived')}</span>}
+                      </div>
                       <div className="op-tbl__code">{r.f.code}</div>
                     </td>
                     <td><span style={{ fontSize: 13 }} dir="auto">{opName(r.f.operatorId)}</span></td>
@@ -172,16 +218,49 @@ export default function Fields() {
                         : <span style={{ fontSize: 12 }}>{t('fields.nTenders', { n: fmtCount(r.tenders, lang), above: fmtCount(r.aboveFa, lang) })}</span>}
                     </td>
                     <td className="op-end">
-                      {/* FA is editable only for an EFFECTIVE contract, only for a super admin,
-                          and only in local mode (no /service-contracts server write path yet) */}
-                      <button
-                        className="acc-open"
-                        disabled={!isSuper || !r.effective || isApiMode}
-                        title={!r.effective ? t('fields.ineffective') : isApiMode ? t('fields.apiModeNote') : isSuper ? undefined : t('access.gateNotSuper')}
-                        onClick={() => r.contract && setDialog({ kind: 'fa', row: r })}
-                      >
-                        {t('fields.editFa')}
-                      </button>
+                      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {/* request 9 «إمكانية التعديل لاحقاً» — display names are correctable after
+                            creation; the code and the owning company are not (see RENAME_FIELD). */}
+                        <button
+                          className="acc-open"
+                          disabled={!isSuper}
+                          title={isSuper ? undefined : t('access.gateNotSuper')}
+                          onClick={() => setDialog({ kind: 'rename', row: r })}
+                        >
+                          {t('fields.rename')}
+                        </button>
+                        {/* FA is editable only for an EFFECTIVE contract, only for a super admin,
+                            and only in local mode (no /service-contracts server write path yet) */}
+                        <button
+                          className="acc-open"
+                          disabled={!isSuper || !r.effective || isApiMode}
+                          title={!r.effective ? t('fields.ineffective') : isApiMode ? t('fields.apiModeNote') : isSuper ? undefined : t('access.gateNotSuper')}
+                          onClick={() => r.contract && setDialog({ kind: 'fa', row: r })}
+                        >
+                          {t('fields.editFa')}
+                        </button>
+                        {/* ق7 — archive, never delete: the field's tenders, contracts and audit
+                            rows exist, so a deletion would orphan them (8.1-e). */}
+                        {r.f.archived ? (
+                          <button
+                            className="acc-open"
+                            disabled={!isSuper}
+                            title={isSuper ? undefined : t('access.gateNotSuper')}
+                            onClick={() => setDialog({ kind: 'restore', row: r })}
+                          >
+                            {t('fields.restore')}
+                          </button>
+                        ) : (
+                          <button
+                            className="acc-open"
+                            disabled={!isSuper || r.active > 0}
+                            title={r.active > 0 ? t('fields.archiveBlocked', { n: fmtCount(r.active, lang) }) : isSuper ? undefined : t('access.gateNotSuper')}
+                            onClick={() => setDialog({ kind: 'archive', row: r })}
+                          >
+                            {t('fields.archive')}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -196,6 +275,10 @@ export default function Fields() {
 
       {dialog?.kind === 'add' && <AddFieldModal onClose={() => setDialog(null)} defaultOperator={opFilter} />}
       {dialog?.kind === 'fa' && <EditFaModal row={dialog.row} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'rename' && <RenameFieldModal row={dialog.row} onClose={() => setDialog(null)} />}
+      {(dialog?.kind === 'archive' || dialog?.kind === 'restore') && (
+        <ArchiveFieldModal row={dialog.row} mode={dialog.kind} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 
@@ -348,6 +431,126 @@ function EditFaModal({ row, onClose }: { row: FieldRow; onClose: () => void }) {
       <div style={{ marginTop: 12 }}>
         <label className="wz-field__l" htmlFor="fd-reason2">{t('access.reason')}</label>
         <textarea id="fd-reason2" className="wz-ta" rows={3} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('operators.faReasonPh')} style={{ width: '100%', marginTop: 6 }} />
+      </div>
+      <div className="wz-gate" style={{ marginTop: 6 }}>{gate ?? t('access.auditNote')}</div>
+    </Modal>
+  );
+}
+
+/**
+ * Request 9 «إمكانية التعديل لاحقاً» — the later-edit path for a field's display names.
+ * Deliberately narrow: the CODE is quoted in tender codes, contract codes and every CSV already
+ * exported, and the OWNING COMPANY is fixed by the Service Contract that grants the authority —
+ * neither is a display detail, so neither is editable here. Contract FA has its own dialog.
+ */
+function RenameFieldModal({ row, onClose }: { row: FieldRow; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { dispatch } = useStore();
+  const { toast } = useAdminUi();
+  const actor = useActor();
+  const [name, setName] = useState(row.f.name);
+  const [nameEn, setNameEn] = useState(row.f.nameEn ?? '');
+  const [reason, setReason] = useState('');
+
+  const changed = name.trim() !== row.f.name || (nameEn.trim() || undefined) !== row.f.nameEn;
+  const gate =
+    !name.trim() ? t('fields.nameRequired')
+    : !changed ? t('fields.renameNoChange')
+    : !govReasonValid(reason) ? t('access.reasonMin')
+    : null;
+
+  const submit = () => {
+    if (gate || !actor) return;
+    // قناة الصدق: the success toast waits on the store's own outcome
+    void dispatch({ type: 'RENAME_FIELD', fieldId: row.f.id, name: name.trim(), nameEn: nameEn.trim() || undefined, reason: reason.trim(), by: actor })
+      .then((r) => {
+        if (!r.ok) return;
+        toast(t('fields.toastRename', { from: row.f.name, to: name.trim() }));
+        onClose();
+      });
+  };
+
+  return (
+    <Modal
+      title={t('fields.rename')} sub={row.f.code} onClose={onClose}
+      footer={<>
+        <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
+        <span style={{ flex: 1 }} />
+        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>{t('fields.renameConfirm')}</button>
+      </>}
+    >
+      <div className="wz-field">
+        <label className="wz-field__l" htmlFor="fd-rn">{t('fields.name')}</label>
+        <input id="fd-rn" className="wz-in" dir="auto" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="wz-field" style={{ marginTop: 12 }}>
+        <label className="wz-field__l" htmlFor="fd-rne">{t('fields.nameEn')}</label>
+        <input id="fd-rne" className="wz-in" dir="ltr" value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
+      </div>
+      <div className="wz-note wz-note--info" style={{ marginTop: 12 }}>{t('fields.renameScope')}</div>
+      <div style={{ marginTop: 12 }}>
+        <label className="wz-field__l" htmlFor="fd-rr">{t('access.reason')}</label>
+        <textarea id="fd-rr" className="wz-ta" rows={2} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('access.reasonPh')} style={{ width: '100%', marginTop: 6 }} />
+      </div>
+      <div className="wz-gate" style={{ marginTop: 6 }}>{gate ?? t('access.auditNote')}</div>
+    </Modal>
+  );
+}
+
+/**
+ * ق7 — archive / restore. Archiving withdraws the field from every picker that offers FUTURE
+ * work (the request wizard's field select, the registry filters); it deletes nothing, and the
+ * field's tenders, contracts and audit rows stay exactly where they are. A field with in-flight
+ * tenders is refused, and the gate NAMES the count rather than greying out silently.
+ */
+function ArchiveFieldModal({ row, mode, onClose }: { row: FieldRow; mode: 'archive' | 'restore'; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'ar' ? 'ar' : 'en';
+  const { state, dispatch } = useStore();
+  const { toast } = useAdminUi();
+  const actor = useActor();
+  const [reason, setReason] = useState('');
+
+  // recomputed live from the store — the same predicate the reducer runs, never a copy
+  const { ok: archivable, activeTenders } = fieldArchivable(state, row.f.id);
+  const blocked = mode === 'archive' && !archivable;
+  const gate =
+    blocked ? t('fields.archiveBlocked', { n: fmtCount(activeTenders, lang) })
+    : !govReasonValid(reason) ? t('access.reasonMin')
+    : null;
+
+  const submit = () => {
+    if (gate || !actor) return;
+    void dispatch(
+      mode === 'archive'
+        ? { type: 'ARCHIVE_FIELD', fieldId: row.f.id, reason: reason.trim(), by: actor }
+        : { type: 'RESTORE_FIELD', fieldId: row.f.id, reason: reason.trim(), by: actor },
+    ).then((r) => {
+      if (!r.ok) return;
+      toast(t(mode === 'archive' ? 'fields.toastArchive' : 'fields.toastRestore', { name: row.f.name }));
+      onClose();
+    });
+  };
+
+  return (
+    <Modal
+      title={t(mode === 'archive' ? 'fields.archiveTitle' : 'fields.restoreTitle')} sub={`${row.f.name} · ${row.f.code}`} onClose={onClose}
+      footer={<>
+        <button className="op-btn-ghost" onClick={onClose}>{t('fields.archiveUndo')}</button>
+        <span style={{ flex: 1 }} />
+        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>
+          {t(mode === 'archive' ? 'fields.archiveConfirm' : 'fields.restoreConfirm')}
+        </button>
+      </>}
+    >
+      <div className={`wz-note wz-note--${blocked ? 'danger' : 'info'}`}>
+        {blocked
+          ? t('fields.archiveBlockedBody', { n: fmtCount(activeTenders, lang) })
+          : t(mode === 'archive' ? 'fields.archiveBody' : 'fields.restoreBody', { n: fmtCount(row.tenders, lang) })}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label className="wz-field__l" htmlFor="fd-ar">{t('access.reason')}</label>
+        <textarea id="fd-ar" className="wz-ta" rows={3} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('fields.archiveReasonPh')} style={{ width: '100%', marginTop: 6 }} />
       </div>
       <div className="wz-gate" style={{ marginTop: 6 }}>{gate ?? t('access.auditNote')}</div>
     </Modal>

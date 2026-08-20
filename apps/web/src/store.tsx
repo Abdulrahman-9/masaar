@@ -235,6 +235,19 @@ export interface OperatorOrg {
   nameEn?: string;
 }
 
+/**
+ * Append-only field governance event — the exact shape VendorEvent uses (kind / reason / on /
+ * detail), so one trail vocabulary serves both registries. The actor is NOT repeated here: it
+ * already rides on the self-written audit row, and duplicating it would give two places to
+ * disagree about who acted.
+ */
+export interface FieldEvent {
+  kind: 'rename' | 'archive' | 'restore';
+  reason: string;
+  on: string; // ISO date
+  detail?: string; // e.g. "الأحدب→حقل الأحدب النفطي"
+}
+
 /** An oil field (spec §1 — 13 fields). Its Service Contract is the source of its FA (§7.1). */
 export interface Field {
   id: string;
@@ -242,6 +255,14 @@ export interface Field {
   nameEn?: string;
   code: string;
   operatorId: string;
+  /**
+   * Client decision ق7 (2026-08-20): a field is ARCHIVED, never deleted — its tenders, contracts
+   * and audit rows exist and deleting the field would orphan them (8.1-e). Absent = live; the flag
+   * only removes the field from the pickers and filters that offer FUTURE work.
+   */
+  archived?: boolean;
+  /** documented rename/archive/restore trail (append-only) */
+  events?: FieldEvent[];
 }
 
 /** Service Contract (§7.1) — one per field; determines the field's Financial Authority.
@@ -280,9 +301,10 @@ export interface UserAccount {
   events?: UserEvent[];
 }
 
-/** Append-only vendor governance event — mirrors the API's VendorEvent (14.3). */
+/** Append-only vendor governance event — mirrors the API's VendorEvent (14.3).
+ *  `archive`/`restore` extend it for the ق7 registry decision (client wave 1). */
 export interface VendorEvent {
-  kind: 'suspend' | 'lift' | 'ban' | 'scores';
+  kind: 'suspend' | 'lift' | 'ban' | 'scores' | 'archive' | 'restore';
   reason: string;
   on: string; // ISO date
   detail?: string; // e.g. "until 2026-11-01" or "فني 71→80"
@@ -294,6 +316,13 @@ export interface VendorState {
   /** an Iraqi state company (Article 25) — competes under the SAME 10.4 gates as any bidder (C8.4) */
   isStateCompany?: boolean;
   mooListed: boolean; // MoO Vendor List membership
+  /**
+   * Client decision ق7: archived, never deleted. Unlike a field, a vendor may be archived
+   * WHATEVER its history — the history is immutable and stays readable on its file; archiving
+   * only withdraws the entity from the lists that offer future participation (bidder pickers,
+   * the ACTIVE registry view). It is NOT a 10.4/14.3 sanction and carries no clause.
+   */
+  archived?: boolean;
   suspended?: boolean;
   blacklisted?: boolean;
   inDispute?: boolean;
@@ -540,6 +569,43 @@ export function fieldsOfOperator(state: State, operatorId: string | undefined): 
   return state.fields.filter((f) => f.operatorId === operatorId);
 }
 
+/* ---------------- archive model (client decision ق7) ---------------- */
+
+/**
+ * Is this tender still IN FLIGHT? The predicate the archive gate reads, and it is deliberately
+ * generous about what counts as live:
+ *
+ *  · `cancelled` — dead. A documented cancellation ends the request; nothing further is owed.
+ *  · every stage closed (`currentStage` is undefined) — delivered. Signing was the last stage.
+ *  · anything else — live, INCLUDING a `suspended` tender (RESUME_TENDER exists, so a pause is
+ *    not an ending) and a RATIFIED one whose `sign` stage is still open (the award is made but
+ *    the contract is unsigned — the field is still doing procurement work).
+ *
+ * Erring toward «live» is the conservative direction for an archive gate: refusing to archive a
+ * field that turns out to be finished costs a click, archiving one that is mid-tender strands
+ * live work behind a hidden field.
+ */
+export function tenderIsActive(t: Tender): boolean {
+  if (t.lifecycle?.status === 'cancelled') return false;
+  return !!currentStage(t);
+}
+
+/** The in-flight tenders of one field — the count the archive gate names to the user. */
+export function activeTendersOfField(state: State, fieldId: string): Tender[] {
+  return state.tenders.filter((t) => t.fieldId === fieldId && tenderIsActive(t));
+}
+
+/** The fields a picker may offer — archived ones are withdrawn from FUTURE work, never erased. */
+export function liveFields(fields: readonly Field[]): Field[] {
+  return fields.filter((f) => !f.archived);
+}
+
+/** Whether ARCHIVE_FIELD would be accepted, and the live-tender count that decides it. */
+export function fieldArchivable(state: State, fieldId: string): { ok: boolean; activeTenders: number } {
+  const n = activeTendersOfField(state, fieldId).length;
+  return { ok: n === 0, activeTenders: n };
+}
+
 /**
  * Above its own field's FA → enters the MCT cost cycle (6.9) and MDOC witnessing (12.2.2).
  * Fail closed: an unresolvable FA is treated as above authority (the conservative reading —
@@ -637,6 +703,20 @@ export type Action =
   | { type: 'CREATE_FIELD'; fieldId: string; operatorId: string; name: string; nameEn?: string; code: string; contractId: string; contractCode: string; financialAuthorityUSD: number; signedOn: string; expiresOn: string; reason: string; by: Actor }
   // FA is a property of the field's Service Contract (§7.1), not the operator — edit it there
   | { type: 'SET_CONTRACT_FA'; contractId: string; financialAuthorityUSD: number; reason: string; by: Actor }
+  // request 9 «إمكانية التعديل لاحقاً» — a field's DISPLAY names are correctable after creation.
+  // Deliberately narrow: `code` is not renameable (it is quoted in tender codes and exports) and
+  // `operatorId` is not moveable (a field belongs to the company that holds its Service Contract).
+  | { type: 'RENAME_FIELD'; fieldId: string; name: string; nameEn?: string; reason: string; by: Actor }
+  // ق7 — archive, never delete. A field with in-flight tenders is refused (the gate names the count).
+  | { type: 'ARCHIVE_FIELD'; fieldId: string; reason: string; by: Actor }
+  | { type: 'RESTORE_FIELD'; fieldId: string; reason: string; by: Actor }
+  // ق7 — a vendor archives regardless of history: the history is immutable and stays on its file;
+  // archiving only removes it from the ACTIVE registry view and the bidder pickers.
+  | { type: 'ARCHIVE_VENDOR'; vendorId: string; reason: string; by: Actor }
+  | { type: 'RESTORE_VENDOR'; vendorId: string; reason: string; by: Actor }
+  // request 14 — registering a new entity. State companies are NOT creatable here: the five of
+  // them are seeded law (Article 25 / §9 C8.4), not registry data an admin invents.
+  | { type: 'CREATE_VENDOR'; vendorId: string; name: string; mooListed: boolean; reason: string; by: Actor }
   // admin-managed holidays — every add/remove reshapes the working-day calendar (§11.3.4-e) and
   // shifts every open deadline and derived closing RETROACTIVELY, so each carries an Actor + a
   // documented reason and self-audits (attributed, 8.1-e) exactly like its governance siblings
@@ -673,6 +753,15 @@ function patchVendor(state: State, id: string, fn: (v: VendorState) => VendorSta
   const updated = fn(target);
   if (updated === target) return state;
   return { ...state, vendors: state.vendors.map((v) => (v.id === id ? updated : v)) };
+}
+
+/** Same identity contract as patchTender, for the field registry (rename / archive / restore). */
+function patchField(state: State, id: string, fn: (f: Field) => Field): State {
+  const target = state.fields.find((f) => f.id === id);
+  if (!target) return state;
+  const updated = fn(target);
+  if (updated === target) return state;
+  return { ...state, fields: state.fields.map((f) => (f.id === id ? updated : f)) };
 }
 
 /** Same identity contract as patchTender — a refused cap guard (§18–21) leaves state untouched. */
@@ -731,6 +820,11 @@ const usd = (v: number) => `$${v.toLocaleString('en-US')}`;
 
 function withEvent(v: VendorState, e: VendorEvent): VendorEvent[] {
   return [e, ...(v.events ?? [])];
+}
+
+/** Newest-first, exactly like the vendor trail — one reading order across both registries. */
+function withFieldEvent(f: Field, e: FieldEvent): FieldEvent[] {
+  return [e, ...(f.events ?? [])];
 }
 
 /** Governance justification must be 20–2000 chars (mirrors the API `@Length(20, 2000)`). */
@@ -795,6 +889,12 @@ function apply(state: State, action: Action): State {
       // Refuse otherwise — return state unchanged, exactly as the server throws (no invalid tender).
       const field = state.fields.find((f) => f.id === action.fieldId);
       if (!field || (action.operatorId && field.operatorId !== action.operatorId)) return state;
+      // ق7: an ARCHIVED field is withdrawn from FUTURE work. RequestWizard already filters it out
+      // of the picker (liveFields), but a picker is a courtesy — this is the law: no request may be
+      // raised on a field the registry has withdrawn, whatever dispatches it. Refused in the style
+      // of its siblings above — the ORIGINAL state is returned, so the audit wrapper appends no row
+      // for an act that never happened (8.1-e); the archive event on the field is the record.
+      if (field.archived) return state;
       // the field's Service Contract authority (§7.1), not a per-operator or global figure
       const fa = faForFieldId(state, action.fieldId);
       if (fa == null) return state; // no effective contract → fail closed, no creation
@@ -1203,6 +1303,82 @@ function apply(state: State, action: Action): State {
       };
       return auditAccess(next, action.type, target.code, action.by, 'applied');
     }
+    case 'RENAME_FIELD': {
+      const target = state.fields.find((f) => f.id === action.fieldId);
+      if (!target) return state;
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.code, action.by, 'refused', 'reason-invalid');
+      const name = action.name.trim();
+      const nameEn = action.nameEn?.trim() || undefined;
+      if (!name) return auditAccess(state, action.type, target.code, action.by, 'refused', 'name-required');
+      if (name === target.name && nameEn === target.nameEn) return state; // no-op → nothing to record
+      const next = patchField(state, action.fieldId, (f) => ({
+        ...f, name, nameEn,
+        events: withFieldEvent(f, { kind: 'rename', reason: action.reason.trim(), on: todayIso(), detail: `${target.name}→${name}` }),
+      }));
+      return auditAccess(next, action.type, target.code, action.by, 'applied');
+    }
+    case 'ARCHIVE_FIELD': {
+      const target = state.fields.find((f) => f.id === action.fieldId);
+      if (!target) return state;
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.code, action.by, 'refused', 'reason-invalid');
+      if (target.archived) return state; // already archived → silent no-op
+      // ق7 with teeth: hiding a field whose procurement is still running would strand live work
+      // behind an invisible record. The refusal is audited so the attempt is on file (8.1-e).
+      const live = activeTendersOfField(state, action.fieldId).length;
+      if (live > 0) return auditAccess(state, action.type, target.code, action.by, 'refused', 'active-tenders');
+      const next = patchField(state, action.fieldId, (f) => ({
+        ...f, archived: true,
+        events: withFieldEvent(f, { kind: 'archive', reason: action.reason.trim(), on: todayIso() }),
+      }));
+      return auditAccess(next, action.type, target.code, action.by, 'applied');
+    }
+    case 'RESTORE_FIELD': {
+      const target = state.fields.find((f) => f.id === action.fieldId);
+      if (!target) return state;
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.code, action.by, 'refused', 'reason-invalid');
+      if (!target.archived) return state; // not archived → silent no-op
+      const next = patchField(state, action.fieldId, (f) => ({
+        ...f, archived: undefined,
+        events: withFieldEvent(f, { kind: 'restore', reason: action.reason.trim(), on: todayIso() }),
+      }));
+      return auditAccess(next, action.type, target.code, action.by, 'applied');
+    }
+    case 'ARCHIVE_VENDOR': {
+      const target = state.vendors.find((v) => v.id === action.vendorId);
+      if (!target) return state;
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.name, action.by, 'refused', 'reason-invalid');
+      if (target.archived) return state;
+      // NO history gate here, deliberately (ق7): participations, contracts and events are immutable
+      // and remain readable on the file — archiving withdraws the entity from FUTURE selection only.
+      const next = patchVendor(state, action.vendorId, (v) => ({
+        ...v, archived: true, events: withEvent(v, { kind: 'archive', reason: action.reason.trim(), on: todayIso() }),
+      }));
+      return auditAccess(next, action.type, target.name, action.by, 'applied');
+    }
+    case 'RESTORE_VENDOR': {
+      const target = state.vendors.find((v) => v.id === action.vendorId);
+      if (!target) return state;
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.name, action.by, 'refused', 'reason-invalid');
+      if (!target.archived) return state;
+      const next = patchVendor(state, action.vendorId, (v) => ({
+        ...v, archived: undefined, events: withEvent(v, { kind: 'restore', reason: action.reason.trim(), on: todayIso() }),
+      }));
+      return auditAccess(next, action.type, target.name, action.by, 'applied');
+    }
+    case 'CREATE_VENDOR': {
+      if (!govReasonValid(action.reason)) return auditAccess(state, action.type, action.name, action.by, 'refused', 'reason-invalid');
+      const name = action.name.trim();
+      if (!name) return auditAccess(state, action.type, action.name, action.by, 'refused', 'name-required');
+      // 12.4.2 and deriveParticipation both match a bidder to a vendor BY NAME — two vendors sharing
+      // a name would make every participation ambiguous, so the duplicate is refused, not disambiguated.
+      const dupId = state.vendors.some((v) => v.id === action.vendorId);
+      const dupName = state.vendors.some((v) => v.name.trim() === name);
+      if (dupId || dupName) return auditAccess(state, action.type, name, action.by, 'refused', dupId ? 'dup-id' : 'dup-name');
+      // scores start at 0: an unassessed entity must not be born with a capability figure nobody
+      // measured. `isStateCompany` is never set from here — the five are seeded law, not data entry.
+      const created: VendorState = { id: action.vendorId, name, mooListed: action.mooListed, techScore: 0, financialScore: 0, hseScore: 0 };
+      return auditAccess({ ...state, vendors: [...state.vendors, created] }, action.type, name, action.by, 'applied');
+    }
     case 'ADD_HOLIDAY': {
       // ISO date only ('YYYY-MM-DD'); idempotent; kept sorted by date so the calendar is deterministic.
       // Self-audits (applied/refused) with the Actor — a retroactive deadline shift is attributed.
@@ -1268,6 +1444,10 @@ const NON_AUDITED = new Set([
   // access actions audit themselves inside apply() with an outcome + actor the wrapper cannot supply
   'CREATE_USER', 'SET_USER_ROLE', 'SET_USER_SCOPE', 'SET_USER_TWOFA', 'SET_USER_DISABLED',
   'CREATE_OPERATOR', 'CREATE_FIELD', 'SET_CONTRACT_FA',
+  // registry governance (ق7 archive model + request 9 later-edit + request 14 add): every one
+  // self-audits applied/refused with its Actor, exactly like the CREATE_FIELD precedent above.
+  'RENAME_FIELD', 'ARCHIVE_FIELD', 'RESTORE_FIELD',
+  'ARCHIVE_VENDOR', 'RESTORE_VENDOR', 'CREATE_VENDOR',
   // holiday changes self-audit (attributed, with a reason) — a retroactive calendar shift
   'ADD_HOLIDAY', 'REMOVE_HOLIDAY',
 ]);
@@ -1287,6 +1467,13 @@ const CLIENT_ONLY = new Set([
   'CREATE_USER', 'SET_USER_ROLE', 'SET_USER_SCOPE', 'SET_USER_TWOFA', 'SET_USER_DISABLED',
   // there is no /operators endpoint at all — these are local-only by necessity, not by choice
   'CREATE_OPERATOR', 'CREATE_FIELD', 'SET_CONTRACT_FA',
+  // NAMED DEBT (client wave 1, phase 2): the archive model and the entity registry have no server
+  // routes either — /api/fields and /api/service-contracts do not exist at all, and /api/vendors
+  // exposes suspend/lift/ban/scores but neither an archive flag nor a create route. Every screen
+  // that dispatches one of these carries a «محلي» badge or banner so API mode never pretends the
+  // write reached the server. Remove from this set the day the endpoints land.
+  'RENAME_FIELD', 'ARCHIVE_FIELD', 'RESTORE_FIELD',
+  'ARCHIVE_VENDOR', 'RESTORE_VENDOR', 'CREATE_VENDOR',
   // NOTE: ADD_HOLIDAY / REMOVE_HOLIDAY are deliberately NOT here — /api/holidays is wired (below),
   // so in API mode they POST/DELETE to the server; in local mode they self-audit via the reducer.
 ]);
@@ -1759,9 +1946,20 @@ export function seedState(): State {
  * accounts, one renamed identifier — so a v9 blob is carried forward whole and only its
  * accounts' `role` is rewritten. Audit rows are not touched: they are append-only (8.1-e) and
  * are read tolerantly instead (session.ts normalizeRole / access.ts roleKey).
+ *
+ * v11 — the ARCHIVE MODEL (client decision ق7, 2026-08-20): `Field` and `VendorState` gained an
+ * optional `archived` flag and a documented event trail. The key moves because the store shape
+ * moved (execution rule 4 of ops/CLIENT-FEEDBACK-PLAN.md), but the migration itself is a
+ * pass-through: every flag is OPTIONAL and its absence already means «live», so a v10 record is
+ * a valid v11 record unchanged. Nothing is rewritten — and therefore nothing is recorded either.
+ * SEED_MIGRATION_V9 and ROLE_RENAME_V10 were written because those migrations really did change
+ * records; a row asserting a change that never happened is the same fabrication as an unrecorded
+ * one, and the audit log is not a changelog of key names.
  */
-const KEY = 'masaar-operator-v10';
-/** The immediately previous key — same universe, role vocabulary only. */
+const KEY = 'masaar-operator-v11';
+/** The immediately previous key — same universe and vocabulary, additive archive flags only. */
+const V10_KEY = 'masaar-operator-v10';
+/** The key before that — same universe, retired role vocabulary (migrated through v10's path). */
 const V9_KEY = 'masaar-operator-v9';
 /** Pre-v9 keys, newest first — every one migrates through the same audit-preserving path. */
 const LEGACY_KEYS = ['masaar-operator-v8', 'masaar-operator-v7'] as const;
@@ -1864,28 +2062,36 @@ function migrateRoleVocabulary(s: State): State {
   };
 }
 
+/** A persisted blob → the in-memory shape: only the two fields that need normalizing are touched. */
+function normalizeBlob(parsed: State): State {
+  const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
+  return { ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) };
+}
+
 function loadState(): State {
   if (isApiMode) return emptyState(); // hydrated from the server on mount
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      // holidays and approvalTiers are additive with safe defaults, so a v10 blob written before
+      // holidays and approvalTiers are additive with safe defaults, so a v11 blob written before
       // either existed is still valid — normalize on load rather than bumping the key again.
       // (An early build stored holidays as bare date strings; normalize those to { date }.)
-      if (hasShape(parsed)) {
-        const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
-        return { ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) };
-      }
+      if (hasShape(parsed)) return normalizeBlob(parsed);
     }
-    // v9 → v10: same universe, renamed role vocabulary. Everything is kept; only accounts move.
+    // v10 → v11: the archive flags are optional and absent means «live», so the blob IS the
+    // migration — every tender, contract, account, field, vendor and audit row survives verbatim.
+    const v10 = localStorage.getItem(V10_KEY);
+    if (v10) {
+      const parsed: unknown = JSON.parse(v10);
+      if (hasShape(parsed)) return normalizeBlob(parsed);
+    }
+    // v9 → v10 → v11: same universe, renamed role vocabulary. Everything is kept; only accounts
+    // move, and the archive step above adds nothing, so the two hops compose without a second pass.
     const v9 = localStorage.getItem(V9_KEY);
     if (v9) {
       const parsed: unknown = JSON.parse(v9);
-      if (hasShape(parsed)) {
-        const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
-        return migrateRoleVocabulary({ ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) });
-      }
+      if (hasShape(parsed)) return migrateRoleVocabulary(normalizeBlob(parsed));
     }
     for (const legacy of LEGACY_KEYS) {
       const prev = localStorage.getItem(legacy);
