@@ -10,6 +10,7 @@ import { Icon } from '../operator/Icon';
 import { orgName } from '../orgIdentity';
 import { EmptyState } from '../registry/EmptyState';
 import { calendarOf, currentStage, tenderApprovalTier, todayIso, useStore } from '../store';
+import { WhatsNew } from '../WhatsNew';
 import { approvalChain, awaitingTier, decisionQueue } from './adminDerive';
 import {
   companyStats, complianceSeries, completionBuckets, contractsAtStage, SCOPES, tierCountsOf,
@@ -130,6 +131,10 @@ export default function FollowUpRoom() {
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
+      {/* The update strip (spec §2), admin variant — the same three facts as the operator's, with
+          the two links this role can actually open: the A4 brief and the compliance registry. */}
+      <WhatsNew audience="admin" />
+
       <div className="op-page__head">
         <div>
           <h1 className="op-page__title">{t('adroom.title')}</h1>

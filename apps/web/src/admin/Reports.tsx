@@ -4,6 +4,7 @@ import { StatusPill } from '@masaar/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtCount, fmtMoney } from '../operator/derive';
+import { Icon } from '../operator/Icon';
 import { buildCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SectionExplainer } from '../registry/SectionExplainer';
 import { useStampWords } from '../registry/useStampWords';
@@ -120,6 +121,19 @@ export default function Reports() {
 
   return (
     <>
+      {/* The launcher for the A4 platform-update brief (CLIENT-SHOWCASE-SPEC §1). It sits at the
+          TOP of this screen because it is the only document here that is read end to end rather
+          than queried, and because the brief is the one surface that explains the others. */}
+      <section className="card">
+        <div className="lab-headlike">
+          <h2>{tr('reports.briefTitle')}</h2>
+          <a className="btn btn--primary" href="#/admin/reports/update-brief">
+            <Icon name="doc" size={14} />{tr('reports.briefOpen')}
+          </a>
+        </div>
+        <p className="hint">{tr('reports.briefDesc')}</p>
+      </section>
+
       <section className="card">
         <div className="lab-headlike">
           <h2>{tr('reports.title')}</h2>

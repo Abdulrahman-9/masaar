@@ -37,6 +37,7 @@ import CompleteWizard from './operator/wizard/CompleteWizard';
 import EvaluateWizard from './operator/wizard/EvaluateWizard';
 import RequestWizard from './operator/wizard/RequestWizard';
 import TenderStatusReport from './report/TenderStatusReport';
+import UpdateBrief from './report/UpdateBrief';
 import WeeklyDeviationReport from './report/WeeklyDeviationReport';
 import { roleKey } from './admin/access';
 import { TierSplitBar } from './charts/TierSplitBar';
@@ -263,6 +264,18 @@ function Redirect({ to }: { to: string }) {
 
 /** Admin panel — full-screen redesigned shell (dark sidebar + topbar). */
 function renderAdmin(hash: string, onLogout: () => void) {
+  /**
+   * The platform-update brief is an A4 DOCUMENT, so it renders full-screen outside the shell —
+   * exactly like the tender and weekly reports do in the operator portal. A sidebar and a topbar
+   * have no business on a page whose whole point is that it prints. It is matched before the
+   * single-segment dispatch below because `\w` does not match '/', so a two-segment admin address
+   * would otherwise fall through to the follow-up room.
+   *
+   * It stays INSIDE the admin gate (renderAdmin is only reached by a platform role): the brief
+   * reads cross-company figures, which is precisely what an operator session may not see.
+   */
+  if (hash === '#/admin/reports/update-brief') return <UpdateBrief />;
+
   const rv = /^#\/admin\/review\/(.+)$/.exec(hash);
   if (rv) return <AdminShell view="review" onLogout={onLogout}><TenderReview id={rv[1]!} /></AdminShell>;
 

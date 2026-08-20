@@ -1130,6 +1130,9 @@
   "reports": {
     "title": "Reports",
     "hint": "Every figure is recomputed from state via the engine — nothing is stored.",
+    "briefTitle": "Masaar platform update brief",
+    "briefDesc": "An official A4 page on your own report template: the approval ladder with its live ceilings and queues, your portfolio today, and what changed in the platform — to read on screen or print.",
+    "briefOpen": "Open the brief",
     "csv": "Export CSV",
     "print": "Print / PDF",
     "dist": "Method distribution",
@@ -1862,5 +1865,60 @@
       "ahead": "Closed before its planned date — deviation is negative",
       "unplanned": "No planned date on record — nothing to judge, and excluded from the average"
     }
+  },
+  "brief": {
+    "back": "Back to reports",
+    "eyebrow": "Executive brief — platform update",
+    "title": "Masaar platform update brief",
+    "sub": "What changed in the platform, and your portfolio exactly as your own registry holds it at the moment this page is drawn.",
+    "issuer": "Issued by",
+    "parentOrg": "Midland Oil Company (MDOC)",
+    "docRef": "SCPP Rev 1.0 · Masaar",
+    "ladderTitle": "The three-tier approval ladder",
+    "ladderHint": "(ceilings are read from your own approved ladder — no figure is written into this document)",
+    "colTier": "Tier",
+    "colBody": "Deciding body",
+    "colBand": "Value band",
+    "colInBand": "Live requests in tier",
+    "colWaiting": "Awaiting signature now",
+    "noGate": "No approval gate",
+    "ladderNote": "«Live requests in tier» counts open, uncancelled requests; «awaiting signature» counts those of them still undecided — the same figures the follow-up room's tiles open.",
+    "portfolioTitle": "Your portfolio today",
+    "portfolioHint": "(every line computed from the same registry the screens open)",
+    "rowCompanies": "Operating companies",
+    "rowFields": "Oil fields",
+    "rowTenders": "Tenders on record",
+    "rowContracts": "Contracts",
+    "companiesDetail": "each with its own portfolio and fields in the operators registry",
+    "fieldsDetail": "held by the companies above, each under a service contract that sets its financial authority",
+    "contractsDetail": "worth {{value}} — completed {{completed}} · in execution {{inExecution}}",
+    "changesTitle": "What changed",
+    "changesHint": "(facts already shipped in your platform — not promises)",
+    "fact": {
+      "ladder": "The three-tier approval chain replaced the «cost cycle» presentation: a request now reads by its deciding body and its ceiling, not by an internal cycle.",
+      "archive": "Archiving instead of deletion: no record is erased — it is archived and stays readable in the registry and the audit trail.",
+      "stamp": "Every printout and every CSV leaves stamped with the active filters, the row count and the issue date.",
+      "schedule": "The schedule-compliance screen: planned against actual for every stage and every contract, in working days.",
+      "merged": "Registering an operating company and its fields is now one wizard instead of two separate screens.",
+      "gate": "The role gate: the admin panel is closed to company-scoped roles, and every decision fails closed unless the actor's authority is established.",
+      "access": "One access section holds accounts, roles and permissions — including the Joint Management Committee (JMC) seat."
+    },
+    "footer": "Every figure in this brief is computed as the page is drawn, from your own platform registry — nothing here is a stored number."
+  },
+  "whatsnew": {
+    "title": "New in Masaar",
+    "sub": "Three facts from this update",
+    "collapse": "Collapse",
+    "expand": "Show",
+    "dismiss": "Dismiss the «New in Masaar» strip for good",
+    "fact": {
+      "ladder": "The three-tier approval chain: a request reads by its deciding body and its ceiling.",
+      "stamp": "Every printout and CSV carries a stamp naming the active filters, the row count and the date.",
+      "schedule": "Schedule compliance is now readable stage by stage: planned against actual, in working days."
+    },
+    "adminBrief": "The full A4 brief",
+    "adminSchedule": "Schedule-compliance screen",
+    "opTenders": "My tenders — by approval tier",
+    "opWeekly": "Weekly deviation sheet — stamped printout"
   }
 }

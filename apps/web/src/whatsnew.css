@@ -1,0 +1,99 @@
+/* ========================================================================
+   «الجديد في مسار» — the first-entry strip (CLIENT-SHOWCASE-SPEC §2)
+
+   One band, navy-50 on a navy-100 hairline: the calmest surface in the brand
+   that is still distinguishable from a card. It sits ABOVE the page head on
+   both landing screens, so it never displaces the first thing a reader came
+   for. Logical properties only — it mirrors with the document.
+   ======================================================================== */
+.wn {
+  background: var(--brand-navy-50);
+  border: 1px solid var(--brand-navy-100);
+  border-radius: var(--r-lg);
+  padding-block: 10px;
+  padding-inline: 14px;
+  margin-block-end: 18px;
+}
+
+.wn__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wn__mark { display: inline-flex; color: var(--brand-navy-700); }
+.wn__t { font-size: 13px; font-weight: var(--fw-bold); color: var(--brand-navy-900); }
+.wn__s { font-size: 12px; color: var(--fg-3); }
+
+/* the fold control carries its own label, so it needs no icon to be understood */
+.wn__fold {
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  margin-inline-start: auto;
+  padding-block: 4px;
+  padding-inline: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--brand-navy-700);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.wn__fold:hover { background: var(--brand-navy-100); }
+
+.wn__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.wn__x:hover { background: var(--brand-navy-100); color: var(--fg-1); }
+
+.wn__fold:focus-visible,
+.wn__x:focus-visible,
+.wn__link:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+.wn__body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-block-start: 8px;
+  animation: wn-open var(--dur-fast) var(--ease-out);
+}
+
+.wn__facts { margin: 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 4px; }
+.wn__fact { font-size: 12.5px; line-height: 1.75; color: var(--fg-2); }
+
+.wn__links { display: flex; flex-wrap: wrap; gap: 8px; }
+.wn__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  color: var(--brand-navy-800);
+  background: var(--bg-card);
+  border: 1px solid var(--brand-navy-100);
+  border-radius: var(--r-md);
+  padding-block: 6px;
+  padding-inline: 12px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.wn__link:hover { background: var(--brand-navy-50); }
+
+/* 120ms of state feedback on open — the only motion here, and it is not entrance choreography */
+@keyframes wn-open {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wn__body { animation: none; }
+  .wn__fold, .wn__x, .wn__link { transition: none; }
+}

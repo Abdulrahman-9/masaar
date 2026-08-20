@@ -1,6 +1,7 @@
 import { stageByKey } from '@masaar/scpp-rules';
 import { useTranslation } from 'react-i18next';
 import { calendarOf, todayIso, useStore } from '../store';
+import { WhatsNew } from '../WhatsNew';
 import { deriveTasks, fmtCount, fmtDate, groupTasks, STAGE_CLAUSE, STAGE_ICON, type DerivedTask, type TaskGroup } from './derive';
 import { Icon } from './Icon';
 
@@ -28,6 +29,11 @@ export default function Inbox() {
 
   return (
     <div className="op-page op-page--inbox">
+      {/* The update strip (spec §2) — above the head, so it never displaces the first thing an
+          operator opens this screen for, and gone for good once dismissed. Operator variant: its
+          links stay inside this portal, because #/admin is closed to company-scoped roles. */}
+      <WhatsNew audience="operator" />
+
       <div className="op-page__head">
         <div>
           <h1 className="op-page__title">{t('inbox.title')}</h1>

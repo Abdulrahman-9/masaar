@@ -59,7 +59,14 @@
 .rp-sec__t { font-size: 14.5px; font-weight: var(--fw-bold); }
 .rp-sec__hint { font-size: 10.5px; color: var(--ink-3); }
 .rp-p { margin: 0; font-size: 12px; line-height: 1.9; color: var(--ink-2); }
+/* the standfirst under a report's H1 — one class instead of a per-report inline margin */
+.rp-sub { margin-block-start: 6px; }
 .rp-mono { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; }
+/* A machine figure inside a table cell: an LTR island that still anchors to the COLUMN's start
+   edge. `direction: ltr` alone re-anchors the text to the physical left, so in an RTL table the
+   number drifts away from its own column head — the same defect `td.mono` fixes in styles.css.
+   A class rather than a per-cell inline style, so a report carries no numeric literals at all. */
+.rp-num { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; text-align: start; }
 
 .rp-kvtbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
 .rp-kvtbl td { padding: 6px 10px; border: 1px solid rgba(11, 19, 32, 0.2); }
