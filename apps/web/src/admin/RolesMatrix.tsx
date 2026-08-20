@@ -13,7 +13,7 @@ import {
 } from './capabilities';
 import { initials } from './Users';
 
-const ROLES: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+const ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 const GLYPH: Record<CellState, string> = { yes: '✓', scoped: '✓⌐', open: '○', no: '—', session: '⊘', conflict: '⚠' };
 const LEGEND: { state: CellState; key: string }[] = [

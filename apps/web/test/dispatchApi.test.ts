@@ -28,7 +28,7 @@ describe('dispatch outcome — API mode failure path', () => {
       outcome = await result.current.dispatch({
         type: 'RATIFY',
         tenderId: 't1',
-        by: { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' },
+        by: { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' },
       });
     });
 

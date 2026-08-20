@@ -1,4 +1,4 @@
-import { isOperatorRole, type ApiRole } from '../session';
+import { API_ROLES, isOperatorRole, normalizeRole, type ApiRole } from '../session';
 import type { AuditEntry, UserAccount } from '../store';
 import { COUNTED, type Capability, type CapDomain } from './capabilities';
 
@@ -56,8 +56,7 @@ export function withheldFrom(role: ApiRole): Capability[] {
 
 /** Which roles do hold a capability — used to attribute what a role cannot do. */
 export function rolesHolding(cap: Capability): ApiRole[] {
-  const ALL: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
-  return ALL.filter((r) => roleHas(cap, r));
+  return API_ROLES.filter((r) => roleHas(cap, r));
 }
 
 /** Impactful actions: writes that are actually role-restricted. Reads and session rows never count. */
@@ -87,7 +86,7 @@ export function holdersOfRole(role: ApiRole, users: UserAccount[]): UserAccount[
  * Governance roles with no enabled holder. Every call against such a role is refused 403 and
  * audited ROLE_REFUSED — an operational defect, not an empty set.
  */
-export const GOVERNANCE_ROLES: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR'];
+export const GOVERNANCE_ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR'];
 
 export function orphanRoles(users: UserAccount[]): ApiRole[] {
   return GOVERNANCE_ROLES.filter((r) => holdersOfRole(r, users).length === 0);
@@ -108,26 +107,35 @@ export function rolesOrphanedBy(users: UserAccount[], userId: string, next: { ro
   return orphanRoles(after).filter((r) => !before.includes(r));
 }
 
-/** i18n key suffix for `roles.names.*`. */
-export function roleKey(role: ApiRole): string {
-  switch (role) {
+/**
+ * i18n key suffix for `roles.names.*`.
+ *
+ * Widened to `string` on purpose: audit rows are append-only (8.1-e), so a row written before
+ * the 2026-08-20 rename still cites `ROC_ADMIN`. `normalizeRole` resolves the retired name to
+ * its current one so history renders under today's label instead of falling through to a
+ * wrong role — and a name that matches nothing renders AS unknown rather than as an operator.
+ */
+export function roleKey(role: ApiRole | string): string {
+  switch (normalizeRole(role)) {
     case 'SUPER_ADMIN': return 'superAdmin';
-    case 'ROC_ADMIN': return 'rocAdmin';
+    case 'MDOC_ADMIN': return 'mdocAdmin';
     case 'EVALUATION': return 'evaluation';
     case 'AUDITOR': return 'auditor';
     case 'OPERATOR_ADMIN': return 'operatorAdmin';
-    default: return 'operatorUser';
+    case 'OPERATOR_USER': return 'operatorUser';
+    default: return 'unknown';
   }
 }
 
-/** CSS modifier for `.acc-role--*`. */
-export function roleTone(role: ApiRole): string {
-  switch (role) {
+/** CSS modifier for `.acc-role--*`. Tolerant on the same terms as `roleKey`. */
+export function roleTone(role: ApiRole | string): string {
+  switch (normalizeRole(role)) {
     case 'SUPER_ADMIN': return 'super';
-    case 'ROC_ADMIN': return 'roc';
+    case 'MDOC_ADMIN': return 'mdoc';
     case 'EVALUATION': return 'evaluation';
     case 'AUDITOR': return 'auditor';
-    default: return 'operator';
+    case 'OPERATOR_ADMIN': case 'OPERATOR_USER': return 'operator';
+    default: return 'unknown';
   }
 }
 

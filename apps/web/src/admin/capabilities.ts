@@ -47,16 +47,18 @@ export interface Capability {
   specGrants?: ApiRole[];
 }
 
-export const CAP_REV = 'gt-2026-07-22';
-export const CAP_EXTRACTED_ON = '2026-07-22';
+// re-verified against every *.controller.ts on 2026-08-20 after the ROC→MDOC role rename:
+// the surface is unchanged (43 rows, same guards) — only the identifier each @Roles names.
+export const CAP_REV = 'gt-2026-08-20';
+export const CAP_EXTRACTED_ON = '2026-08-20';
 
 /** The seven domains that enter the counted universe, in display order. */
 export const COUNTED_DOMAINS: CapDomain[] = ['tenders', 'mct', 'contracts', 'vendors', 'users', 'audit', 'holidays'];
 
 const OPERATOR_ROLES: ApiRole[] = ['OPERATOR_ADMIN', 'OPERATOR_USER', 'SUPER_ADMIN'];
-const GOV: ApiRole[] = ['ROC_ADMIN', 'SUPER_ADMIN'];
-const VENDOR_READ: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR'];
-const ALL_SIX: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+const GOV: ApiRole[] = ['MDOC_ADMIN', 'SUPER_ADMIN'];
+const VENDOR_READ: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR'];
+const ALL_SIX: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 /** Shorthand: every field is explicit at the call site except the derived `mutating`. */
 const cap = (c: Omit<Capability, 'mutating'>): Capability => ({
@@ -138,17 +140,17 @@ export const CAPABILITIES: Capability[] = [
   }),
   cap({
     id: 'cancelTender', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/cancel',
-    roles: ['OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
+    roles: ['OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
     label: { ar: 'إلغاء المناقصة بموجب مبررات', en: 'Cancel a tender with justification' },
   }),
   cap({
     id: 'suspendTender', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/suspend',
-    roles: ['OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
+    roles: ['OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
     label: { ar: 'تعليق إجراءات المناقصة', en: 'Suspend tender proceedings' },
   }),
   cap({
     id: 'resumeTender', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/resume',
-    roles: ['OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
+    roles: ['OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN'], scoped: true, stateGated: false, clause: '', guard: 'roles',
     label: { ar: 'استئناف إجراءات المناقصة', en: 'Resume tender proceedings' },
   }),
 
@@ -177,7 +179,7 @@ export const CAPABILITIES: Capability[] = [
   /* ---------------- contracts (5) ---------------- */
   cap({
     id: 'listContracts', domain: 'contracts', method: 'GET', route: '/api/contracts',
-    roles: ['SUPER_ADMIN', 'ROC_ADMIN', 'AUDITOR'], scoped: false, stateGated: false, clause: '', guard: 'roles',
+    roles: ['SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR'], scoped: false, stateGated: false, clause: '', guard: 'roles',
     label: { ar: 'استعراض العقود المبرمة', en: 'List signed contracts' },
   }),
   cap({
@@ -229,7 +231,7 @@ export const CAPABILITIES: Capability[] = [
   }),
   cap({
     id: 'setVendorScores', domain: 'vendors', method: 'PATCH', route: '/api/vendors/:id/scores',
-    roles: ['ROC_ADMIN', 'EVALUATION', 'SUPER_ADMIN'], scoped: false, stateGated: false, clause: '', guard: 'roles',
+    roles: ['MDOC_ADMIN', 'EVALUATION', 'SUPER_ADMIN'], scoped: false, stateGated: false, clause: '', guard: 'roles',
     label: { ar: 'تحديث درجات تقييم المجهز', en: 'Update vendor scores' },
   }),
 
@@ -256,7 +258,7 @@ export const CAPABILITIES: Capability[] = [
   /* ---------------- audit (1) ---------------- */
   cap({
     id: 'listAuditLog', domain: 'audit', method: 'GET', route: '/api/audit',
-    roles: ['SUPER_ADMIN', 'ROC_ADMIN', 'AUDITOR'], scoped: false, stateGated: false, clause: '6.7', guard: 'roles',
+    roles: ['SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR'], scoped: false, stateGated: false, clause: '6.7', guard: 'roles',
     label: { ar: 'استعراض سجل التدقيق', en: 'Read the audit log' },
   }),
 

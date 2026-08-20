@@ -2,7 +2,8 @@ import { METHODS, stageByKey } from '@masaar/scpp-rules';
 import { KpiTile, StatusPill } from '@masaar/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { calendarOf, currentStage, todayIso, useStore, type Tender } from '../store';
+import { loadSession } from '../session';
+import { calendarOf, currentStage, fieldsOfOperator, todayIso, useStore, type Tender } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
@@ -47,7 +48,13 @@ export default function TendersList() {
 
   const [q, setQ] = useState('');
   const [method, setMethod] = useState(0);
+  const [fieldId, setFieldId] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+
+  // the field filter is scoped to the signed-in company, exactly like the request wizard
+  // (RequestWizard: loadSession()?.companyId → the operator's own fields). Unscoped it listed
+  // the whole 13-field / 12-company registry inside one operator's portal.
+  const myFields = fieldsOfOperator(state, loadSession()?.companyId);
 
   // One derived task per open tender (its current stage) → its urgency group.
   // Reused, never re-derived, so the KPI counts stay honest to deriveTasks.
@@ -63,10 +70,11 @@ export default function TendersList() {
       state.tenders.filter((x) => {
         if (qn && !(`${x.title[lang]} ${x.code}`.toLowerCase().includes(qn))) return false;
         if (method !== 0 && x.methodId !== method) return false;
+        if (fieldId && x.fieldId !== fieldId) return false;
         if (statusFilter && tenderStatus(x, today, cal) !== statusFilter) return false;
         return true;
       }),
-    [state.tenders, qn, method, statusFilter, lang, today],
+    [state.tenders, qn, method, fieldId, statusFilter, lang, today],
   );
 
   // KPIs read from the filtered set — what the screen shows is what they count.
@@ -94,6 +102,7 @@ export default function TendersList() {
   const clearFilters = () => {
     setQ('');
     setMethod(0);
+    setFieldId('');
     setStatusFilter('');
   };
 
@@ -103,6 +112,9 @@ export default function TendersList() {
         <div>
           <h1 className="op-page__title">{t('tenders.title')}</h1>
           <div className="op-page__sub">{t('reg.tlist.sub', { n: fmtCount(state.tenders.length, lang) })}</div>
+          {/* the same one-line definition of «المطابقة» the admin registry carries (request 8 / ق4) —
+              one wording, so operator and admin argue from the same sentence */}
+          <div className="op-page__def">{t('match.def')}</div>
         </div>
         <a className="op-btn-primary" href="#/operator/new">
           <Icon name="plus" size={14} />
@@ -124,20 +136,40 @@ export default function TendersList() {
           style={{ width: 280, marginInlineStart: 0 }}
         />
         <FilterChips chips={filterChips} onSelect={(key) => setStatusFilter(key as StatusFilter)} lang={lang} />
-        <select
-          className="reg-select"
-          value={method}
-          aria-label={t('reg.tlist.allMethods')}
-          onChange={(e) => setMethod(Number(e.target.value))}
-          style={{ marginInlineStart: 'auto' }}
-        >
-          <option value={0}>{t('reg.tlist.allMethods')}</option>
-          {METHODS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {`${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})`}
-            </option>
-          ))}
-        </select>
+        {/* the two dimension filters travel together to the row's end, and wrap as one pair
+            rather than leaving a single orphaned select on a line of its own */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginInlineStart: 'auto' }}>
+          <select
+            className="reg-select"
+            value={method}
+            aria-label={t('reg.tlist.allMethods')}
+            onChange={(e) => setMethod(Number(e.target.value))}
+          >
+            <option value={0}>{t('reg.tlist.allMethods')}</option>
+            {METHODS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {`${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})`}
+              </option>
+            ))}
+          </select>
+          {/* filter by oil field (request 8) — THIS company's fields only, and rendered only when
+              there are any: none in API mode (no /fields route) and none for a session that names
+              no company. Either way the control is absent rather than offering a choice the
+              account has no scope over. */}
+          {myFields.length > 0 && (
+            <select
+              className="reg-select"
+              value={fieldId}
+              aria-label={t('reg.tlist.allFields')}
+              onChange={(e) => setFieldId(e.target.value)}
+            >
+              <option value="">{t('reg.tlist.allFields')}</option>
+              {myFields.map((f) => (
+                <option key={f.id} value={f.id}>{lang === 'ar' ? f.name : f.nameEn ?? f.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {state.tenders.length === 0 ? (
@@ -207,7 +239,7 @@ export default function TendersList() {
                         </div>
                       </td>
                       <td>
-                        <StatusPill status={status}>{t(`status.${status}`)}</StatusPill>
+                        <StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill>
                       </td>
                       <td className="op-end">
                         <DevChip wd={tenderDeviationWd(x, today, cal)} />

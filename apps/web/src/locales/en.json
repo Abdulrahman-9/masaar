@@ -45,9 +45,9 @@
     "kpis": "KPI tiles (count-up)",
     "cap": "Cap meter — Variation Orders",
     "capHint": "Drag to simulate the VO value (cap = 10% of contract value)",
-    "rail": "Working-day rail — MCT cycle",
+    "rail": "Working-day rail — 6.9 deadlines",
     "railHint": "Drag to simulate passing days (14 & 21 WD deadlines)",
-    "railTitle": "MCT cycle — tender",
+    "railTitle": "Working-day deadlines — tender",
     "verdictTitle": "The ±20% verdict strip",
     "stepper": "Bid-entry stepper",
     "step1": "Technical opening",
@@ -56,17 +56,11 @@
     "step4": "Commercial analysis"
   },
   "operator": {
-    "title": "My tenders",
-    "newRequest": "New purchase request",
     "value": "Value",
-    "progress": "Stages",
-    "deviationDays": "Deviation",
-    "allDone": "All stages complete"
+    "deviationDays": "Deviation"
   },
   "shell": {
     "operatorLabel": "Operator",
-    "company": "Al-Waha China Oilfield Co.",
-    "contractRef": "AHDAB · contract 2024–2031",
     "creditLabel": "Design & development",
     "creditName": "Eng. Abdulrahman Ahmed Obaid",
     "searchPlaceholder": "Search by name or code — jumps to the file",
@@ -98,7 +92,6 @@
   },
   "notif": {
     "title": "Notifications",
-    "markRead": "Mark read",
     "foot": "A notice tied to a tender opens its step directly — the same source as “Required of me today”; contract notices are followed from the contracts registry.",
     "empty": "No active notifications"
   },
@@ -114,7 +107,7 @@
     "colStage": "Current stage",
     "colProgress": "Progress",
     "colStatus": "Status",
-    "colDeviation": "Deviation",
+    "colDeviation": "Plan conformance (working days)",
     "colActions": "Actions",
     "preview": "Preview",
     "file": "File",
@@ -126,7 +119,7 @@
     "progress": "In progress",
     "done": "Complete",
     "risk": "Warning",
-    "delayed": "Deviation",
+    "delayed": "Delayed",
     "blocked": "Blocked"
   },
   "dev": {
@@ -183,7 +176,6 @@
     "hereLabel": "You are here",
     "hereRequired": "Required: {{req}}",
     "hereCtaLabel": "Open wizard",
-    "wizardSoon": "The stage wizard is built in the upcoming wizards batch — progress autosaves",
     "tabs": {
       "timeline": "Timeline",
       "docs": "Documents",
@@ -232,7 +224,7 @@
       "r": "SCPP 10.4"
     },
     "announce": {
-      "t": "Public tender: three newspapers + the LC and ROC websites, for no less than 21 days, with no conditional pre-qualification.",
+      "t": "Public tender: three newspapers + the operator and MDOC websites, for no less than 21 days, with no conditional pre-qualification.",
       "r": "SCPP 11.1"
     },
     "invite": {
@@ -256,7 +248,7 @@
       "r": "SCPP 6.6 · 6.9.3"
     },
     "ratify": {
-      "t": "Above Financial Authority requires company ratification, and the MCT is notified of the final value after award.",
+      "t": "Above Financial Authority requires company ratification, and the approving body is notified of the final value after award.",
       "r": "SCPP 12.2.2 · 6.9.4"
     },
     "sign": {
@@ -268,7 +260,6 @@
     "title": "Tender documents",
     "sub": "No stage closes before its required documents are complete",
     "stageLabel": "Stage: {{stage}}",
-    "upload": "Upload",
     "markReceived": "Mark received",
     "stDone": "Received",
     "stMissing": "Missing — required now",
@@ -450,7 +441,7 @@
     "title": "Evaluation results wizard",
     "final": "Send recommendation for ratification",
     "doneTitle": "Recommendation sent for ratification",
-    "doneDesc": "The recommendation and its minutes are now with management in the Follow-up Room. After ratification the MCT is notified of the final value and the tender moves to contract signing.",
+    "doneDesc": "The recommendation and its minutes are now with management in the Follow-up Room. After ratification the approving body is notified of the final value and the tender moves to contract signing.",
     "s0": "Technical results",
     "s1": "Open commercial envelopes",
     "s2": "±20% check",
@@ -615,13 +606,12 @@
     "wk_title": "Weekly deviation report",
     "wk_eyebrow": "Oversight report — O/1",
     "wk_sub": "Portfolio deviation and SCPP deadline compliance per operator",
-    "wk_period": "Week",
     "wk_generated": "Generated on",
     "wk_sec1": "Portfolio summary",
     "wk_kpiOpen": "Open tenders",
     "wk_kpiLate": "Late stages",
     "wk_kpiCompliance": "Schedule compliance",
-    "wk_kpiMct": "In MCT cycle",
+    "wk_kpiMct": "Above operator authority",
     "wk_sec2": "Late tenders — ranked by deviation",
     "wk_colTender": "Tender",
     "wk_colStage": "Stalled stage",
@@ -630,7 +620,7 @@
     "wk_noLate": "No late stages this week — the whole portfolio is within its deadlines.",
     "wk_sec3": "SCPP deadline compliance",
     "wk_ann21": "Public announcements ≥ 21 days",
-    "wk_mct14": "MCT meetings within 14 WD",
+    "wk_mct14": "Cost-accreditation meetings within 14 WD",
     "wk_footer": "Periodic oversight report issued by the Masaar system — for administrative and audit use"
   },
   "adnav": {
@@ -643,7 +633,7 @@
     "contracts": "Post-award contracts",
     "entities": "Entities",
     "reports": "Reports",
-    "mct": "MCT cycle",
+    "approvals": "Approval chain",
     "compliance": "Compliance & committees",
     "paths": "Paths guide",
     "audit": "Audit log",
@@ -674,11 +664,9 @@
     "noLate": "No late stages — the whole portfolio is within its deadlines."
   },
   "adtenders": {
-    "sub": "{{n}} tenders across the portfolio · click any row to review the award",
     "colRatify": "Ratification"
   },
   "entity": {
-    "registrySub": "{{n}} registered entities · click any row to open the full entity file",
     "participation": "Participation",
     "bids": "bids",
     "wins": "wins",
@@ -730,43 +718,12 @@
     "noContracts": "No contracts linked to this entity."
   },
   "new": {
-    "title": "New purchase request",
-    "name": "Request name & scope",
-    "budgetCode": "Budget code",
-    "value": "Estimated value (USD)",
-    "flags": "Request circumstances",
-    "flagSpecialized": "Specialized works / emergency",
-    "flagComplex": "Technically complex scope",
-    "flagPreq": "Pre-qualified list available",
-    "flagRecent": "Bidders qualified ≤ 12 months ago, similar scope",
-    "soleCase": "Sole-source case",
-    "soleNone": "Not applicable",
-    "suggested": "Engine-suggested method",
-    "minParticipants": "Minimum participants",
-    "override": "Override suggestion (requires justification)",
-    "overrideNone": "Accept suggestion",
-    "justification": "Override justification",
-    "justificationHint": "Mandatory when departing from the engine suggestion",
-    "splitWarning": "Warning: close requests under the same budget code jointly exceed Financial Authority — splitting is prohibited.",
-    "submit": "Create request & generate tender code"
-  },
-  "detail": {
-    "back": "→ My tenders",
-    "tabs": {
-      "plan": "Stage scheduling",
-      "announce": "Announcement & invitations",
-      "bids": "Bid entry",
-      "close": "Complete stage"
-    }
+    "minParticipants": "Minimum participants"
   },
   "plan": {
     "stage": "Stage",
-    "from": "Planned from",
     "to": "Planned to",
-    "actual": "Actual close",
-    "status": "Status",
-    "awardDate": "Expected award date",
-    "announceMin": "Announcement period below the minimum"
+    "actual": "Actual close"
   },
   "ann": {
     "mode": "Invitation mode",
@@ -777,33 +734,17 @@
     "newspaper": "Newspaper",
     "invitees": "Invitee count",
     "lcSite": "Published on LC website",
-    "rocSite": "Published on ROC website",
+    "mdocSite": "Published on the MDOC website",
     "preq": "All invitees from the pre-qualified list",
     "checks": "Pre-publish checks",
     "publish": "Publish announcement",
     "publishedOn": "Published on"
   },
   "bids": {
-    "bidder": "Bidder",
     "docs": "Docs",
-    "bond": "Bond",
-    "technical": "Technical result",
-    "price": "Price (USD)",
     "pass": "Qualified",
     "fail": "Not qualified",
-    "locked": "Locked — 12.4.2",
-    "applied": "Applied",
-    "qualified": "Qualified",
-    "priced": "Priced",
-    "addBidder": "Add bidder…"
-  },
-  "close": {
-    "stage": "Current stage",
-    "actualDate": "Actual closing date",
-    "docs": "Required documents",
-    "missing": "Missing documents",
-    "complete": "Complete stage",
-    "deviation": "Deviation at this date"
+    "qualified": "Qualified"
   },
   "docs": {
     "stage-report": "Stage report",
@@ -816,8 +757,8 @@
     "title": "Sign in to Masaar",
     "hint": "Role-scoped session — operators see only their own company.",
     "role": "Role (for the demo)",
-    "roleOperator": "Operator admin — Basra Energy",
-    "roleRoc": "ROC administration",
+    "roleOperator": "Operator admin — AlWaha",
+    "roleMdoc": "MDOC administration — Midland Oil Company",
     "roleSuper": "Super Admin (system)",
     "sso": "Sign in with Azure AD",
     "ssoNote": "Mock — replaced by MSAL once the corporate tenant is available.",
@@ -829,53 +770,83 @@
   },
   "admin": {
     "title": "Admin dashboard",
-    "sub": {
-      "overview": "Overview",
-      "mct": "MCT cycle",
-      "contracts": "Contracts",
-      "paths": "Paths guide",
-      "audit": "Audit log",
-      "compliance": "Compliance",
-      "vendors": "Vendors",
-      "reports": "Reports",
-      "roles": "Roles"
-    },
     "kpiOpen": "Open tenders",
     "kpiRatify": "Awaiting ratification",
     "kpiCompliance": "Schedule compliance",
-    "kpiMct": "In MCT cycle",
-    "alerts": "Deviation & deadline alerts",
-    "alertsHint": "Sorted by severity — accumulated deviation first, then stages past their plan.",
-    "noAlerts": "No active alerts",
-    "pastPlanned": "past plan",
+    "kpiAwaitJmc": "Awaiting Joint Management Committee (JMC) approval",
+    "kpiAwaitMdoc": "Awaiting Midland Oil Company (MDOC) approval",
     "allTenders": "All tenders",
     "allMethods": "All methods",
     "code": "Code",
-    "titleCol": "Title",
-    "method": "Method",
-    "stage": "Current stage"
+    "titleCol": "Title"
   },
   "mct": {
-    "title": "MCT cycle — tenders above Financial Authority",
-    "hint": "A live working-day rail from official notification; the prevailing estimate settles automatically per 6.9.",
-    "none": "No cases above Financial Authority right now",
-    "rail": "Since notification",
-    "prevailing": {
-      "PENDING": "Cycle running",
-      "AGREED": "Agreed estimate",
-      "LC": "LC estimate prevails",
-      "MCT": "MCT estimate prevails"
+    "accredited": "Accredited estimate"
+  },
+  "tier": {
+    "pill": {
+      "OPERATOR": "T1 · Operator",
+      "JMC": "T2 · JMC",
+      "MDOC": "T3 · MDOC"
     },
-    "cycle": {
-      "notified": "Official notification",
-      "meeting": "Meeting",
-      "agreement": "Agreement",
-      "award": "Award"
+    "name": {
+      "OPERATOR": "T1",
+      "JMC": "T2",
+      "MDOC": "T3"
     },
-    "lcEstimate": "LC estimate",
-    "mctEstimate": "MCT estimate",
-    "accredited": "Accredited estimate",
-    "lowestBid": "Lowest qualified bid"
+    "body": {
+      "OPERATOR": "The operating company itself",
+      "JMC": "Joint Management Committee (JMC)",
+      "MDOC": "Midland Oil Company (MDOC)"
+    },
+    "band": {
+      "OPERATOR": "Within the operator's own authority: an estimated value of {{max}} or below — follow-up and audit only, no approval gate.",
+      "JMC": "Above the operator's authority: more than {{min}} and up to {{max}} — the Joint Management Committee gate.",
+      "MDOC": "Above the JMC ceiling: more than {{min}} — the parent company gate."
+    },
+    "sentence": "This tender sits in tier {{tier}} — the decision rests with {{body}}."
+  },
+  "approvals": {
+    "title": "Approval chain",
+    "sub": "{{n}} tenders above the operator's own authority — each with the body its decision waits on, and where that decision stands.",
+    "explainTitle": "What is this chain? — the approval ladder at its current ceilings",
+    "explainIntro": "Every purchase request is measured by its estimated value against one ladder that applies to all operating companies; the ladder — not the kind of work — is what decides who signs. Only tenders that passed their own company's authority appear here.",
+    "explainFailClosed": "Both ceilings are inclusive: a value equal to the ceiling stays in the lower tier. If the ladder configuration is missing or out of order, the tender is read conservatively as the highest tier — a request whose clearing body cannot be established must not be treated as cleared by the lowest one.",
+    "localLadder": "The ladder ceilings are in-app configuration — no server route issues them yet; the figures shown are the same ones the tiers are derived from here.",
+    "kpiJmc": "Awaiting JMC",
+    "kpiMdoc": "Awaiting MDOC",
+    "kpiRatified": "Ratified this month",
+    "allTiers": "All tiers",
+    "allFields": "All fields",
+    "searchPh": "Search by code or title",
+    "colField": "Field",
+    "colValue": "Estimated value",
+    "colTier": "Tier",
+    "colBody": "Awaiting body",
+    "colDecision": "Decision",
+    "dec": {
+      "pending": "Awaiting decision",
+      "ratified": "Ratified",
+      "returned": "Returned with notes",
+      "cancelled": "Cancelled",
+      "suspended": "Suspended"
+    },
+    "noField": "No field linked: either the tender predates field linkage, or the field registry is not loaded in API mode.",
+    "emptyStore": "No tender is above the operator's authority right now — every live request is {{max}} or below, so none of them waits on an approval gate.",
+    "noMatch": "No tender matches the current filters.",
+    "clearFilters": "Clear filters",
+    "exportCsv": "Export CSV",
+    "toastExport": "Approval chain exported with the current filters."
+  },
+  "match": {
+    "def": "«Plan conformance» compares what was actually done with what was planned: for each stage the difference between its planned and its actual completion date is counted in working days (weekends and public holidays excluded); positive is late, negative is early — and the tender's status follows where today sits against the end of its current stage.",
+    "devDef": "The difference in working days between a stage's planned and actual completion — and, for the stage still open, between its planned end and today. Positive is late, negative is early.",
+    "status": {
+      "progress": "In progress: today has not reached the planned end of the current stage.",
+      "risk": "Warning: two working days or fewer remain until the planned end of the current stage.",
+      "delayed": "Delayed: today is past the planned end of the current stage.",
+      "done": "Complete: every stage of the tender was closed with an actual completion date."
+    }
   },
   "contracts": {
     "title": "Post-award contract management",
@@ -1000,7 +971,7 @@
     "empty": "No active notifications",
     "noTarget": "Contract-level notice — no linked tender file to open; follow it from the contracts registry.",
     "stageLate": "Tender {{code}}: the current stage is past its planned date.",
-    "mctMeeting": "Tender {{code}}: {{days}} working days to the MCT meeting deadline (14 WD).",
+    "mctMeeting": "Tender {{code}}: {{days}} working days to the cost-accreditation meeting deadline (14 WD).",
     "mctAgreement": "Tender {{code}}: {{days}} working days to the agreement cap (21 WD).",
     "guarantee": "Contract {{code}}: a guarantee expires on {{date}} — renew before lapse."
   },
@@ -1021,7 +992,7 @@
     "until": "until"
   },
   "compliance": {
-    "nomTitle": "ROC committee nominations (12.2)",
+    "nomTitle": "MDOC committee nominations (12.2)",
     "nomHint": "Tier derives from value vs Financial Authority; the deadline runs from the trigger date — a missed deadline lets the LC proceed.",
     "tier": "Participation tier",
     "deadline": "Nomination deadline",
@@ -1034,8 +1005,6 @@
     "open": "Open",
     "lcTitle": "Local content (§9 / Article 25)",
     "lcHint": "Applies above authority in drilling / engineering-construction / heavy-materials scopes. The status is derived: the 20% is a proposed figure in the documents, not an automatic threshold — a documented decline is a lawful exemption, not a breach.",
-    "company": "Company",
-    "response": "Response",
     "colScope": "Scope",
     "colStatus": "Local-content status",
     "colResponses": "State-company responses",
@@ -1063,15 +1032,14 @@
     "noContract": "No effective Service Contract"
   },
   "roles": {
-    "title": "The six-role permission matrix",
-    "role": "Role",
     "names": {
       "superAdmin": "Super Admin",
-      "rocAdmin": "ROC Administration",
+      "mdocAdmin": "MDOC Administration",
       "evaluation": "Evaluation Committees",
       "auditor": "Auditor",
       "operatorAdmin": "Operator Admin",
-      "operatorUser": "Operator User"
+      "operatorUser": "Operator User",
+      "unknown": "Role retired from the register"
     }
   },
   "reports": {
@@ -1082,7 +1050,7 @@
     "dist": "Method distribution",
     "deadlines": "SCPP deadline compliance",
     "ann21": "Public announcements ≥ 21 days",
-    "mct14": "MCT meetings within 14 WD",
+    "mct14": "Cost-accreditation meetings within 14 WD",
     "leaderboard": "Tenders ranked by compliance",
     "compliance": "Compliance",
     "expiring": "Guarantees expiring within 60 days",
@@ -1244,7 +1212,6 @@
     "confirm": "Confirm",
     "newRole": "New role",
     "company": "Company",
-    "noCompany": "No company",
     "willGain": "Gains {{n}} capabilities",
     "willLose": "Loses {{n}} capabilities",
     "orphanWarn": "Warning: this change leaves “{{roles}}” with no enabled holder — every call to its capabilities will be refused.",
@@ -1271,7 +1238,6 @@
     "toastTwoFa": "Updated the two-factor attribute for “{{name}}” — recorded in the audit log",
     "toastDisable": "Disabled “{{name}}” — the account now holds no capability — recorded in the audit log",
     "toastEnable": "Re-enabled “{{name}}” — recorded in the audit log",
-    "toastRefused": "Refused: {{why}} — the attempt was recorded in the audit log",
     "toastExport": "Access registry exported locally"
   },
   "caps": {
@@ -1308,7 +1274,7 @@
     "statReads": "Reads",
     "statDomains": "Domains",
     "layer_SUPER_ADMIN": "Runs the platform and concentrates every duty",
-    "layer_ROC_ADMIN": "Ratifies, and governs contracts and vendors",
+    "layer_MDOC_ADMIN": "Ratifies, and governs contracts and vendors",
     "layer_EVALUATION": "Opens and evaluates, without ratifying",
     "layer_AUDITOR": "Reads, never writes — by separation of duties",
     "layer_OPERATOR_ADMIN": "Documents and cancels, within their company",
@@ -1321,26 +1287,21 @@
   },
   "operators": {
     "title": "Operators & financial authority",
-    "sub": "{{n}} operating companies — each company's Financial Authority (§7) governs MCT entry, the ROC participation tier, and split detection",
+    "sub": "{{n}} operating companies — each company's Financial Authority (§7) governs when a request passes the company's own authority, the MDOC participation tier, and split detection",
     "add": "Add operator",
     "addConfirm": "Create operator",
-    "editFa": "Edit authority",
     "colCompany": "Operating company",
     "colFa": "Financial authority (§7)",
     "colAccounts": "Accounts",
     "colTenders": "Tenders",
     "colAboveFa": "Above authority",
     "nAccounts": "{{n}} enabled of {{all}}",
-    "nAboveFa": "{{n}} in the cost cycle",
-    "aboveFaNote": "Tenders above this company's authority, so they entered the MCT cost cycle (6.9) and ROC witnessing (12.2.2)",
+    "nAboveFa": "{{n}} above authority",
+    "aboveFaNote": "Tenders above this company's authority, so they passed beyond the operator's own authority (6.9) and take MDOC witnessing (12.2.2)",
     "name": "Company name",
     "nameEn": "English name (optional)",
     "faField": "Financial authority in USD",
-    "faHelp": "From the company's own Service Contract (§7) — every operator has its own figure; there is no single global number.",
     "faCurrent": "Current authority: {{v}}",
-    "faImpact": "Governance impact: this company's above-authority tenders move from {{from}} to {{to}}. That changes the ROC participation tier (12.2) immediately for every existing tender; MCT entry (6.9) applies to new requests only — the case is opened at creation, never retroactively.",
-    "faNoChange": "No change in the count: {{n}} tenders stay above authority.",
-    "faNoChangeNote": "This figure has no effect on the MCT cycle.",
     "faReasonPh": "Cite the Service Contract amendment or the authorising letter (20+ characters)",
     "nameRequired": "A company name is required.",
     "dupName": "A company with that name is already registered.",
@@ -1348,12 +1309,12 @@
     "empty": "No operating companies registered. An operator account cannot be created, nor an authority set, before the company exists.",
     "noDelete": "Operators are never deleted: a company is bound to its tenders and its users' accounts, and removing it would sever an existing audit trail.",
     "localNote": "Local demo mode — the server has no /api/operators endpoint at all, so this data persists in this browser.",
-    "apiNote": "The server has no /api/operators endpoint, so the operator registry is not loaded in API mode.",
     "orphanTenders": "{{n}} tenders have no owning company — with no field and no service contract their financial authority cannot be derived, so the engine fails closed and treats them as ABOVE authority (§7.1). This only affects data created before tenders carried their operator; there is no retro-assignment action.",
     "toastAdd": "Registered the operating company “{{name}}” — recorded in the audit log",
-    "toastFa": "The financial authority for “{{name}}” is now {{v}} — recorded in the audit log",
     "openFields": "Fields ({{n}})",
-    "faViaContract": "Financial Authority is set on the field’s Service Contract (§7), not here."
+    "faViaContract": "Financial Authority is set on the field’s Service Contract (§7), not here.",
+    "ladderTitle": "The global approval ladder — it applies to this company exactly as it does to the others",
+    "ladderNote": "The ladder is system-wide: there are no per-operator ceilings to enter here. As soon as the company is registered its tenders are measured by estimated value against these same limits, which decides which of them stay with the operator and which need the Joint Management Committee or the parent company."
   },
   "reg": {
     "common": {
@@ -1371,6 +1332,7 @@
       "kpiDueWeek": "Due this week",
       "searchPh": "Search by tender code or title",
       "allMethods": "All methods",
+      "allFields": "All fields",
       "allStatus": "All statuses",
       "emptyStore": "No tenders yet — start your first one with the «New purchase request» button above.",
       "noMatch": "No tenders match the current search or filters.",
@@ -1378,7 +1340,7 @@
     },
     "atenders": {
       "sub": "{{n}} tenders across the portfolio — review each award and ratify it or return it with notes.",
-      "kpiTotal": "Matching tenders",
+      "kpiTotal": "In the current filter",
       "kpiPending": "Awaiting ratification",
       "kpiLate": "Late",
       "allStatus": "All statuses",
@@ -1442,7 +1404,7 @@
       "kpiCompanies": "Operating companies",
       "kpiAccounts": "Enabled accounts",
       "kpiTenders": "Tenders",
-      "kpiAboveFa": "In the cost cycle",
+      "kpiAboveFa": "Above authority",
       "chipAll": "All",
       "chipCostCycle": "Has above-authority tenders",
       "chipNoAccounts": "No accounts",
@@ -1508,7 +1470,7 @@
     "removed": "Holiday {{d}} removed",
     "impactNone": "No published tender's closing changes with this edit.",
     "impactSome": "The derived closing of {{n}} published tender(s) shifts:",
-    "impactWd": "Every working-day counter (deviations, MCT 6.9 windows) is also recomputed against the new calendar."
+    "impactWd": "Every working-day counter (deviations, §6.9 windows) is also recomputed against the new calendar."
   },
   "fields": {
     "title": "Fields & Service Contracts",
@@ -1549,7 +1511,12 @@
     "toastExport": "Fields registry exported locally",
     "apiModeNote": "API mode: no /service-contracts write endpoint yet — FA editing is disabled here (stays local in demo mode).",
     "expiryPast": "The expiry date must be in the future — an expired contract makes the field unusable.",
-    "faImpact": "Governance impact: this field’s above-authority tenders move from {{from}} to {{to}}. The ROC tier (12.2) changes immediately; MCT entry (6.9) applies to new requests only — the case opens at creation, never retroactively.",
+    "faImpact": "Governance impact: this field’s above-authority tenders move from {{from}} to {{to}}. The MDOC tier (12.2) changes immediately; the above-authority determination (6.9) applies to new requests only — it is settled at creation, never retroactively.",
     "faNoChange": "No change: {{n}} tenders stay above authority."
+  },
+  "adminGate": {
+    "title": "This is the MDOC administration panel",
+    "body": "Your session role “{{role}}” is scoped to the operator portal — the administration panel requires a platform (MDOC) role. No access was recorded.",
+    "back": "Back to the operator portal"
   }
 }

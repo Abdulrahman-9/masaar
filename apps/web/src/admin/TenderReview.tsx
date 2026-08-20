@@ -5,15 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
-import { accreditedEstimate, byName, byOid, calendarOf, currentStage, govReasonValid, singleBidStatus, todayIso, useStore, type Actor, type Tender } from '../store';
+import { accreditedEstimate, byName, byOid, calendarOf, currentStage, govReasonValid, singleBidStatus, tenderApprovalTier, todayIso, useStore, type Actor, type Tender } from '../store';
 import { useAdminUi } from './AdminShell';
 import { Modal } from './Modal';
+import { TierPill } from './TierPill';
 
 type Gov = null | 'cancel' | 'suspend' | 'resume';
 type Decide = null | 'ratify' | 'return';
 
 /**
- * Admin tender review — the ROC ratify / return-with-notes screen, rebuilt on the file-card
+ * Admin tender review — the MDOC ratify / return-with-notes screen, rebuilt on the file-card
  * skin (op-page / file-head / ad-panel). Ratify and return each open a confirmation phrased
  * as the real-world event, previewing the audit record before it is written; the commit awaits
  * the server verdict (batch-2 outcome channel) and only toasts success on ok:true. Every act is
@@ -31,7 +32,7 @@ export default function TenderReview({ id }: { id: string }) {
   const today = todayIso();
   const session = loadSession();
   // the immutable identity the audit record is bound to (oid), taken from the live session
-  const actor: Actor = { oid: session?.oid ?? '—', name: session?.name ?? 'ROC', role: session?.role ?? 'ROC_ADMIN' };
+  const actor: Actor = { oid: session?.oid ?? '—', name: session?.name ?? 'MDOC', role: session?.role ?? 'MDOC_ADMIN' };
 
   const tender: Tender | undefined = state.tenders.find((x) => x.id === id);
   if (!tender) {
@@ -124,6 +125,24 @@ export default function TenderReview({ id }: { id: string }) {
       {verdict && (
         <div className="wz-reviewrow"><span>{tr('review.verdictLabel')}</span><span className="op-code">{`${verdict.deltaPct >= 0 ? '+' : '−'}${Math.abs(verdict.deltaPct).toFixed(1)}% · ${verdict.clause}`}</span></div>
       )}
+    </div>
+  );
+
+  /**
+   * Which body clears THIS tender (ق1). Named at the gate itself, because that is where the
+   * question is actually asked: an admin about to press «صادق» must see whether the signature
+   * is the operating company's own, the joint committee's, or the parent company's — and for
+   * ط1 the body is the operating company by name, not an abstraction.
+   */
+  const tier = tenderApprovalTier(state, tender);
+  const ownerOrg = state.operators.find((o) => o.id === tender.operatorId);
+  const decisionBody = tier === 'OPERATOR' && ownerOrg
+    ? (lang === 'ar' ? ownerOrg.name : ownerOrg.nameEn ?? ownerOrg.name)
+    : tr(`tier.body.${tier}`);
+  const tierLine = (
+    <div className="rv-tier">
+      <TierPill tier={tier} tiers={state.approvalTiers} />
+      <span className="rv-tier__s">{tr('tier.sentence', { tier: tr(`tier.name.${tier}`), body: decisionBody })}</span>
     </div>
   );
 
@@ -228,6 +247,7 @@ export default function TenderReview({ id }: { id: string }) {
       <div className="ad-panel" style={{ marginTop: 14 }}>
         <div className="ad-panel__head"><div><div className="ad-panel__t">{tr('review.decision')}</div></div></div>
         <div style={{ padding: '16px 20px' }}>
+          {tierLine}
           {life ? (
             <StatusPill status={life.status === 'cancelled' ? 'blocked' : 'delayed'}>
               {tr(`review.life_${life.status}`)} — {byName(life.by)} · <span className="mono">{life.on}</span>

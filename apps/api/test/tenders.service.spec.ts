@@ -11,7 +11,7 @@ import type { AuthUser } from '../src/auth/auth.types.js';
  * engine, independent of any infrastructure.
  */
 
-const ROC: AuthUser = { userId: 'u-roc', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' };
+const MDOC: AuthUser = { userId: 'u-roc', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 const OP: AuthUser = { userId: 'u-op', name: 'Operator', role: 'OPERATOR_ADMIN', operatorId: 'op1' };
 
 function makeService(tender: unknown) {
@@ -45,7 +45,7 @@ describe('publishAnnouncement guard (11.x pre-publish checks)', () => {
       announcement: { tenderId: 't1', mode: 'LIMITED', periodDays: 14, newspapers: [], lcWebsite: false, rocWebsite: false, inviteeCount: 0, inviteesPreQualified: false, publishedOn: null },
     };
     const { svc, prisma, audit } = makeService(tender);
-    await expect(svc.publishAnnouncement(ROC, 't1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.publishAnnouncement(MDOC, 't1')).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.announcement.update).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'PUBLISH_REFUSED', 'RU-1');
   });
@@ -57,7 +57,7 @@ describe('publishAnnouncement guard (11.x pre-publish checks)', () => {
       announcement: { tenderId: 't1', mode: 'LIMITED', periodDays: 14, newspapers: [], lcWebsite: false, rocWebsite: false, inviteeCount: 2, inviteesPreQualified: true, publishedOn: null },
     };
     const { svc, prisma } = makeService(tender);
-    await svc.publishAnnouncement(ROC, 't1');
+    await svc.publishAnnouncement(MDOC, 't1');
     expect(prisma.announcement.update).toHaveBeenCalledOnce();
   });
 });
@@ -71,18 +71,18 @@ describe('setPrice guard (12.4.2 price lock)', () => {
 
   it('refuses a price during the technical-analysis step', async () => {
     const { svc, prisma } = makeService(tenderAt(1, 'PASS'));
-    await expect(svc.setPrice(ROC, 't1', 'b1', 4_410_000)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.setPrice(MDOC, 't1', 'b1', 4_410_000)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.bidder.update).not.toHaveBeenCalled();
   });
 
   it('refuses a price for a technically failed bidder in a commercial step', async () => {
     const { svc } = makeService(tenderAt(2, 'FAIL'));
-    await expect(svc.setPrice(ROC, 't1', 'b1', 4_410_000)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.setPrice(MDOC, 't1', 'b1', 4_410_000)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('accepts a price for a qualified bidder in a commercial step', async () => {
     const { svc, prisma } = makeService(tenderAt(2, 'PASS'));
-    await svc.setPrice(ROC, 't1', 'b1', 4_410_000);
+    await svc.setPrice(MDOC, 't1', 'b1', 4_410_000);
     expect(prisma.bidder.update).toHaveBeenCalledOnce();
   });
 });
@@ -94,7 +94,7 @@ describe('completeStage guard (docs gate)', () => {
       stages: [{ id: 's', key: 'tech-analysis', order: 4, actualTo: null, documents: [] }],
     };
     const { svc, prisma } = makeService(tender);
-    await expect(svc.completeStage(ROC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.completeStage(MDOC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13' })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.stage.update).not.toHaveBeenCalled();
   });
 
@@ -104,7 +104,7 @@ describe('completeStage guard (docs gate)', () => {
       stages: [{ id: 's', key: 'tech-analysis', order: 4, actualTo: null, documents: [{ kind: 'evaluation-report' }] }],
     };
     const { svc, prisma } = makeService(tender);
-    await svc.completeStage(ROC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13' });
+    await svc.completeStage(MDOC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13' });
     expect(prisma.stage.update).toHaveBeenCalledOnce();
   });
 });
@@ -131,7 +131,7 @@ describe('§9 C8.6 origin gate on setTechnical (10.6.18) — the hard award-side
 
 describe('§9 C8.1 clause attestation (setLocalContentClause) — mirrors the store reducer guards', () => {
   const tenderWith = (over: Record<string, unknown>) => ({
-    id: 't3', code: 'MJ-EPC-0305', operatorId: 'op1', status: 'ACTIVE', fieldId: 'f-mj',
+    id: 't3', code: 'MN-EPC-0305', operatorId: 'op1', status: 'ACTIVE', fieldId: 'f-mansuria',
     estimatedValueUSD: 7_800_000, stages: baseStages, bidders: [], mct: null,
     announcement: null, localContentClauseAffixed: false, scope: 'ENGINEERING_CONSTRUCTION',
     ...over,
@@ -187,13 +187,13 @@ describe('ratify / return guards', () => {
       stages: [{ id: 's', key: 'tech-analysis', order: 4, actualTo: null, documents: [] }],
     };
     const { svc } = makeService(tender);
-    await expect(svc.ratify(ROC, 't1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.ratify(MDOC, 't1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('ratifies a tender at the ratify stage, persisting the immutable identity (byUserId) with the name', async () => {
     const tender = { id: 't1', code: 'RU-1', operatorId: 'op1', bidders: [], mct: null, announcement: null, stages: baseStages };
     const { svc, prisma } = makeService(tender);
-    await svc.ratify(ROC, 't1');
+    await svc.ratify(MDOC, 't1');
     expect(prisma.ratification.create).toHaveBeenCalledOnce();
     // by = mutable display name, byUserId = the JWT principal (never a client-sent value)
     expect(prisma.ratification.create).toHaveBeenCalledWith({
@@ -204,13 +204,13 @@ describe('ratify / return guards', () => {
   it('refuses to return without notes', async () => {
     const tender = { id: 't1', code: 'RU-1', operatorId: 'op1', bidders: [], mct: null, announcement: null, stages: baseStages };
     const { svc } = makeService(tender);
-    await expect(svc.returnWithNotes(ROC, 't1', '   ')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.returnWithNotes(MDOC, 't1', '   ')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('returns with notes, persisting the immutable identity (byUserId)', async () => {
     const tender = { id: 't1', code: 'RU-1', operatorId: 'op1', bidders: [], mct: null, announcement: null, stages: baseStages };
     const { svc, prisma } = makeService(tender);
-    await svc.returnWithNotes(ROC, 't1', 'إعادة تقييم البند الرابع');
+    await svc.returnWithNotes(MDOC, 't1', 'إعادة تقييم البند الرابع');
     expect(prisma.ratification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: 'RETURNED', by: 'د. سارة الجبوري', byUserId: 'u-roc', notes: 'إعادة تقييم البند الرابع' }),
     });
@@ -222,7 +222,7 @@ describe('ratify / return guards', () => {
       stages: baseStages, bidders: [{ id: 'b1', technicalResult: 'PASS', priceUSD: 1_300_000 }],
     };
     const { svc, prisma, audit } = makeService(tender);
-    await expect(svc.ratify(ROC, 't1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.ratify(MDOC, 't1')).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.ratification.create).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'RATIFY_REFUSED', 'RU-1 (13.3)');
   });
@@ -233,7 +233,7 @@ describe('ratify / return guards', () => {
       stages: baseStages, bidders: [{ id: 'b1', technicalResult: 'PASS', priceUSD: 1_050_000 }],
     };
     const { svc, prisma } = makeService(tender);
-    await svc.ratify(ROC, 't1');
+    await svc.ratify(MDOC, 't1');
     expect(prisma.ratification.create).toHaveBeenCalledOnce();
   });
 });
@@ -244,7 +244,7 @@ describe('addBidder eligibility gate (10.4 / 14.3)', () => {
   it('refuses a suspended vendor and audits the refusal', async () => {
     const { svc, prisma, audit } = makeService(tender);
     prisma.vendor.findUnique.mockResolvedValue({ id: 'v9', suspended: true, blacklisted: false, inDispute: false, banUntil: null });
-    await expect(svc.addBidder(ROC, 't1', 'شركة موقوفة', 'v9')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.addBidder(MDOC, 't1', 'شركة موقوفة', 'v9')).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.bidder.create).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'ADD_BIDDER_REFUSED', 'RU-1/v9 (10.4)');
   });
@@ -252,14 +252,14 @@ describe('addBidder eligibility gate (10.4 / 14.3)', () => {
   it('refuses a vendor under an active 14.3 ban', async () => {
     const { svc, prisma } = makeService(tender);
     prisma.vendor.findUnique.mockResolvedValue({ id: 'v9', suspended: false, blacklisted: false, inDispute: false, banUntil: new Date('2099-01-01') });
-    await expect(svc.addBidder(ROC, 't1', 'شركة محظورة', 'v9')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.addBidder(MDOC, 't1', 'شركة محظورة', 'v9')).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.bidder.create).not.toHaveBeenCalled();
   });
 
   it('accepts an eligible vendor and records ADD_BIDDER', async () => {
     const { svc, prisma, audit } = makeService(tender);
     prisma.vendor.findUnique.mockResolvedValue({ id: 'v1', suspended: false, blacklisted: false, inDispute: false, banUntil: null });
-    await svc.addBidder(ROC, 't1', 'شركة مؤهلة', 'v1');
+    await svc.addBidder(MDOC, 't1', 'شركة مؤهلة', 'v1');
     expect(prisma.bidder.create).toHaveBeenCalledOnce();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'ADD_BIDDER', 'RU-1/شركة مؤهلة');
   });
@@ -271,14 +271,14 @@ describe('tender governance (cancel / active gate)', () => {
   it('refuses to cancel an awarded (ratified) tender', async () => {
     const { svc, prisma, audit } = makeService(active);
     prisma.ratification.findUnique.mockResolvedValue({ status: 'RATIFIED' });
-    await expect(svc.changeStatus(ROC, 't1', 'CANCELLED', 'مبرر إلغاء موثّق كافٍ الطول لتجاوز عشرين حرفًا')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.changeStatus(MDOC, 't1', 'CANCELLED', 'مبرر إلغاء موثّق كافٍ الطول لتجاوز عشرين حرفًا')).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.tender.update).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'TENDER_CANCEL_REFUSED', 'RU-1');
   });
 
   it('cancels an active pre-award tender with a documented reason, recording the immutable identity', async () => {
     const { svc, prisma, audit } = makeService(active);
-    await svc.changeStatus(ROC, 't1', 'CANCELLED', 'مبرر إلغاء موثّق كافٍ الطول لتجاوز عشرين حرفًا');
+    await svc.changeStatus(MDOC, 't1', 'CANCELLED', 'مبرر إلغاء موثّق كافٍ الطول لتجاوز عشرين حرفًا');
     expect(prisma.tender.update).toHaveBeenCalledOnce();
     expect(prisma.tender.update).toHaveBeenCalledWith({
       where: { id: 't1' },
@@ -290,7 +290,7 @@ describe('tender governance (cancel / active gate)', () => {
   it('refuses any mutation on a cancelled tender (active gate)', async () => {
     const cancelled = { ...active, status: 'CANCELLED' };
     const { svc } = makeService(cancelled);
-    await expect(svc.setEvalStep(ROC, 't1', 2)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.setEvalStep(MDOC, 't1', 2)).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 
@@ -301,7 +301,7 @@ describe('MCT cycle mutations (6.9)', () => {
       mct: { notifiedOn: new Date('2026-05-01'), meetingHeldOn: null, agreementReachedOn: null, lcEstimateUSD: 7_800_000, mctEstimateUSD: null, agreedEstimateUSD: null },
     };
     const { svc, prisma, audit } = makeService(tender);
-    await svc.recordMctMeeting(ROC, 't1', '2026-05-08');
+    await svc.recordMctMeeting(MDOC, 't1', '2026-05-08');
     expect(prisma.mctCase.update).toHaveBeenCalledOnce();
     expect(audit.record).toHaveBeenCalledWith('u-roc', 'MCT_MEETING_RECORDED', expect.stringContaining('RU-1'));
   });

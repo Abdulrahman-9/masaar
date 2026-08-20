@@ -3,7 +3,7 @@ import { StatusPill } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
 import { faFor, tenderLocalContentApplies, tenderLocalContentStatus, todayIso, useStore } from '../store';
 
-/** Committees & compliance: ROC nominations (12.2) + §9 local content (derived, never hardcoded). */
+/** Committees & compliance: MDOC nominations (12.2) + §9 local content (derived, never hardcoded). */
 export default function Compliance() {
   const { t: tr, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';

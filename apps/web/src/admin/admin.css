@@ -55,7 +55,15 @@
 
 /* ---- Follow-up room ---- */
 .ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+/* a three-question strip fills its row instead of leaving a fourth column of paper */
+.ad-kpis--3 { grid-template-columns: repeat(3, 1fr); }
+/* the follow-up room asks five questions since the approval ladder replaced the cost cycle */
+.ad-kpis--5 { grid-template-columns: repeat(5, 1fr); }
 .ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 6px; }
+/* a KPI that IS a queue: the tile opens the registry listing exactly what it counted */
+.ad-kpi--link { text-decoration: none; color: inherit; transition: border-color 160ms ease-out, box-shadow 160ms ease-out; }
+.ad-kpi--link:hover { border-color: var(--brand-navy-800); box-shadow: var(--shadow-2); }
+.ad-kpi__go { margin-inline-start: auto; color: var(--ink-3); flex: none; }
 .ad-kpi__head { display: flex; align-items: center; gap: 7px; }
 .ad-kpi__dot { width: 8px; height: 8px; border-radius: var(--r-pill); }
 .ad-kpi__l { font-size: 12px; color: var(--ink-3); }
@@ -155,6 +163,32 @@
 .op-filter-select:hover { background: var(--bg-muted); }
 
 /* ============================================================
+   Approval chain (ق1) — the ladder pill and the decision state.
+   Namespaced ad-tier/ad-dec; tokens only; logical properties only.
+   A tier is an authority band, NOT a lifecycle state, so it reads in the
+   brand vocabulary (amber = joint committee, navy = parent company) and
+   leaves the closed --status-* set to things that actually have a status.
+   ============================================================ */
+.ad-tier { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.ad-tier--operator { background: var(--bg-muted); color: var(--ink-2); }
+.ad-tier--jmc      { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.ad-tier--mdoc     { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+
+/* the decision the waiting body has (or has not) taken — here the semantics ARE lifecycle */
+.ad-dec { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.ad-dec--pending   { background: var(--status-progress-bg); color: var(--status-progress); }
+.ad-dec--ratified  { background: var(--status-done-bg); color: var(--status-done); }
+.ad-dec--returned  { background: var(--status-delayed-bg); color: var(--status-delayed); }
+.ad-dec--suspended { background: var(--status-risk-bg); color: var(--status-risk); }
+.ad-dec--cancelled { background: var(--status-blocked-bg); color: var(--status-blocked); }
+
+/* the ladder as a read-only three-row table (the add-operator form, request 4) */
+.ad-ladder { display: flex; flex-direction: column; gap: 6px; }
+.ad-ladder__row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); }
+.ad-ladder__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; color: var(--ink-1); margin-inline-start: auto; white-space: nowrap; }
+.ad-ladder__note { margin-block-start: 8px; font-size: 11.5px; line-height: var(--lh-loose); color: var(--ink-3); }
+
+/* ============================================================
    Access governance — registry, 360° file, capability matrix.
    Namespaced acc-*; tokens only; logical properties only.
    Deliberately NOT StatusPill: a role is not a lifecycle state.
@@ -163,10 +197,13 @@
 /* ---- role / status / attribute pills ---- */
 .acc-role { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
 .acc-role--super      { background: var(--brand-navy-50); color: var(--brand-navy-800); }
-.acc-role--roc        { background: var(--status-progress-bg); color: var(--status-progress); }
+.acc-role--mdoc       { background: var(--status-progress-bg); color: var(--status-progress); }
 .acc-role--evaluation { background: var(--brand-amber-50); color: var(--brand-amber-700); }
 .acc-role--auditor    { background: var(--bg-muted); color: var(--ink-2); }
 .acc-role--operator   { background: var(--status-done-bg); color: var(--status-done); }
+/* a role name no longer in the register (only reachable from a historical audit row) —
+   readable, but visibly not one of the five live roles */
+.acc-role--unknown    { background: var(--bg-muted); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--border-1); }
 
 .acc-status { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
 .acc-status--active   { background: var(--status-done-bg); color: var(--status-done); }
@@ -230,6 +267,9 @@
 .rv-ledger { margin-block-start: 14px; padding: 2px 14px 6px; border: 1px solid var(--border-1); border-radius: var(--r-md); background: var(--bg-inset); }
 .rv-ledger__cap { padding-block: 10px 2px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--ink-3); }
 .rv-ledger .wz-reviewrow:last-child { border-block-end: none; }
+/* «من يملك هذا القرار» — the tier line standing above the ratify/return controls */
+.rv-tier { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-end: 12px; }
+.rv-tier__s { font-size: 12.5px; color: var(--ink-2); }
 
 /* ---- Batch 4 «مفاتيح الربط» — cross-record link affordances (contract ↔ entity ↔ tender) ---- */
 /* Status pill that is also a navigation link (contractor → its Vendor file). */

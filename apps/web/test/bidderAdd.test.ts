@@ -21,7 +21,7 @@ const ann = (publishedOn: string | undefined, periodDays: number): AnnouncementS
 
 const fresh = (): State => seedState();
 const TODAY = '2026-07-23';
-const ROC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' };
+const MDOC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 
 describe('ADD_BIDDER — the payload the quick-add dialog sends', () => {
   it('registers a bare-name bidder on the tender (docs/bond seeded true, no price yet)', () => {
@@ -188,11 +188,11 @@ describe('canAddBidders — the honest affordance window (12.4.2)', () => {
   });
 
   it('closes on a ratified award and on a suspended tender', () => {
-    const ratified = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: ROC });
+    const ratified = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
     expect(canAddBidders(ratified.tenders.find((t) => t.id === 't3')!)).toEqual({ ok: false, reason: 'closed' });
 
     const REASON = 'documented governance suspension for audit compliance';
-    const suspended = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't1', reason: REASON, by: ROC });
+    const suspended = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't1', reason: REASON, by: MDOC });
     expect(canAddBidders(suspended.tenders.find((t) => t.id === 't1')!)).toEqual({ ok: false, reason: 'inactive' });
   });
 });

@@ -4,14 +4,14 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { ContractsService } from './contracts.service.js';
 import { ExtensionDto, GuaranteeDto, LiquidatedDamageDto, VariationOrderDto } from './dto.js';
 
-const GOV = ['ROC_ADMIN', 'SUPER_ADMIN'] as const;
+const GOV = ['MDOC_ADMIN', 'SUPER_ADMIN'] as const;
 
 @Controller('contracts')
 export class ContractsController {
   constructor(private readonly contracts: ContractsService) {}
 
   @Get()
-  @Roles('SUPER_ADMIN', 'ROC_ADMIN', 'AUDITOR')
+  @Roles('SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR')
   list() {
     return this.contracts.list();
   }

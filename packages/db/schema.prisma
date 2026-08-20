@@ -57,9 +57,13 @@ model ServiceContract {
   terminatedOn          DateTime?
 }
 
+/// MDOC_ADMIN was ROC_ADMIN until 2026-08-20 (client decision ق2): the parent company is
+/// «شركة نفط الوسط» / Midland Oil Company. Renamed in place — see the
+/// 20260820000000_role_roc_to_mdoc migration, which ALTERs the value rather than
+/// adding-and-backfilling, so no User row ever changes and no audit row is rewritten.
 enum Role {
   SUPER_ADMIN
-  ROC_ADMIN
+  MDOC_ADMIN
   EVALUATION
   AUDITOR
   OPERATOR_ADMIN
@@ -156,13 +160,13 @@ enum RatificationStatus {
   RETURNED
 }
 
-/// ROC decision on the award (admin side) — only at the ratification stage.
+/// MDOC decision on the award (admin side) — only at the ratification stage.
 model Ratification {
   id        String             @id @default(cuid())
   tender    Tender             @relation(fields: [tenderId], references: [id])
   tenderId  String             @unique
   status    RatificationStatus
-  /// mutable display name of the deciding ROC officer (shown in the UI)
+  /// mutable display name of the deciding MDOC officer (shown in the UI)
   by        String
   /// immutable identity of the decider (User.id from the session JWT) — the audit anchor
   byUserId  String?
@@ -207,6 +211,9 @@ model Announcement {
   periodDays            Int
   newspapers            String[] // ≥ 3 distinct for PUBLIC
   lcWebsite             Boolean          @default(false)
+  /// the parent company's website (SCPP 11.1). The column keeps its spec-era name: it is
+  /// announcement DATA, not the role vocabulary the client renamed, and renaming it would
+  /// rewrite persisted announcements for a label change. Displayed as «موقع MDOC».
   rocWebsite            Boolean          @default(false)
   inviteeCount          Int              @default(0)
   inviteesPreQualified  Boolean          @default(false)

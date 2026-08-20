@@ -7,8 +7,8 @@ import { CurrentUser, Public } from './decorators.js';
 import { SESSION_COOKIE, type AuthUser, type Role } from './auth.types.js';
 
 class LoginDto {
-  @IsIn(['OPERATOR_ADMIN', 'ROC_ADMIN'])
-  role!: Extract<Role, 'OPERATOR_ADMIN' | 'ROC_ADMIN'>;
+  @IsIn(['OPERATOR_ADMIN', 'MDOC_ADMIN'])
+  role!: Extract<Role, 'OPERATOR_ADMIN' | 'MDOC_ADMIN'>;
 
   // mock 2FA — any 6 digits in dev; replaced by real MFA via Azure AD
   @IsString()

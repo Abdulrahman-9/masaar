@@ -11,7 +11,7 @@ import {
  */
 
 const fresh = (): State => seedState();
-const ADMIN: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' };
+const ADMIN: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 const t = (s: State, id: string): Tender => s.tenders.find((x) => x.id === id)!;
 const REASON = 'اعتذار موثّق من الشركة الحكومية بكتاب رسمي رقم 2026/155';
 
@@ -26,9 +26,19 @@ describe('§9 seed — the exemption proof', () => {
     const s = fresh();
     expect(tenderLocalContentApplies(s, t(s, 't2'))).toBe(false);
     expect(tenderLocalContentStatus(s, t(s, 't2'))).toBe('not-required');
-    // t1 is a drilling tender but 4.2M < its 5M field FA → the requirement does not trigger
+    // t1 is a drilling tender but 4.2M < its 5M field FA (Ahdab) → the requirement does not trigger
     expect(tenderLocalContentApplies(s, t(s, 't1'))).toBe(false);
     expect(tenderLocalContentStatus(s, t(s, 't1'))).toBe('not-required');
+  });
+
+  it('t4 (EPC above FA with an ACCEPTED state company) is the third state: compliant', () => {
+    // the seed now shows all three reachable §9 states side by side — not-required (t1/t2),
+    // exempt via a documented decline (t3), and genuine participation (t4)
+    const s = fresh();
+    expect(tenderLocalContentApplies(s, t(s, 't4'))).toBe(true);
+    expect(tenderLocalContentStatus(s, t(s, 't4'))).toBe('compliant');
+    // …and its documents already carry the 20% clause, so the C8.1 publish gate is satisfied
+    expect(t(s, 't4').localContentClauseAffixed).toBe(true);
   });
 
   it('seeds the five state companies, each competing under the ordinary 10.4 gates (C8.4)', () => {

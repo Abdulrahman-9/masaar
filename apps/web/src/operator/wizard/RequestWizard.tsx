@@ -3,7 +3,7 @@ import { addWorkingDays, toIso, toUtcDate } from '@masaar/working-days';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadSession } from '../../session';
-import { calendarOf, defaultStageKeys, faForFieldId, todayIso, useStore } from '../../store';
+import { calendarOf, defaultStageKeys, faForFieldId, fieldsOfOperator, todayIso, useStore } from '../../store';
 import { fmtCount, fmtMoney } from '../derive';
 import { Icon } from '../Icon';
 import WizardShell, { type WizardStep } from './WizardShell';
@@ -31,7 +31,7 @@ export default function RequestWizard() {
 
   // the request belongs to a field; the field's Service Contract sets the FA (§7.1)
   const myOperatorId = loadSession()?.companyId;
-  const myFields = state.fields.filter((f) => f.operatorId === myOperatorId);
+  const myFields = fieldsOfOperator(state, myOperatorId);
   const [fieldId, setFieldId] = useState(myFields[0]?.id ?? '');
   const myFaRaw = faForFieldId(state, fieldId); // number | null — null = no effective contract
   const faUnresolvable = myFaRaw == null;

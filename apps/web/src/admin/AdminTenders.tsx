@@ -21,7 +21,7 @@ import { useAdminUi } from './AdminShell';
 const STATUS_ORDER: OpStatus[] = ['progress', 'risk', 'delayed', 'done'];
 type StatusFilter = '' | OpStatus;
 
-/** A tender is awaiting the ROC ratification decision when RATIFY would be accepted (mirrors the reducer guard). */
+/** A tender is awaiting the MDOC ratification decision when RATIFY would be accepted (mirrors the reducer guard). */
 function isPendingRatification(t: Tender): boolean {
   return !t.lifecycle && !t.ratification && currentStage(t)?.key === 'ratify';
 }
@@ -36,16 +36,18 @@ export default function AdminTenders() {
 
   const [q, setQ] = useState('');
   const [method, setMethod] = useState(0);
+  const [fieldId, setFieldId] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
 
   const qn = q.trim().toLowerCase();
 
-  // Method + free-text search, before the status chip narrows further — chip counts read off this set.
+  // Method + field + free-text search, before the status chip narrows further — chip counts read off this set.
   const searched = useMemo(() => state.tenders.filter((tn) => {
     if (method !== 0 && tn.methodId !== method) return false;
+    if (fieldId && tn.fieldId !== fieldId) return false;
     if (qn && !(`${tn.code} ${tn.title.ar} ${tn.title.en}`.toLowerCase().includes(qn))) return false;
     return true;
-  }), [state.tenders, method, qn]);
+  }), [state.tenders, method, fieldId, qn]);
 
   const rows = useMemo(
     () => (statusFilter ? searched.filter((tn) => tenderStatus(tn, today, cal) === statusFilter) : searched),
@@ -97,7 +99,7 @@ export default function AdminTenders() {
     toast(t('reg.atenders.toastExport'));
   };
 
-  const clearFilters = () => { setQ(''); setMethod(0); setStatusFilter(''); };
+  const clearFilters = () => { setQ(''); setMethod(0); setFieldId(''); setStatusFilter(''); };
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -105,6 +107,10 @@ export default function AdminTenders() {
         <div>
           <h1 className="op-page__title">{t('admin.allTenders')}</h1>
           <div className="op-page__sub">{t('reg.atenders.sub', { n: fmtCount(state.tenders.length, lang) })}</div>
+          {/* Client request 8 / ق4 — «المطابقة» is stated in one visible line rather than left to
+              be inferred from a column header; the pills and the chip carry the same arithmetic
+              in their tooltips, so the definition and the computation cannot drift apart. */}
+          <div className="op-page__def">{t('match.def')}</div>
         </div>
         {/* Admin reviews, never creates — no primary. The export mirrors the filtered rows on screen. */}
         <button className="op-btn-ghost" onClick={doExport}>{t('reg.atenders.exportCsv')}</button>
@@ -138,6 +144,22 @@ export default function AdminTenders() {
             </option>
           ))}
         </select>
+        {/* Filter by oil field (client request 8): the portfolio is read field by field, and the
+            field registry is empty in API mode — an empty select is a control with nothing to
+            choose, so it is simply not rendered. */}
+        {state.fields.length > 0 && (
+          <select
+            className="op-filter-select"
+            value={fieldId}
+            aria-label={t('approvals.allFields')}
+            onChange={(e) => setFieldId(e.target.value)}
+          >
+            <option value="">{t('approvals.allFields')}</option>
+            {state.fields.map((f) => (
+              <option key={f.id} value={f.id}>{lang === 'ar' ? f.name : f.nameEn ?? f.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {state.tenders.length === 0 ? (
@@ -176,7 +198,7 @@ export default function AdminTenders() {
                       </td>
                       <td><PathChip id={tender.methodId} lang={lang} /></td>
                       <td>{cur ? stageByKey(cur.key)?.[lang] : t('tenders.completed')}</td>
-                      <td><StatusPill status={status}>{t(`status.${status}`)}</StatusPill></td>
+                      <td><StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill></td>
                       <td className="op-end"><DevChip wd={tenderDeviationWd(tender, today, cal)} /></td>
                       <td>
                         {tender.ratification ? (

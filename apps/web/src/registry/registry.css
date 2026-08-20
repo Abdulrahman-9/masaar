@@ -69,6 +69,47 @@
 }
 .reg-select:hover { background: var(--bg-muted); }
 
+/* ---- SectionExplainer — the collapsed «ما هذا القسم؟» strip ----
+   A quiet paper band, not a card: it explains the screen it sits under and must never
+   compete with the registry itself. Closed by default; the caret is the only motion. */
+.reg-explain {
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  background: var(--bg-muted);
+  margin-block: 12px 0;
+}
+.reg-explain__sum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+  cursor: pointer;
+  list-style: none;
+}
+.reg-explain__sum::-webkit-details-marker { display: none; }
+.reg-explain__sum:hover { color: var(--ink-1); }
+/* The disclosure caret. Closed it points along the reading direction (the base glyph points
+   inline-end, mirrored under RTL); open it points DOWN in both directions — a rotation is
+   direction-agnostic, which is why the open rule simply replaces the mirror. */
+.reg-explain__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out); }
+html[dir='rtl'] .reg-explain__caret { transform: scaleX(-1); }
+.reg-explain[open] .reg-explain__caret,
+html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg); }
+.reg-explain__body {
+  padding: 0 14px 12px;
+  font-size: 12.5px;
+  line-height: var(--lh-loose);
+  color: var(--ink-2);
+}
+.reg-explain__body p { margin: 0 0 6px; }
+.reg-explain__body p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .reg-explain__caret { transition-duration: 0.01ms; }
+}
+
 /* FilterChips badge — .acc-count lives in admin.css which the operator portal never loads;
    registry.css is bundled in both portals (identical to the admin.css rule, harmless duplicate). */
 .acc-count {

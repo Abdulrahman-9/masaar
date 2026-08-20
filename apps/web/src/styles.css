@@ -372,47 +372,11 @@ html[dir='ltr'] td.op-code:not(.op-end), html[dir='ltr'] th.op-code:not(.op-end)
 .lab-headlike { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lab-headlike select { font: inherit; font-size: 12.5px; padding: 7px 12px; border: 1px solid var(--border-2); border-radius: var(--r-md); background: var(--bg-card); }
 
-/* MCT dark case card */
-.mct-case {
-  border-radius: var(--r-xl);
-  padding: 22px;
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+/* The MCT case card is gone with its screen (client ق3 — the approval chain replaced it).
+   `.mct-head` survives because the paths guide borrowed it as a generic split header; the
+   dark-case, cycle-rail and estimate-cell rules had exactly one caller and left with it. */
 .mct-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.mct-code { font-size: 12px; color: var(--m-acc); font-weight: var(--fw-semibold); direction: ltr; unicode-bidi: isolate; }
-.mct-title { font-size: 15px; font-weight: var(--fw-semibold); color: var(--m-t1); margin-top: 4px; }
 
-.mct-cycle { display: flex; gap: 0; align-items: center; flex-wrap: wrap; }
-.mct-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--m-t3);
-  padding: 6px 14px;
-  border-inline-end: 1px solid var(--m-bd);
-}
-.mct-step:last-child { border-inline-end: none; }
-.mct-step__dot { width: 8px; height: 8px; border-radius: 999px; background: var(--m-track); }
-.mct-step--done { color: var(--m-t1); }
-.mct-step--done .mct-step__dot { background: var(--status-done); }
-.mct-step--now { color: var(--m-t1); font-weight: var(--fw-semibold); }
-.mct-step--now .mct-step__dot { background: var(--m-acc); box-shadow: 0 0 0 3px color-mix(in oklab, var(--m-acc) 30%, transparent); }
-.mct-step__date { font-size: 10.5px; color: var(--m-t3); direction: ltr; unicode-bidi: isolate; }
-
-.mct-est { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-.bidcell { background: color-mix(in oklab, var(--m-t1) 6%, transparent); border: 1px solid var(--m-bd); border-radius: var(--m-radius); padding: 12px 14px; }
-.bidcell .l { font-size: 11px; color: var(--m-t3); margin-bottom: 6px; }
-.bidcell .v { font-size: 17px; font-weight: var(--fw-semibold); color: var(--m-t1); direction: ltr; unicode-bidi: isolate; }
-.bidcell--acc { border-color: var(--m-acc); }
-.bidcell--acc .v { color: var(--m-acc); }
-
-/* Contracts */
-.contract { border: 1px solid var(--border-2); border-radius: var(--r-lg); padding: 20px; margin-top: 16px; }
-.contract .mct-title { color: var(--fg-1); }
 .g-grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 14px; }
 
 /* Paths guide */

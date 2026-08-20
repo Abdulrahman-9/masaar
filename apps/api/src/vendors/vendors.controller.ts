@@ -4,8 +4,8 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { BanVendorDto, ScoresDto, VendorReasonDto } from './dto.js';
 import { VendorsService } from './vendors.service.js';
 
-const READ_ROLES = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR'] as const;
-const GOV_ROLES = ['ROC_ADMIN', 'SUPER_ADMIN'] as const;
+const READ_ROLES = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR'] as const;
+const GOV_ROLES = ['MDOC_ADMIN', 'SUPER_ADMIN'] as const;
 
 @Controller('vendors')
 export class VendorsController {
@@ -42,7 +42,7 @@ export class VendorsController {
   }
 
   @Patch(':id/scores')
-  @Roles('ROC_ADMIN', 'EVALUATION', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'EVALUATION', 'SUPER_ADMIN')
   setScores(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ScoresDto) {
     return this.vendors.setScores(user, id, dto);
   }

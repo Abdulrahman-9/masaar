@@ -8,7 +8,7 @@ import type { AuthUser } from '../src/auth/auth.types.js';
  * identity masking is role + award-state aware.
  */
 
-const ROC: AuthUser = { userId: 'u', name: 'ROC', role: 'ROC_ADMIN' };
+const MDOC: AuthUser = { userId: 'u', name: 'MDOC', role: 'MDOC_ADMIN' };
 const OP: AuthUser = { userId: 'u', name: 'Op', role: 'OPERATOR_ADMIN', operatorId: 'op1' };
 const AUDITOR: AuthUser = { userId: 'u', name: 'Aud', role: 'AUDITOR' };
 const SUPER: AuthUser = { userId: 'u', name: 'S', role: 'SUPER_ADMIN' };
@@ -29,7 +29,7 @@ function tender(over: Record<string, unknown> = {}) {
 
 describe('price redaction (12.4.2 — hard for all roles)', () => {
   it('never emits an excluded (technical-fail) bidder price, even to SUPER_ADMIN', () => {
-    for (const u of [OP, ROC, AUDITOR, SUPER]) {
+    for (const u of [OP, MDOC, AUDITOR, SUPER]) {
       const out = presentTender(tender(), u);
       expect(out.bidders[1]!.priceUSD).toBeNull(); // FAIL bidder
     }
@@ -42,8 +42,8 @@ describe('price redaction (12.4.2 — hard for all roles)', () => {
 });
 
 describe('identity masking (role + award state)', () => {
-  it('masks identities from ROC/auditor pre-award', () => {
-    for (const u of [ROC, AUDITOR]) {
+  it('masks identities from MDOC/auditor pre-award', () => {
+    for (const u of [MDOC, AUDITOR]) {
       const out = presentTender(tender(), u);
       expect(out.bidders[0]!.name).toBe('مقدّم عطاء 1');
       expect(out.bidders[1]!.name).toBe('مقدّم عطاء 2');
@@ -53,16 +53,16 @@ describe('identity masking (role + award state)', () => {
 
   it('shows real identities to operators and evaluation (they run 12.4)', () => {
     expect(presentTender(tender(), OP).bidders[0]!.name).toBe('Real A');
-    expect(presentTender(tender(), { ...ROC, role: 'EVALUATION' }).bidders[0]!.name).toBe('Real A');
+    expect(presentTender(tender(), { ...MDOC, role: 'EVALUATION' }).bidders[0]!.name).toBe('Real A');
   });
 
-  it('discloses identities to ROC once the award is ratified', () => {
-    const out = presentTender(tender({ ratification: { status: 'RATIFIED' } }), ROC);
+  it('discloses identities to MDOC once the award is ratified', () => {
+    const out = presentTender(tender({ ratification: { status: 'RATIFIED' } }), MDOC);
     expect(out.bidders[0]!.name).toBe('Real A');
   });
 
   it('discloses identities at the ratify/sign stage', () => {
     const atRatify = tender({ stages: [{ key: 'ratify', order: 9, actualTo: null }] });
-    expect(presentTender(atRatify, ROC).bidders[0]!.name).toBe('Real A');
+    expect(presentTender(atRatify, MDOC).bidders[0]!.name).toBe('Real A');
   });
 });

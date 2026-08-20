@@ -1,4 +1,5 @@
-import { currentStage, type ContractState, type State, type Tender } from '../store';
+import type { ApprovalTier } from '@masaar/scpp-rules';
+import { currentStage, tenderApprovalTier, type ContractState, type State, type Tender } from '../store';
 import { currentStageKey, scheduleVariancePct } from './contractDerive';
 
 /**
@@ -8,7 +9,7 @@ import { currentStageKey, scheduleVariancePct } from './contractDerive';
  */
 
 /**
- * Tenders awaiting the ROC ratify / return decision: parked at the `ratify` stage with no
+ * Tenders awaiting the MDOC ratify / return decision: parked at the `ratify` stage with no
  * decision recorded yet. EXTRACTED verbatim from the inline filter behind AdminShell's
  * `decisions` counter — the next-stage agent imports this instead of re-deriving it. The gate
  * is structural (stage + decision), not time-based, so no `today` is needed.
@@ -25,4 +26,68 @@ export function decisionQueue(state: State): Tender[] {
  */
 export function lateContracts(state: State, todayIso: string): ContractState[] {
   return state.contracts.filter((c) => currentStageKey(c) !== undefined && scheduleVariancePct(c, todayIso) < 0);
+}
+
+/* ---------------- approval chain (client decision ق1) ---------------- */
+
+/** Where a tender stands in the approval chain: the body it waits on, and its decision. */
+export type ApprovalDecision = 'pending' | 'ratified' | 'returned' | 'cancelled' | 'suspended';
+
+export interface ApprovalRow {
+  tender: Tender;
+  /** never 'OPERATOR' — a request inside the company's own authority opens no gate (ط1) */
+  tier: Exclude<ApprovalTier, 'OPERATOR'>;
+  decision: ApprovalDecision;
+}
+
+/**
+ * The decision state of a tender ON THE LADDER — what the waiting body has (or has not) done.
+ * A cancelled/suspended tender is NOT «pending»: nobody is waiting on it, and reading it as
+ * pending would inflate every «awaiting» count on the screen. Lifecycle therefore wins over the
+ * absence of a ratification, and a recorded ratification over both (it happened before the
+ * suspension could have).
+ */
+export function approvalDecisionOf(t: Tender): ApprovalDecision {
+  if (t.ratification) return t.ratification.status;
+  if (t.lifecycle) return t.lifecycle.status;
+  return 'pending';
+}
+
+/**
+ * Every tender ABOVE the operating company's own authority — i.e. every request that owes a
+ * signature to a body outside the operator (ط2 JMC / ط3 MDOC). This is the whole population of
+ * the approval-chain screen, and it is DERIVED from the value and the global ladder: there is no
+ * stored «needs approval» flag to drift, and a ladder edit re-sorts the screen instantly.
+ */
+export function approvalChain(state: State): ApprovalRow[] {
+  const out: ApprovalRow[] = [];
+  for (const tender of state.tenders) {
+    const tier = tenderApprovalTier(state, tender);
+    if (tier === 'OPERATOR') continue;
+    out.push({ tender, tier, decision: approvalDecisionOf(tender) });
+  }
+  return out;
+}
+
+/**
+ * The rows of ONE ladder band that are still waiting on that body's signature. «Waiting» is
+ * `approvalDecisionOf` === 'pending': a ratified, returned, cancelled or suspended request is
+ * not awaiting anybody, and counting it would inflate the queue into a number nobody owns.
+ *
+ * One definition for both readers of it — the approval registry's KPI strip and the follow-up
+ * room's pending-approval tiles — so the tile a manager clicks and the screen it lands on can
+ * never disagree about how many signatures are outstanding.
+ */
+export function awaitingTier(rows: ApprovalRow[], tier: Exclude<ApprovalTier, 'OPERATOR'>): ApprovalRow[] {
+  return rows.filter((r) => r.tier === tier && r.decision === 'pending');
+}
+
+/**
+ * Rows ratified within the calendar month of `todayIso` — the «صودق هذا الشهر» KPI. Compared as
+ * an ISO year-month prefix (the same string-comparison discipline the rest of the store uses for
+ * dates), so no timezone can move a decision into the neighbouring month.
+ */
+export function ratifiedInMonth(rows: ApprovalRow[], todayIso: string): ApprovalRow[] {
+  const month = todayIso.slice(0, 7);
+  return rows.filter((r) => r.tender.ratification?.status === 'ratified' && r.tender.ratification.on.slice(0, 7) === month);
 }

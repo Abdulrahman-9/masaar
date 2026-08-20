@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aboveOwnFA, byName, byOid, defaultAnnouncementFor, emptyState, enabledSuperAdmins, faFor, reducer, scopeConsistent, seedState,
-  type Actor, type MaterialDeclaration, type State, type Tender,
+  aboveOwnFA, byName, byOid, defaultAnnouncementFor, emptyState, enabledSuperAdmins, faFor, fieldsOfOperator, reducer,
+  scopeConsistent, seedState, tenderApprovalTier, type Actor, type MaterialDeclaration, type State, type Tender,
 } from '../src/store';
 
 /**
@@ -12,9 +12,9 @@ import {
 
 const fresh = (): State => seedState();
 
-// the ROC officer acting on award decisions & tender lifecycle — the immutable Actor now
+// the MDOC officer acting on award decisions & tender lifecycle — the immutable Actor now
 // required by RATIFY / RETURN / CANCEL / SUSPEND / RESUME (bound by oid, not a display name)
-const ROC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' };
+const MDOC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 
 describe('PUBLISH_ANNOUNCEMENT guard (11.2)', () => {
   it('refuses to publish while checks fail', () => {
@@ -67,14 +67,14 @@ describe('CREATE_TENDER', () => {
   it('generates a code, method-appropriate stages, and no MCT below FA', () => {
     const s1 = reducer(fresh(), {
       type: 'CREATE_TENDER',
-      fieldId: 'f-ru', // op-bec, contract FA 5M
+      fieldId: 'f-ahdab', // op-alwaha, contract FA 5M
       title: { ar: 'تجهيز مضخات', en: 'Pump supply' },
-      budgetCode: 'WQ-PMP-3',
+      budgetCode: 'AH-PMP-3',
       estimatedValueUSD: 1_500_000,
       methodId: 7,
     });
     const t = s1.tenders[0]!;
-    expect(t.code).toBe('WQ-PRJ-0099');
+    expect(t.code).toBe('AH-PRJ-0099');
     expect(t.stages.some((x) => x.key === 'preq')).toBe(false); // public: no pre-qualification (11.1)
     expect(t.mct).toBeUndefined();
   });
@@ -82,9 +82,9 @@ describe('CREATE_TENDER', () => {
   it('opens an MCT cycle automatically above Financial Authority (6.9)', () => {
     const s1 = reducer(fresh(), {
       type: 'CREATE_TENDER',
-      fieldId: 'f-ru', // op-bec, contract FA 5M — 6.5M is above it
+      fieldId: 'f-ahdab', // op-alwaha, contract FA 5M — 6.5M is above it
       title: { ar: 'مشروع كبير', en: 'Major project' },
-      budgetCode: 'MJ-X-1',
+      budgetCode: 'AH-X-1',
       estimatedValueUSD: 6_500_000,
       methodId: 7,
     });
@@ -96,21 +96,21 @@ describe('CREATE_TENDER', () => {
 describe('RATIFY / RETURN_WITH_NOTES guards (admin award decision)', () => {
   // t3 is seeded at the ratification stage (above FA, MCT case).
   it('refuses to ratify a tender not yet at the ratify stage', () => {
-    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't1', by: ROC });
+    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't1', by: MDOC });
     expect(s1.tenders.find((t) => t.id === 't1')!.ratification).toBeUndefined();
   });
 
   it('ratifies a tender at the ratify stage, binding the decision to the immutable Actor', () => {
-    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: ROC });
+    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
     const r = s1.tenders.find((t) => t.id === 't3')!.ratification;
     expect(r?.status).toBe('ratified');
-    expect(r?.by).toEqual(ROC); // the whole Actor, not just a name
+    expect(r?.by).toEqual(MDOC); // the whole Actor, not just a name
     expect(byName(r!.by)).toBe('د. سارة الجبوري');
     expect(byOid(r!.by)).toBe('oid-roc-01');
   });
 
   it('writes the Actor onto the audit row for the ratify decision', () => {
-    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: ROC });
+    const s1 = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
     const row = s1.audit[s1.audit.length - 1]!;
     expect(row.action).toBe('RATIFY');
     expect(byName(row.by!)).toBe('د. سارة الجبوري');
@@ -125,7 +125,7 @@ describe('RATIFY / RETURN_WITH_NOTES guards (admin award decision)', () => {
          announcement: { ...defaultAnnouncementFor(7), periodDays }, evaluationStep: 3,
          bidders: Array.from({ length: bidderCount }, (_, i) => ({ id: `b${i}`, name: `b${i}`, docsOk: true, bondOk: true })) }) as Tender;
     const ratifyOf = (t: Tender) =>
-      reducer({ ...emptyState(), tenders: [t] }, { type: 'RATIFY', tenderId: 'tr', by: ROC }).tenders[0]!.ratification;
+      reducer({ ...emptyState(), tenders: [t] }, { type: 'RATIFY', tenderId: 'tr', by: MDOC }).tenders[0]!.ratification;
 
     expect(ratifyOf(atRatify(1, 14))).toBeUndefined();               // single bid + 14 days → blocked (15.3)
     expect(ratifyOf(atRatify(1, 21))?.status).toBe('ratified');      // single bid + 21 days → permitted
@@ -133,14 +133,14 @@ describe('RATIFY / RETURN_WITH_NOTES guards (admin award decision)', () => {
   });
 
   it('refuses to return without notes', () => {
-    const s1 = reducer(fresh(), { type: 'RETURN_WITH_NOTES', tenderId: 't3', by: ROC, notes: '   ' });
+    const s1 = reducer(fresh(), { type: 'RETURN_WITH_NOTES', tenderId: 't3', by: MDOC, notes: '   ' });
     expect(s1.tenders.find((t) => t.id === 't3')!.ratification).toBeUndefined();
   });
 
   it('returns with notes and will not decide twice', () => {
-    let s = reducer(fresh(), { type: 'RETURN_WITH_NOTES', tenderId: 't3', by: ROC, notes: 'إعادة تقييم البند 4' });
+    let s = reducer(fresh(), { type: 'RETURN_WITH_NOTES', tenderId: 't3', by: MDOC, notes: 'إعادة تقييم البند 4' });
     expect(s.tenders.find((t) => t.id === 't3')!.ratification!.status).toBe('returned');
-    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: ROC }); // already decided
+    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: MDOC }); // already decided
     expect(s.tenders.find((t) => t.id === 't3')!.ratification!.status).toBe('returned');
   });
 
@@ -148,8 +148,8 @@ describe('RATIFY / RETURN_WITH_NOTES guards (admin award decision)', () => {
     // API-hydrated rows carry only a name string; local rows carry the Actor. Readers handle both.
     expect(byName('د. سارة الجبوري')).toBe('د. سارة الجبوري');
     expect(byOid('د. سارة الجبوري')).toBeUndefined();
-    expect(byName(ROC)).toBe('د. سارة الجبوري');
-    expect(byOid(ROC)).toBe('oid-roc-01');
+    expect(byName(MDOC)).toBe('د. سارة الجبوري');
+    expect(byOid(MDOC)).toBe('oid-roc-01');
   });
 });
 
@@ -227,39 +227,39 @@ describe('tender lifecycle guards (cancel / suspend / resume)', () => {
   const t = (s: State, id: string) => s.tenders.find((x) => x.id === id)!;
 
   it('cancels an active, un-awarded tender with a valid justification, attributing the Actor', () => {
-    const s = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: REASON, by: ROC });
+    const s = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: REASON, by: MDOC });
     expect(t(s, 't1').lifecycle?.status).toBe('cancelled');
-    expect(t(s, 't1').lifecycle!.by).toEqual(ROC);
-    expect(s.audit[s.audit.length - 1]!.by).toEqual(ROC); // the audit row carries the Actor too
+    expect(t(s, 't1').lifecycle!.by).toEqual(MDOC);
+    expect(s.audit[s.audit.length - 1]!.by).toEqual(MDOC); // the audit row carries the Actor too
   });
 
   it('refuses a justification shorter than 20 or longer than 2000 chars (server @Length(20,2000))', () => {
-    const short = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: 'too short', by: ROC });
+    const short = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: 'too short', by: MDOC });
     expect(t(short, 't1').lifecycle).toBeUndefined();
-    const long = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: 'x'.repeat(2001), by: ROC });
+    const long = reducer(fresh(), { type: 'CANCEL_TENDER', tenderId: 't1', reason: 'x'.repeat(2001), by: MDOC });
     expect(t(long, 't1').lifecycle).toBeUndefined();
   });
 
   it('refuses to cancel a ratified tender (§awarded)', () => {
-    let s = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: ROC });
-    s = reducer(s, { type: 'CANCEL_TENDER', tenderId: 't3', reason: REASON, by: ROC });
+    let s = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
+    s = reducer(s, { type: 'CANCEL_TENDER', tenderId: 't3', reason: REASON, by: MDOC });
     expect(t(s, 't3').lifecycle).toBeUndefined();
   });
 
   it('suspends only an active tender and resumes only a suspended one', () => {
-    let s = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't1', reason: REASON, by: ROC });
+    let s = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't1', reason: REASON, by: MDOC });
     expect(t(s, 't1').lifecycle?.status).toBe('suspended');
-    s = reducer(s, { type: 'RESUME_TENDER', tenderId: 't1', reason: REASON, by: ROC });
+    s = reducer(s, { type: 'RESUME_TENDER', tenderId: 't1', reason: REASON, by: MDOC });
     expect(t(s, 't1').lifecycle).toBeUndefined();
   });
 
   it('blocks ratification while suspended, and allows it once resumed', () => {
     // t3 is seeded at the ratification stage
-    let s = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't3', reason: REASON, by: ROC });
-    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: ROC });
+    let s = reducer(fresh(), { type: 'SUSPEND_TENDER', tenderId: 't3', reason: REASON, by: MDOC });
+    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: MDOC });
     expect(t(s, 't3').ratification).toBeUndefined(); // suspended → ratify refused
-    s = reducer(s, { type: 'RESUME_TENDER', tenderId: 't3', reason: REASON, by: ROC });
-    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: ROC });
+    s = reducer(s, { type: 'RESUME_TENDER', tenderId: 't3', reason: REASON, by: MDOC });
+    s = reducer(s, { type: 'RATIFY', tenderId: 't3', by: MDOC });
     expect(t(s, 't3').ratification?.status).toBe('ratified');
   });
 });
@@ -359,25 +359,25 @@ describe('SET_LC_CLAUSE (C8.1)', () => {
   });
 
   it('records the attestation on a tender the requirement applies to, attributed to the Actor', () => {
-    const s = reducer(lcState(), { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: ROC });
+    const s = reducer(lcState(), { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: MDOC });
     expect(s.tenders[0]!.localContentClauseAffixed).toBe(true);
     expect(s.audit).toHaveLength(1);
     expect(s.audit[0]!.action).toBe('SET_LC_CLAUSE');
-    expect(s.audit[0]!.by).toEqual(ROC);
+    expect(s.audit[0]!.by).toEqual(MDOC);
   });
 
   it('unblocks PUBLISH_ANNOUNCEMENT for a §9 tender that had no writer for the gate at all', () => {
     const s0 = lcState();
     const held = reducer(s0, { type: 'PUBLISH_ANNOUNCEMENT', tenderId: 'tp' });
     expect(held.tenders[0]!.announcement.publishedOn).toBeUndefined(); // the dead end, before
-    let s = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: ROC });
+    let s = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: MDOC });
     s = reducer(s, { type: 'PUBLISH_ANNOUNCEMENT', tenderId: 'tp' });
     expect(s.tenders[0]!.announcement.publishedOn).toBeDefined();
   });
 
   it('refuses to fabricate a compliance record on a tender §9 does not reach', () => {
     const s0 = fresh(); // t2 is OTHER scope below authority
-    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 't2', affixed: true, by: ROC });
+    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 't2', affixed: true, by: MDOC });
     expect(s1.tenders.find((x) => x.id === 't2')!.localContentClauseAffixed).toBeUndefined();
     expect(s1.audit).toHaveLength(0);
     expect(s1).toBe(s0);
@@ -388,14 +388,14 @@ describe('SET_LC_CLAUSE (C8.1)', () => {
     // retroactive flip would rewrite the gate the publication passed through.
     const s0 = fresh();
     expect(s0.tenders.find((x) => x.id === 't3')!.announcement.publishedOn).toBeDefined();
-    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 't3', affixed: true, by: ROC });
+    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 't3', affixed: true, by: MDOC });
     expect(s1.audit).toHaveLength(0);
     expect(s1).toBe(s0);
   });
 
   it('is a silent no-op when the attestation already holds that value', () => {
-    const s0 = reducer(lcState(), { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: ROC });
-    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: ROC });
+    const s0 = reducer(lcState(), { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: MDOC });
+    const s1 = reducer(s0, { type: 'SET_LC_CLAUSE', tenderId: 'tp', affixed: true, by: MDOC });
     expect(s1.audit).toHaveLength(1); // still just the first row
     expect(s1).toBe(s0);
   });
@@ -465,15 +465,15 @@ describe('access guards mirror users.service.ts', () => {
   });
 
   it('refuses an unknown company and creates against a known one', () => {
-    const base = { type: 'CREATE_USER', userId: 'uX', azureOid: 'oid-new', name: 'موظف عقود', email: 'new@bec.iq', role: 'OPERATOR_USER', twoFa: true, reason: WHY, by: SUPER } as const;
+    const base = { type: 'CREATE_USER', userId: 'uX', azureOid: 'oid-new', name: 'موظف عقود', email: 'new@alwaha.iq', role: 'OPERATOR_USER', twoFa: true, reason: WHY, by: SUPER } as const;
     const bad = reducer(fresh(), { ...base, operatorId: 'op-nope' });
     expect(bad.users).toHaveLength(10);
     expect(lastRow(bad).reasonCode).toBe('unknown-operator');
 
-    const ok = reducer(fresh(), { ...base, operatorId: 'op-bec' });
+    const ok = reducer(fresh(), { ...base, operatorId: 'op-alwaha' });
     expect(ok.users).toHaveLength(11);
     expect(lastRow(ok).outcome).toBe('applied');
-    expect(lastRow(ok).target).toBe('new@bec.iq'); // same target the server audits (dto.email)
+    expect(lastRow(ok).target).toBe('new@alwaha.iq'); // same target the server audits (dto.email)
     expect(u(ok, 'uX').events![0]!.kind).toBe('create');
   });
 
@@ -496,15 +496,130 @@ describe('access guards mirror users.service.ts', () => {
 });
 
 
+/* ---------------- the MDOC universe (ق3) ---------------- */
+
+/**
+ * The demo universe is نفط الوسط (MDOC), adopted verbatim from the delivery registry: 13 real
+ * central-Iraq fields under 12 Lead Contractors. These pin the registry itself, because a seed
+ * that quietly drifts back toward the retired southern universe is exactly what ق3 forbids.
+ */
+describe('the seeded universe is the MDOC field registry (spec §1, ق3)', () => {
+  it('carries 13 fields under 12 operating companies, GeoJade holding two', () => {
+    const s = fresh();
+    expect(s.fields).toHaveLength(13);
+    expect(s.operators).toHaveLength(12);
+    expect(new Set(s.fields.map((f) => f.operatorId)).size).toBe(12); // every company operates ≥1 field
+    expect(s.fields.filter((f) => f.operatorId === 'op-geojade').map((f) => f.code).sort())
+      .toEqual(['NAFT-KHANA', 'ZURBATIYA']);
+  });
+
+  it('adopts the registry codes verbatim — no southern field survives', () => {
+    expect(fresh().fields.map((f) => f.code).sort()).toEqual([
+      'AHDAB', 'BADRA', 'BLOCK-07', 'DHUFRIYA', 'EBAGHDAD-N', 'EBAGHDAD-S', 'FURAT-MID',
+      'KHALISIYA', 'KHASHM-ANJANA', 'MANSURIA', 'NAFT-KHANA', 'QARNAYN', 'ZURBATIYA',
+    ]);
+  });
+
+  it('gives every field exactly one Service Contract, all of them effective (§7.1)', () => {
+    const s = fresh();
+    expect(s.serviceContracts).toHaveLength(13);
+    for (const f of s.fields) {
+      const cs = s.serviceContracts.filter((c) => c.fieldId === f.id);
+      expect(cs, `field ${f.code}`).toHaveLength(1);
+      // an FA that resolves is the proof the contract is in force — faForFieldId fails closed to null
+      expect(faFor(s, { ...s.tenders[0]!, fieldId: f.id }), `field ${f.code}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps the field↔operator invariant on every seeded tender (the create path enforces it)', () => {
+    const s = fresh();
+    for (const t of s.tenders) {
+      expect(s.fields.find((f) => f.id === t.fieldId)?.operatorId, `tender ${t.code}`).toBe(t.operatorId);
+    }
+  });
+
+  it('scopes every operator account to a company that exists, keeping exactly one enabled super admin', () => {
+    const s = fresh();
+    for (const u of s.users) {
+      expect(scopeConsistent(u.role, u.operatorId), `user ${u.email}`).toBe(true);
+      if (u.operatorId) expect(s.operators.some((o) => o.id === u.operatorId), `user ${u.email}`).toBe(true);
+    }
+    expect(enabledSuperAdmins(s)).toBe(1);
+  });
+});
+
+/**
+ * The approval ladder (ق1) — global, one set of ceilings for every operator. The seed spans all
+ * three bands deliberately, so the ladder is demonstrable on first load rather than theoretical.
+ */
+describe('tenderApprovalTier — the seed narrative spans all three bands (ق1)', () => {
+  it('seeds the global ladder at the client’s figures', () => {
+    expect(fresh().approvalTiers).toEqual({ operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 });
+  });
+
+  it('places each seeded tender in the band its value dictates', () => {
+    const s = fresh();
+    const tier = (id: string) => tenderApprovalTier(s, s.tenders.find((t) => t.id === id)!);
+    expect(tier('t1')).toBe('OPERATOR'); // 4.20M — Ahdab drilling, within the company's own authority
+    expect(tier('t2')).toBe('OPERATOR'); // 0.85M — Badra maintenance, the late one
+    expect(tier('t3')).toBe('JMC');      // 7.80M — Mansuria EPC, at the ratification decision
+    expect(tier('t4')).toBe('MDOC');     // 12.40M — Block-07 facilities, parked at the approval gate
+  });
+
+  it('is the SAME ladder for every operator — it is not read off the field or the contract', () => {
+    const s = fresh();
+    const t1 = s.tenders.find((t) => t.id === 't1')!;
+    // Mansuria's contract FA is 2M and Ahdab's is 5M, yet a 4.2M request reads OPERATOR in both:
+    // the ladder is global (ق1) while FA is per field (§7.1) — two questions, two inputs.
+    expect(tenderApprovalTier(s, { ...t1, fieldId: 'f-mansuria', operatorId: 'op-fze' })).toBe('OPERATOR');
+  });
+
+  it('answers a different question from aboveOwnFA — the two must not be collapsed', () => {
+    const s = fresh();
+    const t3 = s.tenders.find((t) => t.id === 't3')!;
+    const t1 = s.tenders.find((t) => t.id === 't1')!;
+    // above its field's FA yet only in the middle band; within its FA and in the lowest band
+    expect(aboveOwnFA(s, t3)).toBe(true);
+    expect(tenderApprovalTier(s, t3)).toBe('JMC');
+    expect(aboveOwnFA(s, t1)).toBe(false);
+    expect(tenderApprovalTier(s, t1)).toBe('OPERATOR');
+  });
+
+  it('fails closed to MDOC when the ladder is missing from state entirely', () => {
+    const s = fresh();
+    const t1 = s.tenders.find((t) => t.id === 't1')!;
+    expect(tenderApprovalTier({ ...s, approvalTiers: undefined as unknown as State['approvalTiers'] }, t1)).toBe('MDOC');
+  });
+});
+
 /* ---------------- operating companies & Financial Authority (§7) ---------------- */
+
+describe('fieldsOfOperator — the company scope the operator portal is read through (§10.x)', () => {
+  it('returns one company own fields, never the whole registry', () => {
+    const s = fresh();
+    expect(s.fields).toHaveLength(13); // 13 fields under 12 companies — the leak surface
+    expect(fieldsOfOperator(s, 'op-alwaha').map((f) => f.id)).toEqual(['f-ahdab']);
+    expect(fieldsOfOperator(s, 'op-geojade').map((f) => f.id)).toEqual(['f-naft-khana', 'f-zurbatiya']);
+  });
+
+  it('fails closed on a session that names no company — no scope means nothing, not everything', () => {
+    const s = fresh();
+    expect(fieldsOfOperator(s, undefined)).toEqual([]);
+    expect(fieldsOfOperator(s, '')).toEqual([]);
+  });
+
+  it('returns nothing for a company that owns no field, rather than falling back to any', () => {
+    expect(fieldsOfOperator(fresh(), 'op-does-not-exist')).toEqual([]);
+  });
+});
 
 describe('per-field Financial Authority (§7.1 — from the Service Contract)', () => {
   it('seeds every tender against its own field, preserving MCT membership', () => {
     const s = fresh();
-    const t1 = s.tenders.find((x) => x.id === 't1')!; // f-ru contract 5M -> below (4.2M)
-    const t3 = s.tenders.find((x) => x.id === 't3')!; // f-mj contract 3M -> above (7.8M)
-    expect(t1.fieldId).toBe('f-ru');
-    expect(t3.fieldId).toBe('f-mj');
+    const t1 = s.tenders.find((x) => x.id === 't1')!; // f-ahdab contract 5M -> below (4.2M)
+    const t3 = s.tenders.find((x) => x.id === 't3')!; // f-mansuria contract 2M -> above (7.8M)
+    expect(t1.fieldId).toBe('f-ahdab');
+    expect(t3.fieldId).toBe('f-mansuria');
     expect(aboveOwnFA(s, t1)).toBe(false);
     expect(aboveOwnFA(s, t3)).toBe(true);
     expect(t1.mct).toBeUndefined();
@@ -513,8 +628,8 @@ describe('per-field Financial Authority (§7.1 — from the Service Contract)', 
 
   it('resolves a different authority per field from its contract, not one global number', () => {
     const s = fresh();
-    expect(faFor(s, s.tenders.find((x) => x.id === 't1')!)).toBe(5_000_000); // f-ru
-    expect(faFor(s, s.tenders.find((x) => x.id === 't3')!)).toBe(3_000_000); // f-mj
+    expect(faFor(s, s.tenders.find((x) => x.id === 't1')!)).toBe(5_000_000); // f-ahdab
+    expect(faFor(s, s.tenders.find((x) => x.id === 't3')!)).toBe(2_000_000); // f-mansuria
   });
 
   it('fails closed for a tender with no field — no permissive default', () => {
@@ -528,34 +643,34 @@ describe('per-field Financial Authority (§7.1 — from the Service Contract)', 
     let s = fresh();
     const t1 = () => s.tenders.find((x) => x.id === 't1')!;
     expect(aboveOwnFA(s, t1())).toBe(false); // 4.2M under 5M
-    // lowering the Rumaila contract FA to 4M pulls its 4.2M request above the line
-    s = reducer(s, { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 4_000_000, reason: WHY, by: SUPER });
+    // lowering the Ahdab contract FA to 4M pulls its 4.2M request above the line
+    s = reducer(s, { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 4_000_000, reason: WHY, by: SUPER });
     expect(lastRow(s).outcome).toBe('applied');
     expect(aboveOwnFA(s, t1())).toBe(true);
   });
 
   it('opens an MCT case against the raising field authority, not a default', () => {
     const s0 = fresh();
-    // 3.5M is over Majnoon's 3M contract FA -> must open a cost-cycle case
+    // 3.5M is over Mansuria's 2M contract FA -> must open a cost-cycle case
     const s = reducer(s0, {
-      type: 'CREATE_TENDER', operatorId: 'op-mjn', fieldId: 'f-mj', title: { ar: 'x', en: 'x' },
-      budgetCode: 'MJ-TST-01', estimatedValueUSD: 3_500_000, methodId: 7,
+      type: 'CREATE_TENDER', operatorId: 'op-fze', fieldId: 'f-mansuria', title: { ar: 'x', en: 'x' },
+      budgetCode: 'MN-TST-01', estimatedValueUSD: 3_500_000, methodId: 7,
     });
     const created = s.tenders[0]!;
-    expect(created.fieldId).toBe('f-mj');
+    expect(created.fieldId).toBe('f-mansuria');
     expect(created.mct).toBeDefined();
     expect(created.mct!.lcEstimateUSD).toBe(3_500_000);
   });
 
   it('refuses a non-positive contract authority, which would put every request above the line', () => {
-    const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 0, reason: WHY, by: SUPER });
-    expect(s.serviceContracts.find((c) => c.id === 'sc-ru')!.financialAuthorityUSD).toBe(5_000_000);
+    const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 0, reason: WHY, by: SUPER });
+    expect(s.serviceContracts.find((c) => c.id === 'sc-ahdab')!.financialAuthorityUSD).toBe(5_000_000);
     expect(lastRow(s).outcome).toBe('refused');
     expect(lastRow(s).reasonCode).toBe('fa-invalid');
   });
 
   it('CREATE_FIELD creates a field with its Service Contract, usable at once', () => {
-    const base = { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-bec', name: 'حقل جديد', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER } as const;
+    const base = { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-alwaha', name: 'حقل جديد', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER } as const;
     const s = reducer(fresh(), base);
     expect(s.fields.some((f) => f.id === 'f-new')).toBe(true);
     expect(s.serviceContracts.find((c) => c.fieldId === 'f-new')!.financialAuthorityUSD).toBe(4_000_000);
@@ -564,8 +679,8 @@ describe('per-field Financial Authority (§7.1 — from the Service Contract)', 
   });
 
   it('CREATE_FIELD refuses a duplicate code case-insensitively, an unknown operator, and a bad date range', () => {
-    const ok = { type: 'CREATE_FIELD', fieldId: 'f-a', operatorId: 'op-bec', name: 'أ', code: 'ru', contractId: 'sc-a', contractCode: 'SC-A', financialAuthorityUSD: 1_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER } as const;
-    // 'ru' collides with seeded 'RU' regardless of case
+    const ok = { type: 'CREATE_FIELD', fieldId: 'f-a', operatorId: 'op-alwaha', name: 'أ', code: 'ahdab', contractId: 'sc-a', contractCode: 'SC-A', financialAuthorityUSD: 1_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER } as const;
+    // 'ahdab' collides with seeded 'AHDAB' regardless of case
     expect(reducer(fresh(), ok).fields.some((f) => f.id === 'f-a')).toBe(false);
     expect(lastRow(reducer(fresh(), ok)).reasonCode).toBe('dup-field');
     // unknown operator
@@ -575,12 +690,13 @@ describe('per-field Financial Authority (§7.1 — from the Service Contract)', 
   });
 
   it('refuses a duplicate company name and registers a distinct one', () => {
-    const dup = reducer(fresh(), { type: 'CREATE_OPERATOR', operatorId: 'op-x', name: '\u0634\u0631\u0643\u0629 \u0646\u0641\u0637 \u0627\u0644\u0628\u0635\u0631\u0629', reason: WHY, by: SUPER });
-    expect(dup.operators).toHaveLength(3);
+    // collides with the seeded Lead Contractor of AHDAB
+    const dup = reducer(fresh(), { type: 'CREATE_OPERATOR', operatorId: 'op-x', name: '\u0634\u0631\u0643\u0629 \u0646\u0641\u0637 \u0627\u0644\u0648\u0627\u062d\u0629 \u0627\u0644\u0635\u064a\u0646\u064a\u0629', reason: WHY, by: SUPER });
+    expect(dup.operators).toHaveLength(12);
     expect(lastRow(dup).reasonCode).toBe('dup-name');
 
-    const ok = reducer(fresh(), { type: 'CREATE_OPERATOR', operatorId: 'op-x', name: '\u0634\u0631\u0643\u0629 \u0646\u0641\u0637 \u0627\u0644\u0648\u0633\u0637', reason: WHY, by: SUPER });
-    expect(ok.operators).toHaveLength(4);
+    const ok = reducer(fresh(), { type: 'CREATE_OPERATOR', operatorId: 'op-x', name: '\u0634\u0631\u0643\u0629 \u062a\u0637\u0648\u064a\u0631 \u062d\u0642\u0648\u0644 \u062f\u064a\u0627\u0644\u0649', reason: WHY, by: SUPER });
+    expect(ok.operators).toHaveLength(13);
     expect(lastRow(ok).outcome).toBe('applied');
     expect(lastRow(ok).by).toEqual(SUPER);
   });
@@ -598,27 +714,27 @@ describe('governed writes refuse an undocumented justification (server @Length(2
 
   it('SET_CONTRACT_FA refuses a too-short and a too-long justification, leaving the authority intact', () => {
     for (const reason of [SHORT, '', '   ', LONG]) {
-      const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 9_000_000, reason, by: SUPER });
-      expect(s.serviceContracts.find((c) => c.id === 'sc-ru')!.financialAuthorityUSD).toBe(5_000_000);
+      const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 9_000_000, reason, by: SUPER });
+      expect(s.serviceContracts.find((c) => c.id === 'sc-ahdab')!.financialAuthorityUSD).toBe(5_000_000);
       expect(s.audit).toHaveLength(1);
       expect(lastRow(s).outcome).toBe('refused');
       expect(lastRow(s).reasonCode).toBe('reason-invalid');
       expect(lastRow(s).by).toEqual(SUPER);
-      expect(lastRow(s).target).toBe('SC-RU-24'); // the contract code, as the applied twin records
+      expect(lastRow(s).target).toBe('SC-AHDAB-24'); // the contract code, as the applied twin records
     }
   });
 
   it('SET_CONTRACT_FA checks the justification BEFORE the no-op, so an undocumented attempt is still recorded', () => {
     // same value as seeded \u2192 the write would be a no-op, but the attempt was still undocumented
-    const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 5_000_000, reason: SHORT, by: SUPER });
+    const s = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 5_000_000, reason: SHORT, by: SUPER });
     expect(lastRow(s).reasonCode).toBe('reason-invalid');
     // \u2026while the SAME no-op with a documented reason stays silent (nothing changed to audit)
-    const ok = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 5_000_000, reason: WHY, by: SUPER });
+    const ok = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 5_000_000, reason: WHY, by: SUPER });
     expect(ok.audit).toHaveLength(0);
   });
 
   it('CREATE_FIELD refuses an undocumented justification \u2014 no field and no Service Contract are born', () => {
-    const base = { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-bec', name: '\u062d\u0642\u0644 \u062c\u062f\u064a\u062f', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', by: SUPER } as const;
+    const base = { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-alwaha', name: '\u062d\u0642\u0644 \u062c\u062f\u064a\u062f', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', by: SUPER } as const;
     const s0 = fresh();
     const s = reducer(s0, { ...base, reason: SHORT });
     expect(s.fields).toHaveLength(s0.fields.length);
@@ -639,11 +755,11 @@ describe('governed writes refuse an undocumented justification (server @Length(2
   });
 
   it('still applies each write once the justification is documented \u2014 the refusal is reason-only', () => {
-    const fa = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ru', financialAuthorityUSD: 9_000_000, reason: WHY, by: SUPER });
-    expect(fa.serviceContracts.find((c) => c.id === 'sc-ru')!.financialAuthorityUSD).toBe(9_000_000);
+    const fa = reducer(fresh(), { type: 'SET_CONTRACT_FA', contractId: 'sc-ahdab', financialAuthorityUSD: 9_000_000, reason: WHY, by: SUPER });
+    expect(fa.serviceContracts.find((c) => c.id === 'sc-ahdab')!.financialAuthorityUSD).toBe(9_000_000);
     expect(lastRow(fa).outcome).toBe('applied');
 
-    const fld = reducer(fresh(), { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-bec', name: '\u062d\u0642\u0644 \u062c\u062f\u064a\u062f', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER });
+    const fld = reducer(fresh(), { type: 'CREATE_FIELD', fieldId: 'f-new', operatorId: 'op-alwaha', name: '\u062d\u0642\u0644 \u062c\u062f\u064a\u062f', code: 'NW', contractId: 'sc-new', contractCode: 'SC-NW', financialAuthorityUSD: 4_000_000, signedOn: '2024-01-01', expiresOn: '2031-01-01', reason: WHY, by: SUPER });
     expect(fld.fields.some((f) => f.id === 'f-new')).toBe(true);
     expect(lastRow(fld).outcome).toBe('applied');
   });

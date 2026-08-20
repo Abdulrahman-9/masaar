@@ -26,7 +26,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     if (!/^\d{6}$/.test(code) || busy) return;
     setError('');
     if (isApiMode) {
-      // the server's LoginDto only accepts OPERATOR_ADMIN | ROC_ADMIN — narrows `role`
+      // the server's LoginDto only accepts OPERATOR_ADMIN | MDOC_ADMIN — narrows `role`
       if (!isApiLoginable(role)) {
         setError(t('login.notApiLoginable'));
         return;
@@ -60,7 +60,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               <label>{t('login.role')}</label>
               <select value={role} onChange={(e) => setRole(e.target.value as ApiRole)}>
                 <option value="OPERATOR_ADMIN">{t('login.roleOperator')}</option>
-                <option value="ROC_ADMIN">{t('login.roleRoc')}</option>
+                <option value="MDOC_ADMIN">{t('login.roleMdoc')}</option>
                 <option value="SUPER_ADMIN">{t('login.roleSuper')}</option>
               </select>
             </div>

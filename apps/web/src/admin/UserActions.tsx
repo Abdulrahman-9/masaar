@@ -10,7 +10,7 @@ import { useAdminUi } from './AdminShell';
 import { capsForRole, domainsFor, impactfulCount, roleKey, rolesOrphanedBy } from './access';
 import { Modal } from './Modal';
 
-const ROLES: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+const ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 /** The acting super admin, bound by immutable oid — never by display name. */
 export function useActor(): Actor | null {

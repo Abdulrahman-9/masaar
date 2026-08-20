@@ -237,6 +237,10 @@
 .op-page__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
 .op-page__title { margin: 0; font-size: 24px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; line-height: 1.2; }
 .op-page__sub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+/* One-line definition of a term the screen's columns use (client request 8 / ق4 «المطابقة»):
+   darker than the sub-line because it is read, not skimmed, and measure-capped so it stays one
+   sentence rather than a paragraph. */
+.op-page__def { font-size: 12.5px; line-height: var(--lh-loose); color: var(--ink-2); margin-top: 6px; max-width: 92ch; }
 
 /* ---------- Inbox ---------- */
 .op-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }

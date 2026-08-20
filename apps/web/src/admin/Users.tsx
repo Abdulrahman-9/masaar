@@ -17,7 +17,7 @@ import { useAdminUi } from './AdminShell';
 import { impactfulCount, matchUser, orphanRoleCount, readCount, roleKey, roleTone } from './access';
 import { AddAccountModal } from './UserActions';
 
-const ROLE_ORDER: ApiRole[] = ['SUPER_ADMIN', 'ROC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+const ROLE_ORDER: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 export function initials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('');

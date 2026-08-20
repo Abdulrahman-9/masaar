@@ -33,7 +33,7 @@ export class HolidaysController {
   }
 
   @Post()
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   async add(@CurrentUser() user: AuthUser, @Body() dto: HolidayDto) {
     const holiday = await this.prisma.holiday.create({ data: { date: new Date(`${dto.date}T00:00:00.000Z`), name: dto.name } });
     // audit action name matches the client action verbatim (ADD_HOLIDAY) — one searchable term per act
@@ -42,7 +42,7 @@ export class HolidaysController {
   }
 
   @Delete(':date')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   async remove(@CurrentUser() user: AuthUser, @Param('date') date: string, @Query('reason') reason?: string) {
     if (!ISO.test(date)) return { ok: false };
     // the write side enforces the same ≥20 governance reason the client demands

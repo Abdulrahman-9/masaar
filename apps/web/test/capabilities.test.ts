@@ -6,10 +6,12 @@ import {
   orphanRoleCount,
   rolesOrphanedBy,
   matchUser,
+  roleKey,
+  roleTone,
   specConflicts,
 } from '../src/admin/access';
 import { CAPABILITIES, COUNTED, type Capability } from '../src/admin/capabilities';
-import { DEMO_IDENTITIES, isApiLoginable, type ApiRole } from '../src/session';
+import { API_ROLES, DEMO_IDENTITIES, isApiLoginable, normalizeRole, type ApiRole } from '../src/session';
 import { seedState, type AuditEntry, type UserAccount } from '../src/store';
 
 const byId = (id: string): Capability => {
@@ -66,8 +68,8 @@ describe('capability register', () => {
 
 describe('cellState — the five-state rendering', () => {
   it('scopes a capability only for the two operator roles', () => {
-    const ratify = byId('ratifyAward'); // scoped:true, but ROC/SUPER are never company-limited
-    expect(cellState(ratify, 'ROC_ADMIN')).toBe('yes');
+    const ratify = byId('ratifyAward'); // scoped:true, but MDOC/SUPER are never company-limited
+    expect(cellState(ratify, 'MDOC_ADMIN')).toBe('yes');
     expect(cellState(ratify, 'EVALUATION')).toBe('no');
 
     const create = byId('createTender'); // scoped:true and operator-facing
@@ -131,12 +133,12 @@ const user = (id: string, role: ApiRole, disabled = false): UserAccount => ({
 
 describe('orphan-role detection', () => {
   it('counts governance roles with no enabled holder', () => {
-    const users = [user('a', 'SUPER_ADMIN'), user('b', 'ROC_ADMIN')];
+    const users = [user('a', 'SUPER_ADMIN'), user('b', 'MDOC_ADMIN')];
     expect(orphanRoleCount(users)).toBe(2); // EVALUATION + AUDITOR have nobody
   });
 
   it('warns before a change strands a role', () => {
-    const users = [user('a', 'SUPER_ADMIN'), user('b', 'ROC_ADMIN'), user('c', 'EVALUATION'), user('d', 'AUDITOR')];
+    const users = [user('a', 'SUPER_ADMIN'), user('b', 'MDOC_ADMIN'), user('c', 'EVALUATION'), user('d', 'AUDITOR')];
     expect(orphanRoleCount(users)).toBe(0);
     // disabling the only evaluation member strands EVALUATION
     expect(rolesOrphanedBy(users, 'c', { role: 'EVALUATION', disabled: true })).toEqual(['EVALUATION']);
@@ -162,7 +164,7 @@ describe('demo sign-in identities', () => {
 
   it('only offers API sign-in for the two roles the server LoginDto accepts', () => {
     expect(DEMO_IDENTITIES.filter((i) => isApiLoginable(i.role)).map((i) => i.role).sort())
-      .toEqual(['OPERATOR_ADMIN', 'ROC_ADMIN']);
+      .toEqual(['MDOC_ADMIN', 'OPERATOR_ADMIN']);
     expect(isApiLoginable('SUPER_ADMIN')).toBe(false);
   });
 });
@@ -171,11 +173,43 @@ describe('matchUser', () => {
   const row = (target: string): AuditEntry => ({ ts: '2026-07-22T10:00:00Z', action: 'SET_USER_ROLE', target });
 
   it('matches both the client target and the server OLD→NEW form', () => {
+    // deliberately a PRE-RENAME row: written 2026-07-22 under the retired ROC_ADMIN vocabulary
+    // and never rewritten (8.1-e). Matching must not depend on today's role names.
     const m = matchUser('sara.jubouri@roc.iq');
     expect(m(row('sara.jubouri@roc.iq'))).toBe(true);
     expect(m(row('sara.jubouri@roc.iq: ROC_ADMIN→EVALUATION'))).toBe(true);
     expect(m(row('other@roc.iq'))).toBe(false);
     // a longer email that merely starts with the same local part must not match
     expect(m(row('sara.jubouri@roc.iq.example'))).toBe(false);
+  });
+});
+
+/**
+ * The rename is a compatibility event, not just a spelling change: sessions, accounts and audit
+ * rows written before 2026-08-20 all carry `ROC_ADMIN`, and each layer must answer for it.
+ */
+describe('retired role vocabulary (ROC_ADMIN → MDOC_ADMIN)', () => {
+  it('resolves the retired identifier and rejects one that names nothing', () => {
+    expect(normalizeRole('ROC_ADMIN')).toBe('MDOC_ADMIN');
+    expect(normalizeRole('MDOC_ADMIN')).toBe('MDOC_ADMIN');
+    expect(normalizeRole('ROC_ADMINISTRATOR')).toBeNull();
+    expect(normalizeRole('')).toBeNull();
+  });
+
+  it('renders a historical audit role under the CURRENT label, not a wrong one', () => {
+    // the pre-2026-08-20 spelling must not fall through to an unrelated role
+    expect(roleKey('ROC_ADMIN')).toBe('mdocAdmin');
+    expect(roleTone('ROC_ADMIN')).toBe('mdoc');
+    // …and a name the register never had reads AS unknown rather than as an operator
+    expect(roleKey('COMMITTEE_CHAIR')).toBe('unknown');
+    expect(roleTone('COMMITTEE_CHAIR')).toBe('unknown');
+    // every live role still has its own key and tone
+    expect(API_ROLES.map(roleKey)).toEqual(['superAdmin', 'mdocAdmin', 'evaluation', 'auditor', 'operatorAdmin', 'operatorUser']);
+    expect(new Set(API_ROLES.map(roleTone)).size).toBe(5); // the two operator roles share one tone
+  });
+
+  it('leaves no retired identifier in the live register', () => {
+    expect(CAPABILITIES.flatMap((c) => [...c.roles, ...(c.specGrants ?? [])]).filter((r) => !API_ROLES.includes(r))).toEqual([]);
+    expect(seedState().users.filter((u) => !API_ROLES.includes(u.role))).toEqual([]);
   });
 });

@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Procurement operators (مشغّلون) at oil-field operating companies and central governance staff (ROC admins, evaluators, auditors) in an Arabic-first, formal governmental context. They are administrative professionals — often senior — working through legally intricate SCPP tender procedures under deadline pressure. Primary language Arabic (RTL); English is secondary. Keyboard access and larger-type readability matter.
+Procurement operators (مشغّلون) at oil-field operating companies and central governance staff at the parent company MDOC / نفط الوسط (MDOC admins, evaluators, auditors) in an Arabic-first, formal governmental context. They are administrative professionals — often senior — working through legally intricate SCPP tender procedures under deadline pressure. Primary language Arabic (RTL); English is secondary. Keyboard access and larger-type readability matter.
 
 ## Product Purpose
 

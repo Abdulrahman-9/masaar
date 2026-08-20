@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminShell, { type AdminView } from './admin/AdminShell';
 import AdminTenders from './admin/AdminTenders';
+import Approvals from './admin/Approvals';
 import Audit from './admin/Audit';
 import Compliance from './admin/Compliance';
 import Contracts from './admin/Contracts';
@@ -12,7 +13,6 @@ import ContractProfile from './admin/ContractProfile';
 import EntityProfile from './admin/EntityProfile';
 import FollowUpRoom from './admin/FollowUpRoom';
 import Holidays from './admin/Holidays';
-import Mct from './admin/Mct';
 import Fields from './admin/Fields';
 import Operators from './admin/Operators';
 import PathsGuide from './admin/PathsGuide';
@@ -184,7 +184,7 @@ function route(hash: string) {
 }
 
 /**
- * Who may enter #/admin: the four PLATFORM roles (SUPER_ADMIN / ROC_ADMIN / EVALUATION /
+ * Who may enter #/admin: the four PLATFORM roles (SUPER_ADMIN / MDOC_ADMIN / EVALUATION /
  * AUDITOR). The two operator roles are company-scoped by definition (session.ts
  * isOperatorRole) and every admin registry is cross-company, so the panel is closed to them.
  * A session alone is not the gate — that was the bug: any signed-in operator walked in.
@@ -213,6 +213,15 @@ function AdminAccessRefused({ role }: { role: ApiRole }) {
   );
 }
 
+/**
+ * A retired route sending its traffic to the successor screen. `replace` rather than assignment,
+ * so Back does not bounce the user straight into the dead address again.
+ */
+function Redirect({ to }: { to: string }) {
+  useEffect(() => { window.location.replace(to); }, [to]);
+  return null;
+}
+
 /** Admin panel — full-screen redesigned shell (dark sidebar + topbar). */
 function renderAdmin(hash: string, onLogout: () => void) {
   const rv = /^#\/admin\/review\/(.+)$/.exec(hash);
@@ -228,9 +237,14 @@ function renderAdmin(hash: string, onLogout: () => void) {
   const usr = /^#\/admin\/users\/(.+)$/.exec(hash);
   if (usr) return <AdminShell view="users" onLogout={onLogout}><UserProfile id={usr[1]!} /></AdminShell>;
 
-  // tolerate a trailing ?query (e.g. #/admin/fields?op=op-bec)
+  // tolerate a trailing ?query (e.g. #/admin/fields?op=op-alwaha)
   const m = /^#\/admin\/(\w+)(?:\?.*)?$/.exec(hash);
   const sub = m?.[1] ?? 'room';
+  // The MCT screen is retired (client ق3: hidden entirely) and the approval chain took its place.
+  // A bookmark to it is REDIRECTED, not 404'd or silently re-rendered: the same portfolio question
+  // now has a different, better answer, and the address bar must end up saying so.
+  if (sub === 'mct') return <Redirect to="#/admin/approvals" />;
+  if (sub === 'approvals') return <AdminShell view="approvals" onLogout={onLogout}><Approvals /></AdminShell>;
   if (sub === 'tenders') return <AdminShell view="tenders" onLogout={onLogout}><AdminTenders /></AdminShell>;
   if (sub === 'entities') return <AdminShell view="entities" onLogout={onLogout}><Vendors /></AdminShell>;
   if (sub === 'contracts') return <AdminShell view="contracts" onLogout={onLogout}><Contracts /></AdminShell>;
@@ -242,7 +256,6 @@ function renderAdmin(hash: string, onLogout: () => void) {
   if (sub === 'holidays') return <AdminShell view="holidays" onLogout={onLogout}><Holidays /></AdminShell>;
   const LEGACY: Record<string, [AdminView, JSX.Element]> = {
     reports: ['reports', <Reports />],
-    mct: ['mct', <Mct />],
     compliance: ['compliance', <Compliance />],
     paths: ['paths', <PathsGuide />],
     audit: ['audit', <Audit />],

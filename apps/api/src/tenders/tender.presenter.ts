@@ -8,7 +8,7 @@ import type { AuthUser, Role } from '../auth/auth.types.js';
  *
  *  - Price: emitted only when isPriceVisible(step, bidder). An excluded bidder's
  *    price is NEVER on the wire, for any role, pre- or post-award.
- *  - Identity: hidden from ROC/auditor until the award stage; operators (own
+ *  - Identity: hidden from MDOC/auditor until the award stage; operators (own
  *    tender) and evaluation committees run the process so they see real names.
  */
 

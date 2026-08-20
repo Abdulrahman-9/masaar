@@ -1,4 +1,5 @@
 import {
+  approvalTierFor,
   checkAnnouncement,
   contractFinancialAuthority,
   effectiveClosingDate,
@@ -19,6 +20,8 @@ import {
   suspensionCap,
   variationOrdersCap,
   type AnnouncementMode,
+  type ApprovalTier,
+  type ApprovalTiers,
   type EvaluationStep,
   type LocalContentScope,
   type LocalContentStatus,
@@ -32,7 +35,7 @@ import { api } from './api/client';
 import { loadFullState, runAction, tenderIdOf } from './api/endpoints';
 import { mapTender } from './api/mappers';
 import type { ApiTender } from './api/types';
-import { isOperatorRole, loadSession, type ApiRole } from './session';
+import { isOperatorRole, loadSession, normalizeRole, type ApiRole } from './session';
 
 /**
  * Client-side tender store — stands in for the future API.
@@ -111,7 +114,7 @@ export interface Tender {
   evaluationStep: number; // 0..3
   bidders: BidderState[];
   mct?: MctState;
-  /** ROC ratification decision on the award (admin side). */
+  /** MDOC ratification decision on the award (admin side). */
   ratification?: RatificationState;
   /** Lifecycle governance (mirrors the API TenderStatus); absent = ACTIVE. */
   lifecycle?: TenderLifecycle;
@@ -260,7 +263,7 @@ export interface UserEvent {
   on: string; // ISO date
   at: string; // full ISO timestamp — orders same-day events
   by: Actor;
-  detail?: string; // e.g. "ROC_ADMIN→EVALUATION"
+  detail?: string; // e.g. "MDOC_ADMIN→EVALUATION"
 }
 
 /** 1:1 with Prisma `model User`. There is no `createdOn` — provenance comes from the create event. */
@@ -317,6 +320,9 @@ export interface State {
   /** admin-managed public holidays — feed the working-day calendar (§11.3.4-e). Mirrors the API's
    *  `model Holiday` ({date, name}); every working-day deadline resolves through calendarOf(). */
   holidays: Holiday[];
+  /** the GLOBAL approval ladder (client decision ق1) — one set of ceilings for every operating
+   *  company, which is why it lives on the state root and not on an operator or a contract. */
+  approvalTiers: ApprovalTiers;
 }
 
 /** A public holiday: the ISO date the calendar keys on, plus a display name (e.g. "Eid al-Fitr"). */
@@ -519,13 +525,40 @@ export function faForFieldId(state: State, fieldId: string | undefined): number 
 }
 
 /**
- * Above its own field's FA → enters the MCT cost cycle (6.9) and ROC witnessing (12.2.2).
+ * The fields ONE operating company owns — the company scope every operator surface reads through
+ * (§10.x: a scoped account may only touch its own company). One definition, so the request wizard
+ * and the tender registry cannot drift into showing different universes.
+ *
+ * `operatorId` is optional and an absent one resolves to NO fields, never to all of them: a
+ * session that carries no company has not proven a scope, and «no scope» must fail closed to
+ * nothing rather than open to the whole 13-field registry. Callers render their field control
+ * only when the result is non-empty, so the surface stays honest instead of offering a filter
+ * over companies the account does not belong to.
+ */
+export function fieldsOfOperator(state: State, operatorId: string | undefined): Field[] {
+  if (!operatorId) return [];
+  return state.fields.filter((f) => f.operatorId === operatorId);
+}
+
+/**
+ * Above its own field's FA → enters the MCT cost cycle (6.9) and MDOC witnessing (12.2.2).
  * Fail closed: an unresolvable FA is treated as above authority (the conservative reading —
  * a tender with no effective contract cannot be assumed within any authority).
  */
 export function aboveOwnFA(state: State, t: Tender): boolean {
   const fa = faFor(state, t);
   return fa == null || isAboveFA(t, fa);
+}
+
+/**
+ * Which body clears this request (ق1) — read off the GLOBAL ladder in state, never a literal.
+ * Distinct from `aboveOwnFA`: FA (§7.1, per field) decides whether the cost cycle opens; the
+ * ladder decides whose signature the award needs. A tender can be within its field's FA and
+ * still sit in the operator band, or above FA and land in either upper band — the two questions
+ * have different inputs and must not be collapsed.
+ */
+export function tenderApprovalTier(state: State, t: Tender): ApprovalTier {
+  return approvalTierFor(t.estimatedValueUSD, state.approvalTiers);
 }
 
 /** Resolve the accredited estimate per the prevailing rule (6.9.1 / 6.9.2 / agreed). */
@@ -597,7 +630,7 @@ export type Action =
   | { type: 'SET_USER_TWOFA'; userId: string; twoFa: boolean; reason: string; by: Actor }
   | { type: 'SET_USER_DISABLED'; userId: string; disabled: boolean; reason: string; by: Actor }
   // operating companies — the Financial Authority each one carries governs MCT entry (6.9),
-  // ROC participation tier (12.2) and anti-splitting detection (7.2)
+  // MDOC participation tier (12.2) and anti-splitting detection (7.2)
   | { type: 'CREATE_OPERATOR'; operatorId: string; name: string; nameEn?: string; reason: string; by: Actor }
   // a field is created together with its Service Contract (§7.1) — the source of its FA, so a
   // new operator's field is usable immediately (a field with no contract cannot raise a tender)
@@ -1156,7 +1189,7 @@ function apply(state: State, action: Action): State {
     case 'SET_CONTRACT_FA': {
       const target = state.serviceContracts.find((c) => c.id === action.contractId);
       if (!target) return state;
-      // moving an authority reshapes MCT entry, ROC tier and split detection retroactively — it is
+      // moving an authority reshapes MCT entry, MDOC tier and split detection retroactively — it is
       // refused without a documented justification (checked before the no-op, like ADD_HOLIDAY).
       if (!govReasonValid(action.reason)) return auditAccess(state, action.type, target.code, action.by, 'refused', 'reason-invalid');
       if (target.financialAuthorityUSD === action.financialAuthorityUSD) return state;
@@ -1273,15 +1306,32 @@ export function reducer(state: State, action: Action): State {
 
 /* ---------------- seed ---------------- */
 
+/**
+ * The GLOBAL approval ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating
+ * company's own, 5–10M the Joint Management Committee's, >10M نفط الوسط's. One constant, so the
+ * store seed, an empty state and the api-mode hydrate can never drift into two different ladders.
+ */
+export const SEED_APPROVAL_TIERS: ApprovalTiers = { operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 };
+
+/**
+ * The demo universe is نفط الوسط (MDOC — Midland Oil Company, central Iraq): the 13 real fields
+ * and their 12 Lead Contractors, adopted verbatim from the delivery registry (spec §1). Every
+ * tender below lives in one of those fields, and the four of them deliberately span all three
+ * approval tiers so the ladder is visible on first load rather than theoretical:
+ *   t1  4.20M  AHDAB (AlWaha)   → OPERATOR — within the company's own authority, no gate
+ *   t2  0.85M  BADRA            → OPERATOR — and running late, the deviation story
+ *   t3  7.80M  MANSURIA (FZE)   → JMC      — above FA, at the ratification decision
+ *   t4 12.40M  BLOCK-07 (CNOOC) → MDOC     — above FA, parked at the approval gate
+ */
 export function seedState(): State {
   const t1: Tender = {
     id: 't1',
-    operatorId: 'op-bec',
-    fieldId: 'f-ru',
+    operatorId: 'op-alwaha',
+    fieldId: 'f-ahdab',
     scope: 'DRILLING', // a drilling tender, but 4.2M < its 5M FA → §9 does not trigger (not-required)
-    code: 'RU-DRL-0212',
-    title: { ar: 'حفر آبار تقييمية — حقل الرميلة', en: 'Appraisal well drilling — Rumaila field' },
-    budgetCode: 'RU-DRL-77',
+    code: 'AH-DRL-0212',
+    title: { ar: 'حفر آبار تطويرية — حقل الأحدب', en: 'Development well drilling — Ahdab field' },
+    budgetCode: 'AH-DRL-77',
     estimatedValueUSD: 4_200_000,
     methodId: 7,
     createdOn: '2026-04-28',
@@ -1317,12 +1367,12 @@ export function seedState(): State {
 
   const t2: Tender = {
     id: 't2',
-    operatorId: 'op-bec',
-    fieldId: 'f-wq1',
+    operatorId: 'op-badra',
+    fieldId: 'f-badra',
     scope: 'OTHER', // maintenance — §9 participation requirement does not apply
-    code: 'WQ-MNT-0098',
-    title: { ar: 'صيانة وحدة عزل الغاز', en: 'Gas separation unit maintenance' },
-    budgetCode: 'WQ-MNT-12',
+    code: 'BD-MNT-0098',
+    title: { ar: 'صيانة محطة الضخ المركزية — حقل بدرة', en: 'Central pump station maintenance — Badra field' },
+    budgetCode: 'BD-MNT-12',
     estimatedValueUSD: 850_000,
     methodId: 6,
     createdOn: '2026-05-10',
@@ -1343,18 +1393,18 @@ export function seedState(): State {
     bidders: [],
   };
 
-  // above Financial Authority → in the MCT cycle (6.9)
+  // above Financial Authority → in the MCT cycle (6.9); 7.8M sits in the JMC band (ق1)
   const t3: Tender = {
     id: 't3',
-    operatorId: 'op-mjn',
-    fieldId: 'f-mj',
+    operatorId: 'op-fze',
+    fieldId: 'f-mansuria',
     scope: 'ENGINEERING_CONSTRUCTION', // EPC above FA → §9 applies; a documented decline below → exempt
     // C8.2 — SCOP declined with a documented justification, so the tender is a lawful EXEMPTION (not a
     // violation, not a void): the operator sees the legal path live in the compliance view.
     stateResponses: [{ company: 'SCOP', status: 'declined', evidence: 'اعتذار رسمي موثّق من الشركة لارتباط طاقتها بمشروع قائم (كتاب 2026/155)' }],
-    code: 'MJ-EPC-0305',
-    title: { ar: 'إنشاء محطة عزل مركزية — حقل مجنون', en: 'Central degassing station EPC — Majnoon field' },
-    budgetCode: 'MJ-EPC-04',
+    code: 'MN-EPC-0305',
+    title: { ar: 'إنشاء محطة معالجة الغاز المركزية — حقل المنصورية', en: 'Central gas processing station EPC — Mansuria field' },
+    budgetCode: 'MN-EPC-04',
     estimatedValueUSD: 7_800_000,
     methodId: 7,
     createdOn: '2026-04-20',
@@ -1393,11 +1443,53 @@ export function seedState(): State {
     },
   };
 
+  /**
+   * The third band (ق1): 12.4M is past the 10M JMC ceiling, so this one waits on نفط الوسط
+   * itself. It is parked at the `approval` stage on purpose — that stage IS the approval chain,
+   * so the tender reads as «pending MDOC» from the registry without any new field. It is also
+   * above the Block-07 contract FA (4.5M), which is what opened the MCT case below.
+   * §9 story: the third of the three states — EPC above FA with a state company ACCEPTED, so it
+   * reads `compliant` next to t3's `exempt` and t1/t2's `not-required`.
+   */
+  const t4: Tender = {
+    id: 't4',
+    operatorId: 'op-cnooc',
+    fieldId: 'f-block-07',
+    scope: 'ENGINEERING_CONSTRUCTION',
+    localContentClauseAffixed: true, // C8.1 — the 20% clause is on the documents, ready to publish
+    stateResponses: [{ company: 'SCOP', status: 'accepted' }],
+    code: 'B7-FAC-0331',
+    title: {
+      ar: 'إنشاء منشآت الإنتاج السطحية المركزية — الرقعة السابعة',
+      en: 'Central surface production facilities EPC — Block 07',
+    },
+    budgetCode: 'B7-FAC-09',
+    estimatedValueUSD: 12_400_000,
+    methodId: 7,
+    createdOn: '2026-05-25',
+    stages: [
+      { key: 'cost', plannedFrom: '2026-06-01', plannedTo: '2026-06-14', actualTo: '2026-06-14', uploadedDocs: ['stage-report'] },
+      // open, on plan — the approval act itself is what the parent company owes
+      { key: 'approval', plannedFrom: '2026-07-01', plannedTo: '2026-09-15', uploadedDocs: [] },
+      { key: 'announce', plannedFrom: '2026-09-16', plannedTo: '2026-10-10', uploadedDocs: [] },
+      { key: 'tech-open', plannedFrom: '2026-10-11', plannedTo: '2026-10-14', uploadedDocs: [] },
+      { key: 'tech-analysis', plannedFrom: '2026-10-15', plannedTo: '2026-10-29', uploadedDocs: [] },
+      { key: 'comm-open', plannedFrom: '2026-10-30', plannedTo: '2026-11-02', uploadedDocs: [] },
+      { key: 'comm-analysis', plannedFrom: '2026-11-03', plannedTo: '2026-11-17', uploadedDocs: [] },
+      { key: 'ratify', plannedFrom: '2026-11-18', plannedTo: '2026-11-30', uploadedDocs: [] },
+      { key: 'sign', plannedFrom: '2026-12-01', plannedTo: '2026-12-10', uploadedDocs: [] },
+    ],
+    announcement: { ...defaultAnnouncementFor(7) }, // not yet published — the gate is still upstream
+    evaluationStep: 0,
+    bidders: [],
+    mct: { notifiedOn: '2026-06-16', lcEstimateUSD: 12_400_000 },
+  };
+
   // mid-execution: variation orders approaching the 10% cap, a bond expiring soon
   const c1: ContractState = {
     id: 'c1',
-    code: 'RU-CON-0188',
-    title: { ar: 'عقد حفر تطويري — الرميلة', en: 'Development drilling contract — Rumaila' },
+    code: 'AH-CON-0188',
+    title: { ar: 'عقد حفر تطويري — الأحدب', en: 'Development drilling contract — Ahdab' },
     contractorName: 'شركة الحفر العراقية',
     // contractor name matches vendor v1 exactly → linked. No tenderId: this contract was
     // signed 2026-02-15, before any seeded tender was created, and no seeded tender is
@@ -1432,11 +1524,11 @@ export function seedState(): State {
   // healthy, early stage: all caps clean, just mobilising
   const c2: ContractState = {
     id: 'c2',
-    code: 'WQ-CON-0191',
-    title: { ar: 'عقد تأهيل خطوط التصدير — الفاو', en: 'Export pipeline rehabilitation — Al-Faw' },
+    code: 'FM-CON-0191',
+    title: { ar: 'عقد تأهيل خطوط النقل — الفرات الأوسط', en: 'Transfer pipeline rehabilitation — Middle Euphrates' },
     contractorName: 'Basra Energy Services',
-    // matches vendor v2 exactly. No tenderId: the only same-code tender (t2, WQ-MNT) is a
-    // different project (separation-unit maintenance) with no bidders and is not ratified.
+    // matches vendor v2 exactly. No tenderId: no seeded tender belongs to the Middle Euphrates
+    // fields, and none is ratified — an originating link here would be invented.
     vendorId: 'v2',
     signedOn: '2026-05-20',
     valueUSD: 6_800_000,
@@ -1461,11 +1553,11 @@ export function seedState(): State {
   // at-risk: variation orders in the amber band + a performance bond expiring soon
   const c3: ContractState = {
     id: 'c3',
-    code: 'MJ-CON-0205',
-    title: { ar: 'إنشاء محطة عزل مركزية — مجنون', en: 'Central degassing station — Majnoon' },
+    code: 'MN-CON-0205',
+    title: { ar: 'تأهيل شبكة تجميع الغاز — المنصورية', en: 'Gas gathering network upgrade — Mansuria' },
     contractorName: 'النور للمقاولات النفطية',
-    // matches vendor v3 exactly. No tenderId despite the title resembling t3: this contract
-    // was signed 2025-11-10, five months before t3 was created (2026-04-20), and t3's bidders
+    // matches vendor v3 exactly. No tenderId despite sharing t3's field: this contract was
+    // signed 2025-11-10, five months before t3 was created (2026-04-20), and t3's bidders
     // do not include this contractor — a tender link here would be fabricated.
     vendorId: 'v3',
     signedOn: '2025-11-10',
@@ -1499,8 +1591,8 @@ export function seedState(): State {
   // near completion: in the warranty period, a modest LD applied for late delivery
   const c4: ContractState = {
     id: 'c4',
-    code: 'RU-CON-0176',
-    title: { ar: 'عقد صيانة محطة الضخ — الرميلة', en: 'Pump station maintenance — Rumaila' },
+    code: 'EB-CON-0176',
+    title: { ar: 'عقد صيانة محطة الضخ — شرقي بغداد', en: 'Pump station maintenance — East Baghdad' },
     contractorName: 'الخليج للمقاولات الهندسية',
     // no vendorId and no tenderId: this contractor is not in the seeded Vendor list and no
     // seeded tender plausibly produced it — left honestly unlinked (the UI shows the fallback).
@@ -1553,40 +1645,78 @@ export function seedState(): State {
     { id: 'v-prdc', name: 'شركة تطوير حقول النفط (PRDC)', isStateCompany: true, mooListed: true, techScore: 82, financialScore: 79, hseScore: 84 },
   ];
 
+  // The 12 Lead Contractors of نفط الوسط (MDOC), adopted VERBATIM from the delivery registry
+  // (_handoff_masaar_website/ui_kits/admin/App.jsx FIELDS_REGISTRY; corroborated by spec.html §1
+  // «12 شركة» and schema.prisma model Field). `name` is the registry's own operator label and
+  // `nameEn` its `opShort` — neither is embellished into an invented corporate title. GeoJade
+  // holds two fields (NAFT-KHANA + ZURBATIYA), which is why 13 fields sit under 12 companies.
   const operators: OperatorOrg[] = [
-    { id: 'op-bec', name: 'شركة نفط البصرة', nameEn: 'Basra Oil Company' },
-    { id: 'op-mjn', name: 'شركة نفط ميسان', nameEn: 'Maysan Oil Company' },
-    { id: 'op-dqr', name: 'شركة نفط ذي قار', nameEn: 'Dhi Qar Oil Company' },
+    { id: 'op-ebe', name: 'شركة شرقي بغداد الصينية', nameEn: 'EBE-Chinese' },
+    { id: 'op-crescent', name: 'شركة نفط الهلال الإماراتية', nameEn: 'Crescent UAE' },
+    { id: 'op-geojade', name: 'جيو-جاد الصينية', nameEn: 'GeoJade' },
+    { id: 'op-fze', name: 'FZE', nameEn: 'FZE' },
+    { id: 'op-kar', name: 'KAR', nameEn: 'KAR' },
+    { id: 'op-fbn', name: 'FBN', nameEn: 'FBN' },
+    { id: 'op-ebn', name: 'EBN', nameEn: 'EBN' },
+    { id: 'op-ado', name: 'ADO Digital Energy', nameEn: 'ADO' },
+    { id: 'op-cnooc', name: 'CNOOC Africa Holding', nameEn: 'CNOOC' },
+    { id: 'op-qarnayn', name: 'Qarnayn Petroleum Co. Ltd.', nameEn: 'Qarnayn' },
+    { id: 'op-alwaha', name: 'شركة نفط الواحة الصينية', nameEn: 'AlWaha' },
+    { id: 'op-badra', name: 'مشروع بدرة', nameEn: 'Badra' },
   ];
 
-  // 13 oil fields (spec §1), each with one Service Contract — the source of its FA (§7.1).
-  // The three fields carrying seed tenders keep the operators' former FA (5M/3M/2M) so
-  // migration preserves aboveOwnFA exactly: t1(Rumaila 4.2M<5M) t2(WestQurna 0.85M<5M) t3(Majnoon 7.8M>3M).
+  // The 13 MDOC-area oil fields (spec §1), likewise verbatim: Arabic name and `code` are the
+  // registry's own. `nameEn` is the standard transliteration the code already spells out
+  // (EBAGHDAD-S → East Baghdad – South), not a second, invented English identity.
   const fields: Field[] = [
-    { id: 'f-ru', name: 'الرميلة', nameEn: 'Rumaila', code: 'RU', operatorId: 'op-bec' },
-    { id: 'f-wq1', name: 'غرب القرنة 1', nameEn: 'West Qurna 1', code: 'WQ1', operatorId: 'op-bec' },
-    { id: 'f-wq2', name: 'غرب القرنة 2', nameEn: 'West Qurna 2', code: 'WQ2', operatorId: 'op-bec' },
-    { id: 'f-zb', name: 'الزبير', nameEn: 'Zubair', code: 'ZB', operatorId: 'op-bec' },
-    { id: 'f-lh', name: 'اللحيس', nameEn: 'Luhais', code: 'LH', operatorId: 'op-bec' },
-    { id: 'f-tb', name: 'طوبة', nameEn: 'Tuba', code: 'TB', operatorId: 'op-bec' },
-    { id: 'f-mj', name: 'مجنون', nameEn: 'Majnoon', code: 'MJ', operatorId: 'op-mjn' },
-    { id: 'f-hf', name: 'الحلفاية', nameEn: 'Halfaya', code: 'HF', operatorId: 'op-mjn' },
-    { id: 'f-bz', name: 'البزركان', nameEn: 'Buzurgan', code: 'BZ', operatorId: 'op-mjn' },
-    { id: 'f-ag', name: 'أبو غرب', nameEn: 'Abu Ghurab', code: 'AG', operatorId: 'op-mjn' },
-    { id: 'f-fk', name: 'الفكة', nameEn: 'Fakka', code: 'FK', operatorId: 'op-mjn' },
-    { id: 'f-gh', name: 'الغرّاف', nameEn: 'Gharraf', code: 'GH', operatorId: 'op-dqr' },
-    { id: 'f-ns', name: 'الناصرية', nameEn: 'Nasiriyah', code: 'NS', operatorId: 'op-dqr' },
+    { id: 'f-ebaghdad-s', name: 'حقل شرقي بغداد - الجنوبية', nameEn: 'East Baghdad – South', code: 'EBAGHDAD-S', operatorId: 'op-ebe' },
+    { id: 'f-khashm-anjana', name: 'حقل خشم الأحمر / أنجانة', nameEn: 'Khashm al-Ahmar / Anjana', code: 'KHASHM-ANJANA', operatorId: 'op-crescent' },
+    { id: 'f-naft-khana', name: 'حقل نفط خانة', nameEn: 'Naft Khana', code: 'NAFT-KHANA', operatorId: 'op-geojade' },
+    { id: 'f-mansuria', name: 'حقل المنصورية', nameEn: 'Mansuria', code: 'MANSURIA', operatorId: 'op-fze' },
+    { id: 'f-khalisiya', name: 'رقعة الخليصية', nameEn: 'Khalisiya Block', code: 'KHALISIYA', operatorId: 'op-kar' },
+    { id: 'f-zurbatiya', name: 'حقل زرباطية', nameEn: 'Zurbatiya', code: 'ZURBATIYA', operatorId: 'op-geojade' },
+    { id: 'f-furat-mid', name: 'حقول الفرات الأوسط', nameEn: 'Middle Euphrates Fields', code: 'FURAT-MID', operatorId: 'op-fbn' },
+    { id: 'f-ebaghdad-n', name: 'حقل شرقي بغداد - الامتدادات الشمالية', nameEn: 'East Baghdad – Northern Extensions', code: 'EBAGHDAD-N', operatorId: 'op-ebn' },
+    { id: 'f-dhufriya', name: 'حقل الظفرية', nameEn: 'Dhufriya', code: 'DHUFRIYA', operatorId: 'op-ado' },
+    { id: 'f-block-07', name: 'الرقعة السابعة', nameEn: 'Block 07', code: 'BLOCK-07', operatorId: 'op-cnooc' },
+    { id: 'f-qarnayn', name: 'رقعة القرنين', nameEn: 'Qarnayn Block', code: 'QARNAYN', operatorId: 'op-qarnayn' },
+    { id: 'f-ahdab', name: 'حقل الأحدب النفطي', nameEn: 'Ahdab Oil Field', code: 'AHDAB', operatorId: 'op-alwaha' },
+    { id: 'f-badra', name: 'حقل بدرة', nameEn: 'Badra', code: 'BADRA', operatorId: 'op-badra' },
   ];
 
-  const sc = (fieldId: string, faUSD: number): ServiceContract => ({
-    id: `sc-${fieldId.slice(2)}`, code: `SC-${fieldId.slice(2).toUpperCase()}-24`,
-    fieldId, financialAuthorityUSD: faUSD, signedOn: '2024-01-01', expiresOn: '2031-01-01',
+  /**
+   * One Service Contract per field (§7.1) — the source of that field's Financial Authority.
+   *
+   * `expiresOn` is the registry's own `contractEnd` (YYYY-MM), read as the last day of that
+   * month — the registry states when a contract ENDS, and a contract is in force for the whole
+   * of its final month. `signedOn` is one documented demo convention (2024-01-01, the date this
+   * service-contract register was constituted for the demo) rather than 13 invented signing
+   * histories; the term the UI shows is DERIVED from the pair (C2).
+   *
+   * The FA figures are scaled from the registry's own activity measure, `activePaths` — the
+   * count of live procurement paths a field runs, which is the only size signal the registry
+   * carries. Nothing here is a per-operator figure (§7.1 forbids that): AHDAB runs 12 paths and
+   * carries the top delegation (5M), BLOCK-07 runs 9 (4.5M), FURAT-MID 8 and EBAGHDAD-S 7 (4M),
+   * EBAGHDAD-N 7 (3.5M), the 6-path fields 3M, the 5-path fields 2.5M, the 4-path fields 2M.
+   */
+  const sc = (fieldId: string, code: string, faUSD: number, expiresOn: string): ServiceContract => ({
+    id: `sc-${code.toLowerCase()}`, code: `SC-${code}-24`,
+    fieldId, financialAuthorityUSD: faUSD, signedOn: '2024-01-01', expiresOn,
   });
   const serviceContracts: ServiceContract[] = [
-    sc('f-ru', 5_000_000), sc('f-wq1', 5_000_000), sc('f-wq2', 5_000_000), sc('f-zb', 5_000_000),
-    sc('f-lh', 4_000_000), sc('f-tb', 3_500_000),
-    sc('f-mj', 3_000_000), sc('f-hf', 3_000_000), sc('f-bz', 2_500_000), sc('f-ag', 2_000_000), sc('f-fk', 2_000_000),
-    sc('f-gh', 2_000_000), sc('f-ns', 2_000_000),
+    sc('f-ahdab', 'AHDAB', 5_000_000, '2031-01-31'),
+    sc('f-block-07', 'BLOCK-07', 4_500_000, '2032-05-31'),
+    sc('f-furat-mid', 'FURAT-MID', 4_000_000, '2028-02-29'),
+    sc('f-ebaghdad-s', 'EBAGHDAD-S', 4_000_000, '2030-12-31'),
+    sc('f-ebaghdad-n', 'EBAGHDAD-N', 3_500_000, '2030-08-31'),
+    sc('f-naft-khana', 'NAFT-KHANA', 3_000_000, '2029-03-31'),
+    sc('f-khalisiya', 'KHALISIYA', 3_000_000, '2031-04-30'),
+    sc('f-badra', 'BADRA', 3_000_000, '2027-06-30'),
+    sc('f-khashm-anjana', 'KHASHM-ANJANA', 2_500_000, '2028-06-30'),
+    sc('f-zurbatiya', 'ZURBATIYA', 2_500_000, '2029-09-30'),
+    sc('f-qarnayn', 'QARNAYN', 2_500_000, '2029-07-31'),
+    sc('f-mansuria', 'MANSURIA', 2_000_000, '2027-11-30'),
+    sc('f-dhufriya', 'DHUFRIYA', 2_000_000, '2028-12-31'),
   ];
 
   // Exactly ONE enabled super admin, so the "last enabled super admin" gate is live on first
@@ -1594,42 +1724,58 @@ export function seedState(): State {
   const users: UserAccount[] = [
     { id: 'u1', azureOid: 'oid-super-01', name: 'م. مصطفى الكرخي', email: 'mustafa.karkhi@masaar.iq', role: 'SUPER_ADMIN', twoFa: true, disabled: false },
     { id: 'u2', azureOid: 'oid-super-02', name: 'م. ليث الأنباري', email: 'laith.anbari@masaar.iq', role: 'SUPER_ADMIN', twoFa: true, disabled: true },
-    { id: 'u3', azureOid: 'oid-roc-01', name: 'د. سارة الجبوري', email: 'sara.jubouri@roc.iq', role: 'ROC_ADMIN', twoFa: true, disabled: false },
-    { id: 'u4', azureOid: 'oid-roc-02', name: 'هدى العبيدي', email: 'huda.obeidi@roc.iq', role: 'ROC_ADMIN', twoFa: true, disabled: false },
-    { id: 'u5', azureOid: 'oid-eval-01', name: 'سعد الجبوري', email: 'saad.jubouri@roc.iq', role: 'EVALUATION', twoFa: true, disabled: false },
-    { id: 'u6', azureOid: 'oid-eval-02', name: 'زينب الحسني', email: 'zainab.hasani@roc.iq', role: 'EVALUATION', twoFa: false, disabled: false },
+    // azureOid keeps its `oid-roc-*` spelling: it is the immutable Azure object id that binds a
+    // persisted session (and every stored blob) to the account. An identifier whose whole job is
+    // never to change is not renamed for a label; the email and the role are what people read.
+    { id: 'u3', azureOid: 'oid-roc-01', name: 'د. سارة الجبوري', email: 'sara.jubouri@mdoc.iq', role: 'MDOC_ADMIN', twoFa: true, disabled: false },
+    { id: 'u4', azureOid: 'oid-roc-02', name: 'هدى العبيدي', email: 'huda.obeidi@mdoc.iq', role: 'MDOC_ADMIN', twoFa: true, disabled: false },
+    { id: 'u5', azureOid: 'oid-eval-01', name: 'سعد الجبوري', email: 'saad.jubouri@mdoc.iq', role: 'EVALUATION', twoFa: true, disabled: false },
+    { id: 'u6', azureOid: 'oid-eval-02', name: 'زينب الحسني', email: 'zainab.hasani@mdoc.iq', role: 'EVALUATION', twoFa: false, disabled: false },
     { id: 'u7', azureOid: 'oid-audit-01', name: 'حساب المدقق الخارجي', email: 'auditor@bsa.iq', role: 'AUDITOR', twoFa: true, disabled: false },
-    { id: 'u8', azureOid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', email: 'ahmed.abdulrahman@bec.iq', role: 'OPERATOR_ADMIN', operatorId: 'op-bec', twoFa: true, disabled: false },
-    { id: 'u9', azureOid: 'oid-opuser-01', name: 'كرار محسن', email: 'karrar.mohsin@moc.iq', role: 'OPERATOR_USER', operatorId: 'op-mjn', twoFa: true, disabled: false },
-    { id: 'u10', azureOid: 'oid-opuser-02', name: 'علي الساعدي', email: 'ali.saedi@bec.iq', role: 'OPERATOR_USER', operatorId: 'op-bec', twoFa: true, disabled: true },
+    // the three operator accounts are scoped to MDOC Lead Contractors that actually raise seed
+    // tenders — AlWaha (AHDAB, t1) and Badra (t2) — so every scoped account has real work in view.
+    { id: 'u8', azureOid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', email: 'ahmed.abdulrahman@alwaha.iq', role: 'OPERATOR_ADMIN', operatorId: 'op-alwaha', twoFa: true, disabled: false },
+    { id: 'u9', azureOid: 'oid-opuser-01', name: 'كرار محسن', email: 'karrar.mohsin@badra.iq', role: 'OPERATOR_USER', operatorId: 'op-badra', twoFa: true, disabled: false },
+    { id: 'u10', azureOid: 'oid-opuser-02', name: 'علي الساعدي', email: 'ali.saedi@alwaha.iq', role: 'OPERATOR_USER', operatorId: 'op-alwaha', twoFa: true, disabled: true },
   ];
 
-  return { tenders: [t1, t2, t3], contracts: [c1, c2, c3, c4], vendors, audit: [], seq: 98, users, operators, fields, serviceContracts, holidays: [] };
+  return {
+    tenders: [t1, t2, t3, t4], contracts: [c1, c2, c3, c4], vendors, audit: [], seq: 98,
+    users, operators, fields, serviceContracts, holidays: [], approvalTiers: SEED_APPROVAL_TIERS,
+  };
 }
 
 /* ---------------- context ---------------- */
 
-const KEY = 'masaar-operator-v8';
-const PREV_KEY = 'masaar-operator-v7';
+/**
+ * v9 — the demo universe changed identity. Client decision ق3 (2026-08-20) replaced the southern
+ * seed (Rumaila / West Qurna / Majnoon, which belong to Basra Oil Company and never to نفط الوسط)
+ * with the 13 real MDOC-area fields and their 12 Lead Contractors, and the state root gained the
+ * global approval ladder. Every operator/field/contract id changed, so a v8 blob's tenders point
+ * at fields that no longer exist — the key is bumped rather than patched.
+ *
+ * v10 — the role vocabulary changed (client decision ق2, 2026-08-20): ROC_ADMIN became
+ * MDOC_ADMIN. Unlike v9 this is NOT a universe swap — same companies, same tenders, same
+ * accounts, one renamed identifier — so a v9 blob is carried forward whole and only its
+ * accounts' `role` is rewritten. Audit rows are not touched: they are append-only (8.1-e) and
+ * are read tolerantly instead (session.ts normalizeRole / access.ts roleKey).
+ */
+const KEY = 'masaar-operator-v10';
+/** The immediately previous key — same universe, role vocabulary only. */
+const V9_KEY = 'masaar-operator-v9';
+/** Pre-v9 keys, newest first — every one migrates through the same audit-preserving path. */
+const LEGACY_KEYS = ['masaar-operator-v8', 'masaar-operator-v7'] as const;
 
 export function emptyState(): State {
-  return { tenders: [], contracts: [], vendors: [], audit: [], seq: 0, users: [], operators: [], fields: [], serviceContracts: [], holidays: [] };
+  return {
+    tenders: [], contracts: [], vendors: [], audit: [], seq: 0, users: [], operators: [],
+    fields: [], serviceContracts: [], holidays: [], approvalTiers: SEED_APPROVAL_TIERS,
+  };
 }
 
 const SHAPE_KEYS = ['tenders', 'contracts', 'audit', 'vendors', 'users', 'operators', 'fields', 'serviceContracts'] as const;
 const hasShape = (p: unknown): p is State =>
   !!p && typeof p === 'object' && SHAPE_KEYS.every((k) => Array.isArray((p as Record<string, unknown>)[k]));
-
-/** Known seed tenders map to their real field (t2 is West Qurna, not Rumaila) — checked first
- *  so a migrated blob matches a fresh seed. User-created tenders fall back to PRIMARY_FIELD. */
-const SEED_TENDER_FIELD: Record<string, string> = { t1: 'f-ru', t2: 'f-wq1', t3: 'f-mj' };
-/** Each operator's PRIMARY field — the fallback landing for a user-created tender so its FA
- *  (via the field's contract) equals its former per-operator FA, preserving aboveOwnFA. */
-const PRIMARY_FIELD: Record<string, string> = { 'op-bec': 'f-ru', 'op-mjn': 'f-mj', 'op-dqr': 'f-gh' };
-/** §9 scope of the known seed tenders — backfilled onto a migrated blob so C8.1 applies to t1/t3
- *  exactly as on a fresh seed. A user-created tender with no scope reads as OTHER (does not apply). */
-const SEED_TENDER_SCOPE: Record<string, LocalContentScope> = { t1: 'DRILLING', t2: 'OTHER', t3: 'ENGINEERING_CONSTRUCTION' };
-const withScope = (t: Tender): Tender => (t.scope ? t : SEED_TENDER_SCOPE[t.id] ? { ...t, scope: SEED_TENDER_SCOPE[t.id] } : t);
 
 /** Normalize a persisted/loaded holidays value into Holiday[] — tolerates the early bare-string
  *  shape, drops malformed dates. Used by every load path so the store shape is uniform. */
@@ -1640,40 +1786,113 @@ function normHolidays(x: unknown): Holiday[] {
     .filter((h) => /^\d{4}-\d{2}-\d{2}$/.test(h.date));
 }
 
+/**
+ * The ladder off a persisted blob. Two cases, and they are NOT the same thing:
+ *
+ *  · **No ladder at all** (a blob written before the field existed, or a non-object) — nothing
+ *    was ever configured, so the seeded ladder (ق1: 5,000,000 / 10,000,000) applies. That is the
+ *    app's documented default, not an invention.
+ *  · **A ladder that is present but structurally wrong** (non-numeric, negative, inverted) — it
+ *    is carried through EXACTLY AS STORED, deliberately. `approvalTierFor` is the single place
+ *    that judges a ladder and it FAILS CLOSED on an unusable one, reading every request as ط3
+ *    MDOC — the highest gate. Repairing the blob to seed values here would do the opposite: it
+ *    would hand back a ladder nobody configured and quietly clear requests at the LOWEST gate on
+ *    the strength of it. The screens already promise the conservative reading in words
+ *    («approvals.explainFailClosed»: an out-of-order ladder is read as the highest tier), and a
+ *    load-path repair would make that sentence untrue.
+ *
+ * So this function normalizes SHAPE (the two ceilings are numbers) and never policy: which
+ * ladders are usable stays the engine's single judgement, in `approvalTier.ts`.
+ */
+function normTiers(x: unknown): ApprovalTiers {
+  if (!x || typeof x !== 'object') return SEED_APPROVAL_TIERS;
+  const t = x as Partial<Record<keyof ApprovalTiers, unknown>>;
+  // anything that is not a number is NaN, never a coerced 0: a half-written or string-typed
+  // ladder is corrupt configuration, not an absent one, so it reaches the engine as unusable
+  // instead of being silently completed from seed or read as a ceiling of zero.
+  const ceiling = (v: unknown): number => (typeof v === 'number' ? v : Number.NaN);
+  return { operatorMaxUSD: ceiling(t.operatorMaxUSD), jmcMaxUSD: ceiling(t.jmcMaxUSD) };
+}
+
+/**
+ * Any pre-v9 blob → v9. The old universe's records cannot be re-pointed honestly (there is no
+ * mapping from «الرميلة» to an MDOC field — they are different fields of different companies),
+ * so the demo universe is reseeded. What survives is what the law says must survive: the
+ * append-only audit log (8.1-e), in order and untouched, plus the admin-managed holiday calendar,
+ * which is a fact about Iraq rather than about the demo data. `seq` never moves backwards, so a
+ * generated code can never collide with one already named in the preserved log. The swap itself
+ * is appended to that log — a universe replaced silently would be exactly the unrecorded act 8.1-e
+ * forbids. (Unattributed on purpose: no Actor performed it; a startup migration did.)
+ */
+function migrateLegacy(p: Partial<State>): State {
+  const seed = seedState();
+  const audit = Array.isArray(p.audit) ? p.audit : [];
+  return {
+    ...seed,
+    seq: Math.max(seed.seq, typeof p.seq === 'number' ? p.seq : 0),
+    holidays: normHolidays((p as { holidays?: unknown }).holidays),
+    audit: [
+      ...audit,
+      { ts: new Date().toISOString(), action: 'SEED_MIGRATION_V9', target: 'MDOC' },
+    ],
+  };
+}
+
+/**
+ * v9 → v10: the role RENAME, and nothing else. Every tender, contract, account and audit row
+ * survives verbatim — only `users[].role` is rewritten, because a role is a live authorization
+ * fact that must speak today's vocabulary or the account silently loses its capabilities.
+ *
+ * The audit log is left exactly as written (8.1-e): a row that says ROC_ADMIN said so truthfully
+ * on the day it was written, and history is read tolerantly (roleKey) rather than edited. The
+ * rename is itself appended — but only when it actually renamed an account, since a row claiming
+ * a change that never happened is the same fabrication as an unrecorded one.
+ */
+function migrateRoleVocabulary(s: State): State {
+  const users = s.users.map((u) => {
+    const current = normalizeRole(u.role);
+    return current && current !== u.role ? { ...u, role: current } : u;
+  });
+  const renamed = users.some((u, i) => u !== s.users[i]);
+  if (!renamed) return { ...s, users };
+  return {
+    ...s,
+    users,
+    // unattributed like every startup migration: no Actor performed it, and inventing one
+    // would be worse than recording none.
+    audit: [...s.audit, { ts: new Date().toISOString(), action: 'ROLE_RENAME_V10', target: 'MDOC_ADMIN' }],
+  };
+}
+
 function loadState(): State {
   if (isApiMode) return emptyState(); // hydrated from the server on mount
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      // holidays is additive with a safe default, so a v8 blob written before it existed is still
-      // valid — backfill/normalize it on load rather than bumping the storage key and stranding it.
-      // (An early build stored bare date strings; normalize those to { date } objects.)
-      if (hasShape(parsed)) return { ...parsed, holidays: normHolidays((parsed as { holidays?: unknown }).holidays), tenders: parsed.tenders.map(withScope) };
-    }
-    // v7 → v8: FA moved from Operator to a per-field Service Contract (§7.1). Backfill the
-    // fields + contracts from a fresh seed, and assign every existing tender its operator's
-    // primary field so FA resolves identically. The append-only audit log (8.1-e) is preserved.
-    const prev = localStorage.getItem(PREV_KEY);
-    if (prev) {
-      const p = JSON.parse(prev) as Partial<State> & { operators?: unknown };
-      if (['tenders', 'audit', 'vendors'].every((k) => Array.isArray((p as Record<string, unknown>)[k]))) {
-        const seed = seedState();
-        // strip the retired stored FA off migrated operators so no future cast rediscovers it
-        const operators = ((p.operators ?? seed.operators) as (OperatorOrg & { financialAuthorityUSD?: number })[])
-          .map(({ financialAuthorityUSD: _fa, ...o }): OperatorOrg => o);
-        return {
-          ...(p as State),
-          operators,
-          fields: seed.fields,
-          serviceContracts: seed.serviceContracts,
-          holidays: normHolidays((p as { holidays?: unknown }).holidays),
-          users: p.users ?? seed.users,
-          tenders: (p.tenders ?? []).map((t) =>
-            withScope(t.fieldId ? t : { ...t, fieldId: SEED_TENDER_FIELD[t.id] ?? (t.operatorId ? PRIMARY_FIELD[t.operatorId] : undefined) }),
-          ),
-        };
+      // holidays and approvalTiers are additive with safe defaults, so a v10 blob written before
+      // either existed is still valid — normalize on load rather than bumping the key again.
+      // (An early build stored holidays as bare date strings; normalize those to { date }.)
+      if (hasShape(parsed)) {
+        const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
+        return { ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) };
       }
+    }
+    // v9 → v10: same universe, renamed role vocabulary. Everything is kept; only accounts move.
+    const v9 = localStorage.getItem(V9_KEY);
+    if (v9) {
+      const parsed: unknown = JSON.parse(v9);
+      if (hasShape(parsed)) {
+        const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
+        return migrateRoleVocabulary({ ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) });
+      }
+    }
+    for (const legacy of LEGACY_KEYS) {
+      const prev = localStorage.getItem(legacy);
+      if (!prev) continue;
+      const p = JSON.parse(prev) as Partial<State>;
+      // an audit array is the one thing a legacy blob must have for the migration to mean anything
+      if (Array.isArray(p.audit)) return migrateLegacy(p);
     }
   } catch {
     /* corrupted → reseed */

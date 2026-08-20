@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { reducer, seedState, type Actor } from '../src/store';
 import { decisionQueue, lateContracts } from '../src/admin/adminDerive';
 
-const ROC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'ROC_ADMIN' };
+const MDOC: Actor = { oid: 'oid-roc-01', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 
 describe('decisionQueue', () => {
   it('returns only tenders parked at the ratify stage with no decision yet', () => {
@@ -11,7 +11,7 @@ describe('decisionQueue', () => {
   });
 
   it('drops a tender the moment it is ratified', () => {
-    const s = reducer(seedState(), { type: 'RATIFY', tenderId: 't3', by: ROC });
+    const s = reducer(seedState(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
     expect(decisionQueue(s)).toEqual([]);
   });
 });

@@ -63,16 +63,16 @@ export class TendersController {
     return this.tenders.completeStage(user, id, dto);
   }
 
-  // award decisions — ROC only (ratify above-FA awards / governance)
+  // award decisions — MDOC only (ratify above-FA awards / governance)
   @Post(':id/ratify')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   ratify(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() _dto: RatifyDto) {
     // _dto only whitelists the optional actor hint; identity comes from `user` (the JWT).
     return this.tenders.ratify(user, id);
   }
 
   @Post(':id/return')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   returnWithNotes(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReturnDto) {
     return this.tenders.returnWithNotes(user, id, dto.notes);
   }
@@ -138,28 +138,28 @@ export class TendersController {
     return this.tenders.toggleDoc(user, id, dto.stageKey, dto.doc);
   }
 
-  /* MCT cost cycle (6.9) — ROC governance */
+  /* MCT cost cycle (6.9) — MDOC governance */
 
   @Post(':id/mct/meeting')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   mctMeeting(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: MctMeetingDto) {
     return this.tenders.recordMctMeeting(user, id, dto.meetingHeldOn);
   }
 
   @Post(':id/mct/agreement')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   mctAgreement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: MctAgreementDto) {
     return this.tenders.recordMctAgreement(user, id, dto.agreementReachedOn, dto.agreedEstimateUSD);
   }
 
   @Patch(':id/mct')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   mctEstimate(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: MctEstimateDto) {
     return this.tenders.setMctEstimate(user, id, dto.mctEstimateUSD);
   }
 
   @Post(':id/mct/notify-final')
-  @Roles('ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
   mctNotifyFinal(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.tenders.notifyMctFinal(user, id);
   }
@@ -167,19 +167,19 @@ export class TendersController {
   /* governance — cancel / suspend / resume (documented, never deleted) */
 
   @Post(':id/cancel')
-  @Roles('OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN')
   cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TenderStatusChangeDto) {
     return this.tenders.changeStatus(user, id, 'CANCELLED', dto.justification);
   }
 
   @Post(':id/suspend')
-  @Roles('OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN')
   suspend(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TenderStatusChangeDto) {
     return this.tenders.changeStatus(user, id, 'SUSPENDED', dto.justification);
   }
 
   @Post(':id/resume')
-  @Roles('OPERATOR_ADMIN', 'ROC_ADMIN', 'SUPER_ADMIN')
+  @Roles('OPERATOR_ADMIN', 'MDOC_ADMIN', 'SUPER_ADMIN')
   resume(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TenderStatusChangeDto) {
     return this.tenders.changeStatus(user, id, 'ACTIVE', dto.justification);
   }

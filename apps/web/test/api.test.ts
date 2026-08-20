@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from '../src/api/client';
-import { runAction } from '../src/api/endpoints';
+import { loadFullState, runAction } from '../src/api/endpoints';
 import { mapAudit, mapContract, mapTender, mapVendor } from '../src/api/mappers';
 import type { ApiContract, ApiTender, ApiVendor } from '../src/api/types';
 
@@ -31,6 +31,19 @@ describe('api client', () => {
   });
 });
 
+describe('loadFullState — the api-mode hydrate', () => {
+  it('carries the global approval ladder so api mode does not fail closed to MDOC on every tender', () => {
+    // NAMED DEBT: there is no /config route yet, so both modes read the one seeded constant.
+    // This also pins the store⇄endpoints value import: the ladder is read at CALL time, so the
+    // circular module graph cannot land it in the temporal dead zone.
+    // a FRESH Response per call — loadFullState fans out in parallel and a body reads only once
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))));
+    return loadFullState('SUPER_ADMIN').then((s) => {
+      expect(s.approvalTiers).toEqual({ operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 });
+    });
+  });
+});
+
 describe('runAction — CREATE_TENDER wire body', () => {
   /** Read the JSON body the stubbed fetch was called with. */
   const bodyOf = (fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown> =>
@@ -46,15 +59,15 @@ describe('runAction — CREATE_TENDER wire body', () => {
       budgetCode: 'DRL',
       estimatedValueUSD: 6_000_000,
       methodId: 7,
-      operatorId: 'op-bec',
-      fieldId: 'f-ru',
+      operatorId: 'op-alwaha',
+      fieldId: 'f-ahdab',
       scope: 'DRILLING',
       stageDates: { cost: { plannedFrom: '2026-08-10', plannedTo: '2026-08-14' } },
     });
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/tenders'), expect.objectContaining({ method: 'POST' }));
     const body = bodyOf(fetchMock);
-    expect(body.fieldId).toBe('f-ru');
+    expect(body.fieldId).toBe('f-ahdab');
     expect(body.scope).toBe('DRILLING');
     expect(body.titleAr).toBe('حفر آبار');
     expect(body.stagePlan).toEqual([{ key: 'cost', plannedFrom: '2026-08-10', plannedTo: '2026-08-14' }]);
@@ -72,11 +85,11 @@ describe('runAction — CREATE_TENDER wire body', () => {
       budgetCode: 'MNT',
       estimatedValueUSD: 500_000,
       methodId: 6,
-      fieldId: 'f-wq1',
+      fieldId: 'f-badra',
     });
 
     const body = bodyOf(fetchMock);
-    expect(body.fieldId).toBe('f-wq1');
+    expect(body.fieldId).toBe('f-badra');
     expect('scope' in body).toBe(false);
   });
 });
@@ -85,7 +98,7 @@ describe('runAction — SET_LC_CLAUSE (§9 C8.1)', () => {
   it('PATCHes the local-content-clause route with the attested value', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({
-        id: 't3', code: 'MJ-EPC-0305', titleAr: 'إنشاء', titleEn: 'EPC', budgetCode: 'MJ-EPC-04',
+        id: 't3', code: 'MN-EPC-0305', titleAr: 'إنشاء', titleEn: 'EPC', budgetCode: 'MN-EPC-04',
         estimatedValueUSD: '7800000', method: 'PUBLIC', overrideJustification: null,
         createdOn: '2026-04-20T00:00:00Z', evaluationStep: 0, stages: [], announcement: null,
         bidders: [], mct: null, ratification: null, scope: 'ENGINEERING_CONSTRUCTION',
@@ -122,7 +135,7 @@ describe('mapTender', () => {
     announcement: { mode: 'PUBLIC', periodDays: 23, newspapers: ['الصباح', 'الزمان', 'المدى'], lcWebsite: true, rocWebsite: true, inviteeCount: 0, inviteesPreQualified: false, publishedOn: '2026-05-13T00:00:00Z' },
     bidders: [{ id: 'b1', name: 'Co', docsOk: true, bondOk: true, technicalResult: 'PASS', priceUSD: '4410000' }],
     mct: null,
-    ratification: { status: 'RATIFIED', by: 'ROC', on: '2026-06-13T10:00:00Z', notes: null },
+    ratification: { status: 'RATIFIED', by: 'MDOC', on: '2026-06-13T10:00:00Z', notes: null },
   };
 
   it('converts enums, decimals, dates and sorts stages by order', () => {
@@ -136,14 +149,14 @@ describe('mapTender', () => {
     expect(t.announcement.mode).toBe('public');
     expect(t.bidders[0]!.technicalResult).toBe('pass');
     expect(t.bidders[0]!.priceUSD).toBe(4_410_000);
-    expect(t.ratification).toEqual({ status: 'ratified', by: 'ROC', on: '2026-06-13', notes: undefined });
+    expect(t.ratification).toEqual({ status: 'ratified', by: 'MDOC', on: '2026-06-13', notes: undefined });
   });
 });
 
 describe('mapContract', () => {
   it('sums VOs / extensions / LDs and maps guarantee kinds', () => {
     const c: ApiContract = {
-      id: 'c1', code: 'RU-CON', valueUSD: '12500000', termDays: 540,
+      id: 'c1', code: 'AH-CON', valueUSD: '12500000', termDays: 540,
       tender: { titleAr: 'عقد', titleEn: 'Contract' },
       guarantees: [{ kind: 'PERFORMANCE', valueUSD: '650000', expiresOn: '2026-07-20T00:00:00Z' }],
       vos: [{ valueUSD: '1050000' }],

@@ -12,7 +12,8 @@ import './admin.css';
 export type AdminView =
   | 'room' | 'tenders' | 'contracts' | 'entities' | 'reports'
   | 'users' | 'roles' | 'operators' | 'fields' | 'holidays'
-  | 'mct' | 'compliance' | 'paths' | 'audit' | 'review';
+  // 'approvals' replaces the retired 'mct' view (client ق3) — the engine stays, the screen does not
+  | 'approvals' | 'compliance' | 'paths' | 'audit' | 'review';
 
 interface AdminUi { toast: (msg: string, opts?: ToastOpts) => void; }
 const AdminUiContext = createContext<AdminUi | null>(null);
@@ -37,7 +38,7 @@ const TOOLS: { view: AdminView; hash: string; icon: string }[] = [
   { view: 'holidays', hash: '#/admin/holidays', icon: 'calendar' },
   // 'shield' is the compliance glyph; 'lock' was free
   { view: 'roles', hash: '#/admin/roles', icon: 'lock' },
-  { view: 'mct', hash: '#/admin/mct', icon: 'clock' },
+  { view: 'approvals', hash: '#/admin/approvals', icon: 'check' },
   { view: 'compliance', hash: '#/admin/compliance', icon: 'shield' },
   { view: 'paths', hash: '#/admin/paths', icon: 'chart' },
   { view: 'audit', hash: '#/admin/audit', icon: 'doc' },

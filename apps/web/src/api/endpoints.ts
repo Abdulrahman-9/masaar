@@ -1,11 +1,11 @@
 import { api, ApiError } from './client';
 import { mapAudit, mapContract, mapTender, mapUser, mapVendor } from './mappers';
 import type { ApiAudit, ApiContract, ApiSession, ApiTender, ApiUser, ApiVendor } from './types';
-import type { Action, State, Tender } from '../store';
+import { SEED_APPROVAL_TIERS, type Action, type State, type Tender } from '../store';
 
 /* ---------------- auth ---------------- */
 
-export function apiLogin(role: 'OPERATOR_ADMIN' | 'ROC_ADMIN', otp: string) {
+export function apiLogin(role: 'OPERATOR_ADMIN' | 'MDOC_ADMIN', otp: string) {
   return api<ApiSession>('/auth/login', { method: 'POST', body: { role, otp } });
 }
 export function apiLogout() {
@@ -17,7 +17,7 @@ export function apiMe() {
 
 /* ---------------- reads ---------------- */
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ROC_ADMIN', 'AUDITOR', 'EVALUATION'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR', 'EVALUATION'];
 
 /** store guarantee kinds → the API's uppercase enum (Prisma GuaranteeKind). */
 const GUARANTEE_KIND_API: Record<'bid-bond' | 'performance' | 'advance', string> = {
@@ -53,6 +53,10 @@ export async function loadFullState(role: string): Promise<State> {
     operators: [],
     fields: [],
     serviceContracts: [],
+    // NAMED DEBT: the approval ladder (ق1) is global configuration with no server model yet, so
+    // both modes read the same single constant. When a /config route exists this reads it instead;
+    // until then this is the configuration of record, not a per-mode guess.
+    approvalTiers: SEED_APPROVAL_TIERS,
     holidays: holidays.map((h) => ({ date: h.date.slice(0, 10), ...(h.name ? { name: h.name } : {}) })).sort((a, b) => a.date.localeCompare(b.date)),
   };
 }

@@ -20,6 +20,7 @@ import { arCompare, useTableSort } from '../registry/useTableSort';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
 import { Modal } from './Modal';
+import { TierPill, tierRange, TIER_ORDER } from './TierPill';
 import { useActor } from './UserActions';
 
 /** '' = every company, else one of the honest data-derived buckets. */
@@ -40,7 +41,7 @@ interface OperatorRow {
 /**
  * The operating companies (المشغّلون) — the counterpart to the vendor registry.
  * Each one's Financial Authority (§7) decides which of its requests enter the MCT
- * cost cycle (6.9), which ROC participation tier applies (12.2), and what counts as
+ * cost cycle (6.9), which MDOC participation tier applies (12.2), and what counts as
  * split procurement (7.2). That is why editing it is a justified, audited action.
  */
 export default function Operators() {
@@ -323,6 +324,25 @@ function AddOperatorModal({ onClose }: { onClose: () => void }) {
         <input id="op-nameen" className="wz-in" dir="ltr" value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
       </div>
       <div className="wz-note wz-note--info" style={{ marginTop: 12 }}>{t('operators.faViaContract')}</div>
+
+      {/* The GLOBAL approval ladder, read-only (client decision ق1: one ladder for every operating
+          company — there are no per-operator ceilings to enter here). Registering a company is
+          exactly the moment its future requests acquire these gates, so the form states which
+          value bands will need whose signature instead of leaving it to be discovered later. */}
+      <div className="wz-field" style={{ marginTop: 14 }}>
+        <span className="wz-field__l">{t('operators.ladderTitle')}</span>
+        <div className="ad-ladder" style={{ marginTop: 6 }}>
+          {TIER_ORDER.map((tier) => (
+            <div key={tier} className="ad-ladder__row">
+              <TierPill tier={tier} tiers={state.approvalTiers} />
+              <span>{t(`tier.body.${tier}`)}</span>
+              <span className="ad-ladder__band">{tierRange(tier, state.approvalTiers)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="ad-ladder__note">{t('operators.ladderNote')}</div>
+      </div>
+
       <div style={{ marginTop: 12 }}>
         <label className="wz-field__l" htmlFor="op-reason">{t('access.reason')}</label>
         <textarea id="op-reason" className="wz-ta" rows={2} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('access.reasonPh')} style={{ width: '100%', marginTop: 6 }} />
