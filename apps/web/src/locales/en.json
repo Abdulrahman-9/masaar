@@ -70,7 +70,9 @@
     "inbox": "Required of me today",
     "tenders": "My tenders",
     "request": "New purchase request",
-    "reports": "Reports & printables"
+    "reports": "Reports & printables",
+    "tools": "Tools & references",
+    "navLabel": "Operator navigation"
   },
   "inbox": {
     "title": "Required of me today",
@@ -180,7 +182,8 @@
       "timeline": "Timeline",
       "docs": "Documents",
       "bidders": "Bidders"
-    }
+    },
+    "tabsLabel": "Tender file tabs"
   },
   "timeline": {
     "title": "Unified timeline",
@@ -628,7 +631,7 @@
   },
   "adnav": {
     "badge": "Admin",
-    "tools": "Tools",
+    "tools": "Tools & references",
     "searchPh": "Search: tender, contract, entity — jumps to the file",
     "notifFoot": "A notice tied to a tender opens the decision point directly — the same source as the Follow-up Room; contract notices are followed from the contracts registry.",
     "room": "Follow-up Room",
@@ -650,7 +653,8 @@
     "operators": "Operators",
     "fields": "Fields",
     "holidays": "Public holidays",
-    "schedule": "Time compliance"
+    "schedule": "Time compliance",
+    "navLabel": "Admin navigation"
   },
   "adroom": {
     "title": "Follow-up Room",

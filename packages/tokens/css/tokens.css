@@ -37,11 +37,27 @@
   --paper-800: #2A2620;
   --paper-900: #14110D;
 
-  /* ---------- Ink (text) ---------- */
-  --ink-1: #0B1320;       /* primary text */
-  --ink-2: #364254;       /* secondary */
-  --ink-3: #6B7686;       /* tertiary / labels */
-  --ink-4: #98A1B0;       /* placeholder / disabled */
+  /* ---------- Ink (text) ----------
+     ops/VISUAL-REFRESH-SPEC.md §1 (wave 6a) — the SURFACES are untouched (warm paper and
+     petroleum navy are the identity); only the inks darken. Ratios are WCAG 2.x, computed on
+     the real token values against --bg-page #FBF9F4 / --bg-card #FFFFFF / --bg-muted #F4F1EA /
+     --bg-inset #ECE7DC, the four surfaces text actually lands on.
+       --ink-3 was #6B7686 — 4.38 / 4.60 / 4.08 / 3.73, i.e. it FAILED on three of four while
+       carrying every label in the system (.op-page__sub, .ad-kpi__l, .op-tbl th, .caption …).
+       --ink-4 was #98A1B0 — 2.48 / 2.61 / 2.31 / 2.11, below even the 3:1 graphical floor while
+       carrying real content (tender codes at 11.5px, timeline dates, stage ranges).
+     --ink-4's first correction, #666F7E, was itself a near-miss: 4.4968 on --bg-muted, i.e. it
+     cleared AA only if you rounded to two places before comparing, and --bg-muted is a real site
+     (.op-tbl__code in a hovered row, .op-crumb__sep). One step darker, #656E7D, clears the
+     threshold on the three surfaces it is spent on without rounding.
+     WCAG 1.4.3 exempts INACTIVE CONTROLS — text inside a component that cannot be operated. It
+     does not reach an informational mark in live content, however quiet that mark is meant to
+     look, so --ink-disabled is spent on :disabled buttons and nowhere else. */
+  --ink-1: #0B1320;       /* primary text — 15.09…18.61 */
+  --ink-2: #364254;       /* secondary   —  8.25…10.17 */
+  --ink-3: #5A6474;       /* tertiary / labels — 4.85…5.98 (was #6B7686) */
+  --ink-4: #656E7D;       /* quiet but READ data — 4.17…5.15 (was #98A1B0, then #666F7E) */
+  --ink-disabled: #98A1B0; /* :disabled controls only — never a live mark, never live text */
   --ink-on-dark: #F4F1EA;
   --ink-on-dark-2: #B6BAC3;
 
@@ -51,14 +67,25 @@
      done      = emerald  (منجز / مطابقة)
      at-risk   = amber    (تحذير)
      delayed   = crimson  (متأخر / حيود)
-     blocked   = violet   (موقوف)  */
+     blocked   = violet   (موقوف)
+     Three of the six failed 4.5:1 against their OWN soft pair — the pairing every StatusPill,
+     .ad-panel__count and .op-task__due actually renders. Darkened in place, same hue:
+       progress #1E6FB3 → #1B65A4 (4.31 → 4.98) · done #1F7A4D → #1C7046 (4.38 → 5.01)
+       risk     #B5751F → #945D17 → #8F5915. The middle value cleared its own pair (4.79) but
+                only reached 4.44 on --bg-inset, and a status colour is not surface-bound: it is
+                the colour of «بانتظار التصديق» and .op-devbadge and lands wherever they land.
+                #8F5915 is 5.09 on its own pair and 4.72 on the worst surface, so the whole
+                vocabulary now clears AA on all four surfaces AND on its own soft pair.
+     Side effect, deliberate: --status-risk no longer equals --brand-amber-600 by value. Their
+     old identity was coincidence, not meaning — one is an identity ramp step, the other a
+     semantic fact — and they are not re-coupled. */
   --status-planned:    #4B5972;
   --status-planned-bg: #E6E8EE;
-  --status-progress:    #1E6FB3;
+  --status-progress:    #1B65A4;
   --status-progress-bg: #DCEAF7;
-  --status-done:        #1F7A4D;
+  --status-done:        #1C7046;
   --status-done-bg:     #DBEEDF;
-  --status-risk:        #B5751F;
+  --status-risk:        #8F5915;
   --status-risk-bg:     #FAEFD4;
   --status-delayed:     #B23535;
   --status-delayed-bg:  #F8DEDB;
@@ -77,10 +104,24 @@
   --fg-3: var(--ink-3);
   --fg-4: var(--ink-4);
 
-  --border-1: rgba(11, 19, 32, 0.08);   /* hairline */
-  --border-2: rgba(11, 19, 32, 0.14);   /* default border */
-  --border-3: rgba(11, 19, 32, 0.22);   /* strong */
-  --border-focus: var(--brand-navy-600);
+  /* ---------- Borders — the DECORATIVE scale separated from the FUNCTIONAL one ----------
+     §1-ج. A card outline is decoration and WCAG exempts it; the outline of an <input> is the
+     only thing that says «this is a field», so 1.4.11 applies at 3:1. The old --border-2
+     (α 0.14 → #DDDEE0, 1.35:1 on white) was carrying both jobs and failing the second. */
+  --border-1: rgba(11, 19, 32, 0.10);   /* hairline inside a card (decorative) */
+  --border-2: rgba(11, 19, 32, 0.20);   /* card / panel outline */
+  --border-3: rgba(11, 19, 32, 0.30);   /* strong · hover state */
+  /* α 0.46 reached 3:1 on page/card/muted and stopped at 2.99 on --bg-inset — a control edge that
+     holds its floor on three of four surfaces is a placement rule nobody can enforce, so the alpha
+     buys the fourth: 3.27 / 3.30 / 3.22 / 3.16 over page / card / muted / inset. */
+  --border-control: rgba(11, 19, 32, 0.48);
+  /* --border-focus is deliberately absent: --focus-color IS the single source of truth for the
+     ring, and an alias with zero consumers is dead code, not a redirect. */
+
+  /* ---------- The one graphical accent that carries MEANING ----------
+     --brand-amber-500 is 2.96:1 on a card — fine as a filled background (its own text is checked
+     against it), not as a 2px mark a reader must find. Marks take amber-600 at 3.80:1. */
+  --mark-accent: var(--brand-amber-600);
 
   /* ---------- Approval ladder — an ORDINAL authority scale, not a status ----------
      ops/VISUAL-REFRESH-SPEC.md §3-أ: the tier is a rising scale of authority, and the
@@ -153,10 +194,33 @@
 
   /* ---------- Shadows — restrained, hairline + soft ambient ---------- */
   --shadow-1: 0 1px 0 rgba(11,19,32,0.04), 0 1px 2px rgba(11,19,32,0.05);
-  --shadow-2: 0 2px 4px rgba(11,19,32,0.06), 0 4px 8px rgba(11,19,32,0.04);
+  /* deepened a step so the rest → hover distance is actually perceivable at 200ms */
+  --shadow-2: 0 2px 4px rgba(11,19,32,0.07), 0 6px 14px rgba(11,19,32,0.06);
   --shadow-3: 0 4px 10px rgba(11,19,32,0.08), 0 10px 24px rgba(11,19,32,0.06);
   --shadow-pop: 0 12px 32px rgba(11,19,32,0.16), 0 2px 6px rgba(11,19,32,0.08);
   --shadow-inset: inset 0 0 0 1px var(--border-1);
+
+  /* ---------- Elevation — THREE semantic names, and no fourth ----------
+     §1-ج. Height means one thing here: «this responds». A card is born at --elev-rest, rises to
+     --elev-hover only under a pointer or focus, and anything that floats over the page
+     (menu, drawer, modal, toast, tooltip) is --elev-overlay. --shadow-3 stays for the one legacy
+     caller (.wz-done__card) and is not spent on anything new. */
+  --elev-rest:    var(--shadow-1);
+  --elev-hover:   var(--shadow-2);
+  --elev-overlay: var(--shadow-pop);
+  --lift: -1px;   /* the only permitted travel — a row, a tile, nothing more */
+
+  /* ---------- Focus ----------
+     Offset 2px seats the ring on the PAGE, so its two neighbours are paper on both sides
+     (8.25 on card, 7.84 on page) and 1.4.11 is met without a doubled ring. That reasoning fails
+     on the admin sidebar, where both neighbours are navy-900: navy-on-navy is 2.18:1 and the
+     ring is effectively invisible. There the COLOUR changes, not the shape — amber-400 is 8.24
+     over navy-900 and 7.10 over navy-800. */
+  --focus-color:         var(--brand-navy-600);
+  --focus-color-on-dark: var(--brand-amber-400);
+  --focus-width:  2px;
+  --focus-offset: 2px;
+  --focus-ring: var(--focus-width) solid var(--focus-color);
 
   /* ---------- Motion ---------- */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);     /* @kind other */
@@ -216,7 +280,10 @@ p, .body { font-size: var(--t-body); line-height: var(--lh-normal); color: var(-
 
 /* Focus ring — keyboard accessible */
 :focus-visible {
-  outline: 2px solid var(--brand-navy-600);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
   border-radius: var(--r-xs);
 }
+/* The dark operations sidebar is the one surface where the navy ring disappears into its own
+   background (2.18:1). Amber is the only ring that reads there — see --focus-color-on-dark. */
+.ad-side :focus-visible { outline-color: var(--focus-color-on-dark); }

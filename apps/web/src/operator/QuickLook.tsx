@@ -1,5 +1,6 @@
 import { METHODS, stageByKey } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDialogA11y } from '../useDialogA11y';
 import { calendarOf, expectedAwardDate, todayIso, useStore } from '../store';
@@ -7,12 +8,54 @@ import { DevChip } from './DevChip';
 import { fmtMoney, stageDevWd, stageViewStatus, tenderStatus } from './derive';
 import { Icon } from './Icon';
 
+/**
+ * The exit animation is `--dur-fast` (see `.op-drawer--closing` in operator.css). This is the
+ * SAFETY NET, not the mechanism: the teardown normally rides `animationend`, and this timer only
+ * fires where no animation runs at all — jsdom, a headless print, a browser that dropped the
+ * frame. Long enough to never pre-empt a real animation, short enough that a dead listener never
+ * strands the drawer on screen.
+ */
+const EXIT_FALLBACK_MS = 260;
+
 /** 440px preview drawer — stage segments + per-stage deviation, opens onto the file. */
 export default function QuickLook({ tenderId, onClose }: { tenderId: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
-  const { panelRef, titleId } = useDialogA11y(onClose);
   const { state } = useStore();
+
+  // Closing is a STATE, not an event: the drawer paints its exit and only then unmounts (§2-3).
+  // `done` guards against a double close (Escape landing on top of a backdrop click), which would
+  // otherwise call the parent's onClose twice.
+  const [closing, setClosing] = useState(false);
+  const done = useRef(false);
+  const beginClose = useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    setClosing(true);
+  }, []);
+
+  const { panelRef, titleId } = useDialogA11y(beginClose);
+
+  useEffect(() => {
+    if (!closing) return;
+    const panel = panelRef.current;
+    let fired = false;
+    const finish = () => {
+      if (fired) return;
+      fired = true;
+      onClose();
+    };
+    // only the panel's OWN animation ends the drawer — animationend bubbles, and a child that
+    // happens to animate would otherwise tear the drawer down mid-exit
+    const onEnd = (e: AnimationEvent) => { if (e.target === panel) finish(); };
+    panel?.addEventListener('animationend', onEnd);
+    const timer = setTimeout(finish, EXIT_FALLBACK_MS);
+    return () => {
+      panel?.removeEventListener('animationend', onEnd);
+      clearTimeout(timer);
+    };
+  }, [closing, onClose, panelRef]);
+
   const today = todayIso();
   const cal = calendarOf(state);
   const tender = state.tenders.find((x) => x.id === tenderId);
@@ -23,7 +66,7 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
   const award = expectedAwardDate(tender);
 
   return (
-    <div className="op-drawer" onClick={onClose}>
+    <div className={`op-drawer${closing ? ' op-drawer--closing' : ''}`} onClick={beginClose}>
       <div
         ref={panelRef}
         className="op-drawer__panel"
@@ -50,7 +93,7 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
               )}
             </div>
           </div>
-          <button className="op-drawer__close" onClick={onClose} aria-label={t('ql.close')}>
+          <button className="op-drawer__close" onClick={beginClose} aria-label={t('ql.close')}>
             ✕
           </button>
         </div>
@@ -100,6 +143,7 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
           <button
             className="op-btn-primary"
             onClick={() => {
+              // navigating away replaces the surface outright — no exit to paint
               onClose();
               window.location.hash = `#/operator/t/${tender.id}`;
             }}

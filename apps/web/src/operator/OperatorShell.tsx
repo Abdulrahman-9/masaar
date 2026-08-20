@@ -33,10 +33,24 @@ function initials(name: string): string {
     .join('');
 }
 
-const NAV: { view: OpView; hash: string; icon: string; key: string; counted?: 'tasks' | 'tenders' }[] = [
+interface OpNavItem { view: OpView; hash: string; icon: string; key: string; counted?: 'tasks' | 'tenders' }
+
+/** The daily job: what is owed today, the register it is owed against, and raising a new one. */
+const PRIMARY: OpNavItem[] = [
   { view: 'inbox', hash: '#/operator', icon: 'inbox', key: 'inbox', counted: 'tasks' },
   { view: 'tenders', hash: '#/operator/tenders', icon: 'list', key: 'tenders', counted: 'tenders' },
   { view: 'request', hash: '#/operator/new', icon: 'plus', key: 'request' },
+];
+
+/**
+ * «أدوات ومراجع» — printing is periodic, not daily, so it separates from the three above.
+ *
+ * It stays a FLAT static label, not a disclosure: the rule in spec §4-ب is that a disclosure is
+ * emitted only at three or more secondary items. Below that a collapsible group costs a reader a
+ * click and a caret to hide one row, which is chrome pretending to be organisation. The admin
+ * shell has nine and therefore gets the real disclosure.
+ */
+const SECONDARY: OpNavItem[] = [
   { view: 'reports', hash: '#/operator/reports', icon: 'chart', key: 'reports' },
 ];
 
@@ -112,14 +126,34 @@ export default function OperatorShell({
           <div className="op-side__logo">
             <img src="/logo.svg" alt={t('app.title')} />
           </div>
-          <nav className="op-nav">
-            {NAV.map((n) => {
+          <nav className="op-nav" aria-label={t('onav.navLabel')}>
+            {PRIMARY.map((n) => {
               const on = n.view === view || (n.view === 'tenders' && view === 'file');
               return (
-                <a key={n.view} href={n.hash} className={`op-nav__btn${on ? ' op-nav__btn--on' : ''}`}>
+                <a
+                  key={n.view}
+                  href={n.hash}
+                  className={`op-nav__btn${on ? ' op-nav__btn--on' : ''}`}
+                  aria-current={on ? 'page' : undefined}
+                >
                   <Icon name={n.icon} size={17} />
                   <span>{t(`onav.${n.key}`)}</span>
                   {n.counted && <span className="op-nav__count">{counts[n.counted]}</span>}
+                </a>
+              );
+            })}
+            <div className="op-nav__group">{t('onav.tools')}</div>
+            {SECONDARY.map((n) => {
+              const on = n.view === view;
+              return (
+                <a
+                  key={n.view}
+                  href={n.hash}
+                  className={`op-nav__btn${on ? ' op-nav__btn--on' : ''}`}
+                  aria-current={on ? 'page' : undefined}
+                >
+                  <Icon name={n.icon} size={17} />
+                  <span>{t(`onav.${n.key}`)}</span>
                 </a>
               );
             })}

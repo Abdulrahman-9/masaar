@@ -27,13 +27,16 @@
   background: var(--brand-navy-800);
   color: var(--ink-on-dark);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow-pop);
+  /* the semantic name for the same value — everything that floats sits at one height (§1-ج) */
+  box-shadow: var(--elev-overlay);
   font-size: 13px;
   animation: tv2-in var(--dur-base) var(--ease-out);
 }
 
+/* An exit is always faster than an entry: appearing asks for attention, leaving must not.
+   EXIT_MS in Toasts.tsx tracks this duration — the two are read together. */
 .tv2-toast--out {
-  animation: tv2-out var(--dur-base) var(--ease-out) forwards;
+  animation: tv2-out var(--dur-fast) var(--ease-out) forwards;
 }
 
 .tv2-toast__mark {

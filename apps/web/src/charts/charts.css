@@ -157,19 +157,8 @@ a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { backgro
 .ch-spark__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 20px; font-weight: var(--fw-semibold); color: var(--ink-1); }
 .ch-spark__cap { font-size: 11.5px; color: var(--ink-3); }
 
-/* ---- reduced motion ----
-   Every transition in this stylesheet is hover/focus state feedback on a chart element (a bar
-   tint, the donut's stroke-width lift, a legend row). A reader who asked for less motion keeps
-   all of it as an instant state change — the 0.01ms convention used across the app. */
-@media (prefers-reduced-motion: reduce) {
-  .ch-bar,
-  .ch-bar__n,
-  .ch-bar__v,
-  .ch-donut__seg,
-  .ch-legend__i,
-  .ch-hist__col,
-  .ch-hist__bar { transition-duration: 0.01ms; }
-}
+
+
 
 /* ---- stat row (public home) ----
    The §5-أ KPI anatomy minus the link affordance: the public page has no filtered registry to
@@ -185,3 +174,21 @@ a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { backgro
 }
 .ch-stat__l { font-size: 12px; color: var(--ink-3); }
 .ch-stat__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 22px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
+ * A per-selector list is a list that goes stale the next time someone adds a
+ * transition; the universal block cannot. Feedback is NOT removed — a hover
+ * tint, a border and a shadow still change, they simply arrive at once.
+ *
+ * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
+ * zero-length animation, and the drawer's teardown listens for exactly that.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

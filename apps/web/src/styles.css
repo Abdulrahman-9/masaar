@@ -86,7 +86,7 @@ html[lang='en'] body { font-family: var(--font-sans); }
   background: var(--bg-card);
   width: 200px;
 }
-.field input:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.field input:focus { outline: var(--focus-ring); outline-offset: 1px; }
 .field .ro { background: var(--bg-muted); color: var(--fg-2); }
 
 .method-reason { margin-top: 12px; font-size: var(--t-body-sm); color: var(--fg-2); }
@@ -524,6 +524,6 @@ html[dir='ltr'] td.op-code:not(.op-end), html[dir='ltr'] th.op-code:not(.op-end)
   resize: vertical;
   font-family: var(--font-sans);
 }
-.notes-in:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.notes-in:focus { outline: var(--focus-ring); outline-offset: 1px; }
 .btn--danger { background: var(--status-delayed-bg); border-color: transparent; color: var(--status-delayed); }
 .btn--danger:hover { background: var(--status-delayed); color: #fff; }

@@ -42,7 +42,13 @@
   transition: background var(--dur-base) var(--ease-out);
 }
 .op-nav__btn:hover { background: var(--bg-muted); }
-.op-nav__btn--on, .op-nav__btn--on:hover { background: var(--brand-navy-800); color: #fff; }
+/* navy-on-paper here, amber-on-navy in the admin shell — see the note on .ad-nav__btn--on:
+   the two shells are inverses, and weight (not colour alone) carries the state in both */
+.op-nav__btn--on, .op-nav__btn--on:hover { background: var(--brand-navy-800); color: #fff; font-weight: var(--fw-semibold); }
+.op-nav__btn[aria-current='page'] { font-weight: var(--fw-semibold); }
+/* the light-surface twin of .ad-nav__group — the static heading a secondary set of fewer than
+   three items gets instead of a disclosure (§4-ب) */
+.op-nav__group { font-size: 9.5px; font-weight: var(--fw-semibold); letter-spacing: 0.08em; color: var(--ink-3); padding: 12px 10px 4px; }
 .op-nav__btn svg { flex-shrink: 0; }
 .op-nav__count {
   margin-inline-start: auto;
@@ -98,7 +104,7 @@
   color: var(--ink-1);
   box-sizing: border-box;
 }
-.op-search__in:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.op-search__in:focus { outline: var(--focus-ring); outline-offset: 1px; }
 .op-search__icon { position: absolute; inset-inline-end: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
 
 .op-panel {
@@ -157,7 +163,7 @@
   height: 32px;
   padding: 0 12px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border-control);
   background: var(--bg-card);
   color: var(--ink-2);
   cursor: pointer;
@@ -197,7 +203,9 @@
 
 /* ---------- Notifications ---------- */
 .op-notif { position: relative; }
-.op-notif__dot { position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--brand-amber-500); border: 2px solid var(--bg-card); }
+/* a 7px dot is a graphical MARK carrying «there is something unread» — 3:1 floor, so it takes
+   --mark-accent (3.80) rather than the identity amber-500 (2.96) it used to borrow */
+.op-notif__dot { position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--mark-accent); border: 2px solid var(--bg-card); }
 .op-notif__panel { inset-inline-end: 0; width: 340px; }
 .op-notif__head { padding: 11px 14px; border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: 8px; }
 .op-notif__title { font-size: 13px; font-weight: var(--fw-semibold); }
@@ -285,13 +293,24 @@
   border-radius: var(--r-lg);
   padding: 13px 16px;
   cursor: pointer;
-  box-shadow: var(--shadow-1);
-  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+  box-shadow: var(--elev-rest);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out);
   text-align: start;
   width: 100%;
   font-family: inherit;
 }
-.op-task:hover { border-color: var(--border-3); box-shadow: var(--shadow-2); }
+/* :focus-visible is paired with :hover on EVERY hover rule in this wave — an affordance that only
+   exists under a pointer does not exist for a keyboard reader (spec ذ6). One pixel of travel:
+   --lift is the whole permitted vocabulary of height change. */
+.op-task:hover,
+.op-task:focus-visible {
+  border-color: var(--border-3);
+  box-shadow: var(--elev-hover);
+  transform: translateY(var(--lift));
+}
 .op-task--late { border-color: rgba(178, 53, 53, 0.35); }
 .op-task__icon { width: 34px; height: 34px; border-radius: var(--r-md); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .op-task__icon--late { background: var(--status-delayed-bg); color: var(--status-delayed); }
@@ -363,7 +382,7 @@
   border-radius: 7px;
   background: var(--bg-card);
   color: var(--ink-1);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border-control);
   font-family: inherit;
   font-size: 11.5px;
   font-weight: var(--fw-medium);
@@ -406,8 +425,12 @@
 .op-tbl th.op-end, .op-tbl td.op-end { text-align: end; }
 .op-tbl td { padding: 13px 16px; border-bottom: 1px solid var(--border-1); vertical-align: middle; }
 .op-tbl tbody tr:last-child td { border-bottom: none; }
-.op-tbl__row { cursor: pointer; }
-.op-tbl__row:hover { background: var(--bg-muted); }
+/* A table row is NOT lifted: a transform inside <table> detaches the row from the collapsed
+   border model and the hairlines tear. Rows get tint only — and :focus-within, so tabbing to the
+   link inside a row marks the whole row the same way a pointer does. */
+.op-tbl__row { cursor: pointer; transition: background var(--dur-fast) var(--ease-out); }
+.op-tbl__row:hover,
+.op-tbl__row:focus-within { background: var(--bg-muted); }
 .op-tbl__name { font-weight: var(--fw-medium); color: var(--ink-1); }
 .op-tbl__code { font-family: var(--font-mono); direction: ltr; text-align: start; font-size: 11.5px; color: var(--ink-4); margin-top: 2px; }
 
@@ -490,9 +513,40 @@
   width: 440px;
   max-width: 92vw;
   background: var(--bg-card);
-  box-shadow: 0 12px 40px rgba(11, 19, 32, 0.25);
+  box-shadow: var(--elev-overlay);
   display: flex;
   flex-direction: column;
+}
+
+/* ---- drawer entry / exit (spec §2-3) ----
+   The travel is 16px, not the panel's 440px: a full-width slide is either jerky inside the 200ms
+   budget or outside it entirely. A short offset plus a fade is the same quiet reading the toast
+   already uses (`tv2-in`), and the shared vocabulary is the point — one motion language.
+   The offset is LOGICAL: --dr-dir flips with the document direction, so the drawer always enters
+   from the edge it is anchored to, in Arabic and in English, with one keyframe. */
+:root           { --dr-dir:  1; }
+html[dir='ltr'] { --dr-dir: -1; }
+
+.op-drawer { animation: dr-fade var(--dur-base) var(--ease-out); }
+.op-drawer__panel { animation: dr-in var(--dur-base) var(--ease-out); }
+
+/* The exit is faster than the entry — a withdrawal, not an appearance. It is a SEPARATE
+   keyframe pair, not `reverse` on the entry one: reusing the name would leave animation-name
+   unchanged, so the browser updates the already-finished animation in place instead of starting
+   a new one — no restart, and crucially no second `animationend` for the teardown to hear.
+   The same in/out pairing `tv2-in` / `tv2-out` already uses. */
+.op-drawer--closing { animation: dr-fade-out var(--dur-fast) var(--ease-out) forwards; }
+.op-drawer--closing .op-drawer__panel { animation: dr-out var(--dur-fast) var(--ease-out) forwards; }
+
+@keyframes dr-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dr-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dr-in {
+  from { opacity: 0; transform: translateX(calc(var(--dr-dir) * 16px)); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes dr-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(calc(var(--dr-dir) * 16px)); }
 }
 .op-drawer__head { padding: 16px 20px; border-bottom: 1px solid var(--border-1); display: flex; align-items: flex-start; gap: 12px; }
 .op-drawer__main { flex: 1; min-width: 0; }
@@ -616,20 +670,43 @@
 .file-here__cta:hover { background: var(--brand-navy-700); }
 
 .file-tabs { margin-top: 20px; display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border-2); }
+/* The active-tab rule is a ::after ruler that opens from the centre, not a border-colour swap:
+   a colour jump is the one state change on this screen that reads as a glitch rather than a move.
+   `transform-origin: center` is direction-agnostic, so RTL needs no mirror of its own — and the
+   ruler is 2px of --mark-accent (3.80:1), not the identity amber (2.96) it used to borrow.
+   Colour is NOT the only carrier: the weight changes too, so the state survives reduced motion,
+   a monochrome print and a colour-blind reader alike. */
 .file-tab {
   appearance: none;
   border: none;
   background: transparent;
   font-family: inherit;
   font-size: 13.5px;
-  padding: 9px 14px;
+  padding-block: 9px 11px;   /* 9 + the 2px the old border-bottom used to occupy */
+  padding-inline: 14px;
   cursor: pointer;
   color: var(--ink-3);
   font-weight: var(--fw-regular);
-  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  position: relative;
+  transition: color var(--dur-fast) var(--ease-out);
 }
-.file-tab--on { color: var(--ink-1); font-weight: var(--fw-semibold); border-bottom-color: var(--brand-amber-500); }
+.file-tab::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  /* 0, not -1px: `margin-bottom: -1px` above already pulls the tab over the container hairline,
+     so the ruler lands exactly where the old 2px border-bottom sat */
+  inset-block-end: 0;
+  block-size: 2px;
+  background: var(--mark-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.file-tab--on::after { transform: scaleX(1); }
+.file-tab:hover { color: var(--ink-1); }
+.file-tab--on { color: var(--ink-1); font-weight: var(--fw-semibold); }
 
 .file-card { margin-top: 16px; background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
 .file-card__head { padding: 14px 20px; border-bottom: 1px solid var(--border-1); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -642,7 +719,7 @@
 .file-tl__leg-bar { width: 18px; height: 6px; border-radius: var(--r-pill); }
 .file-tl__leg-bar--planned { background: var(--paper-200); border: 1px solid var(--paper-300); }
 .file-tl__leg-bar--actual { background: var(--status-done); }
-.file-tl__leg-today { width: 2px; height: 12px; background: var(--brand-amber-500); }
+.file-tl__leg-today { width: 2px; height: 12px; background: var(--mark-accent); }
 
 .file-tl__axis {
   display: grid;
@@ -685,10 +762,16 @@
 .file-tl__bars { position: relative; height: 26px; }
 .file-tl__planned { position: absolute; top: 3px; height: 7px; border-radius: var(--r-pill); background: var(--paper-200); border: 1px solid var(--paper-300); box-sizing: border-box; }
 .file-tl__actual { position: absolute; top: 15px; height: 7px; border-radius: var(--r-pill); }
-.file-tl__today { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--brand-amber-500); opacity: 0.8; }
+/* the «today» rule is the one line a reader hunts for on this chart — full opacity at the mark
+   contrast, since 0.8 over paper dropped it back under the 3:1 floor the token exists to hold */
+.file-tl__today { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--mark-accent); }
 .file-tl__dates { font-family: var(--font-mono); direction: ltr; text-align: start; font-size: 10.5px; color: var(--ink-3); line-height: 1.5; }
 .file-tl__action { text-align: end; }
 .file-tl__done { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--status-done); font-weight: var(--fw-semibold); }
+/* DEVIATION from §1-ج, computed: «لاحقاً» is a WORD in a data column, not an inactive control,
+   so WCAG 1.4.3's exemption does not reach it — --ink-disabled would leave it at 2.61:1 on the
+   card. It keeps --ink-4 (5.15) and recedes by size and by the filled navy button beside it on
+   the rows that DO carry an action. */
 .file-tl__later { font-size: 11.5px; color: var(--ink-4); }
 .file-tl__wiz {
   display: inline-flex;
@@ -743,7 +826,7 @@
   border-radius: var(--r-sm);
   background: var(--bg-card);
   color: var(--ink-1);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border-control);
   font-family: inherit;
   font-size: 11.5px;
   font-weight: var(--fw-medium);
@@ -862,23 +945,26 @@
 .wz-conds { border-top: 1px solid var(--border-1); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .wz-conds__l { font-size: 12px; font-weight: var(--fw-semibold); color: var(--ink-3); }
 .wz-cond { display: flex; align-items: center; gap: 9px; font-size: 13px; }
-.wz-cond__m { width: 20px; height: 20px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); background: var(--paper-200); color: var(--ink-4); transition: all var(--dur-base) var(--ease-out); }
+/* the unmet mark is «•» inside a live checklist, not a disabled control: --ink-disabled left it at
+   2.11:1 on --paper-200. --ink-3 on the same well is 4.85:1, above the 4.5 text floor and well
+   above the 3:1 one for a state indicator; --ink-3 is also what .wz-cond__t beside it already is. */
+.wz-cond__m { width: 20px; height: 20px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); background: var(--paper-200); color: var(--ink-3); transition: all var(--dur-base) var(--ease-out); }
 .wz-cond--ok .wz-cond__m { background: var(--status-done-bg); color: var(--status-done); }
 .wz-cond__t { color: var(--ink-3); }
 .wz-cond--ok .wz-cond__t { color: var(--ink-1); }
 
 .wz-foot { padding: 14px 24px; border-top: 1px solid var(--border-1); display: flex; align-items: center; gap: 8px; background: var(--bg-page); }
 .wz-prev { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px; border-radius: var(--r-md); background: transparent; color: var(--ink-2); border: none; font-family: inherit; font-size: 12.5px; cursor: pointer; }
-.wz-prev:disabled { color: var(--ink-4); cursor: default; }
+.wz-prev:disabled { color: var(--ink-disabled); cursor: default; }
 .wz-foot__end { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .wz-foot__row { display: flex; align-items: center; gap: 8px; }
-.wz-draft { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: var(--r-md); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-2); font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); cursor: pointer; }
+.wz-draft { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: var(--r-md); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-control); font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); cursor: pointer; }
 .wz-draft:hover { background: var(--bg-muted); }
 .wz-next { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 18px; border-radius: var(--r-md); background: var(--brand-navy-800); color: #fff; border: none; font-family: inherit; font-size: 13px; font-weight: var(--fw-medium); cursor: pointer; }
 .wz-next:hover { background: var(--brand-navy-700); }
 .wz-next--amber { background: var(--brand-amber-500); color: var(--brand-navy-900); font-weight: var(--fw-bold); }
 .wz-next--amber:hover { background: var(--brand-amber-600); }
-.wz-next:disabled { background: var(--paper-200); color: var(--ink-4); cursor: not-allowed; }
+.wz-next:disabled { background: var(--paper-200); color: var(--ink-disabled); cursor: not-allowed; }
 .wz-gate { font-size: 11px; color: var(--status-risk); min-height: 14px; }
 .wz-gate--ok { color: var(--brand-amber-700); }
 
@@ -886,23 +972,23 @@
 .wz-field { display: flex; flex-direction: column; gap: 6px; }
 .wz-field__l { font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--ink-2); }
 .wz-field__l small { font-weight: var(--fw-regular); color: var(--ink-4); }
-.wz-in { height: 40px; background: var(--bg-page); border: 1px solid var(--border-2); border-radius: 9px; padding: 0 13px; font: inherit; font-size: 13.5px; color: var(--ink-1); box-sizing: border-box; }
+.wz-in { height: 40px; background: var(--bg-page); border: 1px solid var(--border-control); border-radius: 9px; padding: 0 13px; font: inherit; font-size: 13.5px; color: var(--ink-1); box-sizing: border-box; }
 .wz-in--mono { font-family: var(--font-mono); direction: ltr; }
-.wz-in:focus, .wz-ta:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
-.wz-ta { background: var(--bg-page); border: 1px solid var(--border-2); border-radius: 9px; padding: 10px 13px; font: inherit; font-size: 13px; color: var(--ink-1); resize: vertical; box-sizing: border-box; }
+.wz-in:focus, .wz-ta:focus { outline: var(--focus-ring); outline-offset: 1px; }
+.wz-ta { background: var(--bg-page); border: 1px solid var(--border-control); border-radius: 9px; padding: 10px 13px; font: inherit; font-size: 13px; color: var(--ink-1); resize: vertical; box-sizing: border-box; }
 .wz-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .wz-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .wz-side-box { background: var(--bg-page); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .wz-side-box__l { font-size: 12px; font-weight: var(--fw-semibold); color: var(--ink-3); }
 .wz-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
 .wz-kv span { color: var(--ink-3); } .wz-kv b { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; color: var(--ink-1); }
-.wz-cardbtn { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: start; padding: 13px 14px; border-radius: 11px; font-family: inherit; cursor: pointer; border: 1px solid var(--border-2); background: var(--bg-card); color: var(--ink-1); box-sizing: border-box; }
+.wz-cardbtn { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: start; padding: 13px 14px; border-radius: 11px; font-family: inherit; cursor: pointer; border: 1px solid var(--border-control); background: var(--bg-card); color: var(--ink-1); box-sizing: border-box; }
 .wz-cardbtn--on { border: 2px solid var(--brand-navy-800); background: var(--brand-navy-50); }
 .wz-cardbtn__t { font-size: 13px; font-weight: var(--fw-semibold); }
 .wz-cardbtn__d { font-size: 11px; color: var(--ink-3); line-height: 1.5; }
-.wz-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: var(--r-pill); font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); cursor: pointer; border: 1px solid var(--border-2); background: var(--bg-card); color: var(--ink-2); transition: all 150ms ease; }
+.wz-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: var(--r-pill); font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); cursor: pointer; border: 1px solid var(--border-control); background: var(--bg-card); color: var(--ink-2); transition: all 150ms ease; }
 .wz-chip--on { border-color: var(--brand-navy-800); background: var(--brand-navy-800); color: #fff; }
-.wz-check { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: var(--fw-medium); cursor: pointer; border: 1px solid var(--border-2); background: var(--bg-card); color: var(--ink-1); align-self: flex-start; box-sizing: border-box; }
+.wz-check { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: var(--fw-medium); cursor: pointer; border: 1px solid var(--border-control); background: var(--bg-card); color: var(--ink-1); align-self: flex-start; box-sizing: border-box; }
 .wz-check--on { border: 2px solid var(--status-done); background: rgba(219, 238, 223, 0.4); }
 .wz-check__m { width: 18px; height: 18px; border-radius: var(--r-sm); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: var(--fw-bold); background: var(--paper-200); color: transparent; }
 .wz-check--on .wz-check__m { background: var(--status-done); color: #fff; }
@@ -933,8 +1019,50 @@
    glyph points inline-start (correct for RTL); mirror it under LTR. */
 html[dir='ltr'] .op-chev-fwd { transform: scaleX(-1); }
 
+/* ============================================================
+   Polish pass (wave 6) — keyboard parity and rings that are not clipped.
+   ============================================================ */
+
+/* the same hover-parity sweep as admin.css: a tint that only a pointer can summon does not
+   exist for the keyboard reader this product is required to serve */
+.op-result:focus-visible,
+.op-notif__item:focus-visible { background: var(--bg-muted); outline-offset: -2px; }
+.file-tl__row:focus-visible { background: var(--bg-page); }
+.file-back:focus-visible { color: var(--ink-1); }
+
+.op-iconbtn:focus-visible,
+.op-langbtn:focus-visible,
+.op-btn-ghost:focus-visible,
+.file-doc__up:focus-visible,
+.wz-draft:focus-visible,
+.op-menu__out:focus-visible { background: var(--bg-muted); }
+.op-drawer__close:focus-visible,
+.wz-exit:focus-visible { background: var(--bg-inset); }
+
+.op-btn-primary:focus-visible,
+.op-cta:focus-visible,
+.op-btn-nav:focus-visible,
+.file-here__cta:focus-visible,
+.file-tl__wiz:focus-visible { background: var(--brand-navy-700); }
+.wz-next:focus-visible:not(:disabled) { background: var(--brand-navy-700); }
+.wz-next--amber:focus-visible:not(:disabled) { background: var(--brand-amber-600); }
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
+ * A per-selector list is a list that goes stale the next time someone adds a
+ * transition; the universal block cannot. Feedback is NOT removed — a hover
+ * tint, a border and a shadow still change, they simply arrive at once.
+ *
+ * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
+ * zero-length animation, and the drawer's teardown listens for exactly that.
+ * ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .op-task, .op-nav__btn, .op-prog__fill { transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media (max-width: 860px) {
@@ -969,7 +1097,7 @@ html[dir='ltr'] .op-chev-fwd { transform: scaleX(-1); }
 .bidderadd-empty { padding: 18px; text-align: center; font-size: 12.5px; color: var(--ink-3); }
 .bidderadd-row { display: flex; align-items: center; gap: 10px; inline-size: 100%; padding: 10px 12px; border: 1px solid var(--border-1); border-radius: var(--r-md); background: var(--bg-card); text-align: start; font: inherit; color: var(--fg-1); cursor: pointer; }
 .bidderadd-row:hover:not(:disabled) { background: var(--bg-muted); border-color: var(--brand-navy-100); }
-.bidderadd-row:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.bidderadd-row:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .bidderadd-row--on { border-color: var(--brand-navy-600); background: var(--brand-navy-50); }
 .bidderadd-row:disabled { cursor: not-allowed; opacity: 0.7; }
 .bidderadd-row__name { flex: 1; min-inline-size: 0; font-size: 13px; font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -979,6 +1107,6 @@ html[dir='ltr'] .op-chev-fwd { transform: scaleX(-1); }
 .bidderadd-div::before, .bidderadd-div::after { content: ''; flex: 1; block-size: 1px; background: var(--border-1); }
 .bidderadd-free { display: flex; flex-direction: column; gap: 8px; }
 .bidderadd-free__l { font-size: 12px; font-weight: var(--fw-medium); color: var(--ink-2); }
-.bidderadd-in { inline-size: 100%; block-size: 38px; padding-inline: 12px; border: 1px solid var(--border-1); border-radius: var(--r-md); font: inherit; font-size: 13px; background: var(--bg-card); color: var(--fg-1); }
-.bidderadd-in:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.bidderadd-in { inline-size: 100%; block-size: 38px; padding-inline: 12px; border: 1px solid var(--border-control); border-radius: var(--r-md); font: inherit; font-size: 13px; background: var(--bg-card); color: var(--fg-1); }
+.bidderadd-in:focus { outline: var(--focus-ring); outline-offset: 1px; }
 .bidderadd-gate { margin-inline-start: auto; text-align: end; }

@@ -33,11 +33,18 @@ export const paper = {
   900: '#14110D',
 } as const;
 
+/**
+ * The ink scale. Every value here is the one in css/tokens.css — a second, stale copy of a
+ * colour is a second source of truth, and `visualRefresh.test.tsx` parses the CSS and fails this
+ * file if the two ever disagree again.
+ */
 export const ink = {
   1: '#0B1320',
   2: '#364254',
-  3: '#6B7686',
-  4: '#98A1B0',
+  3: '#5A6474',
+  4: '#656E7D',
+  /** WCAG 1.4.3's inactive-component exemption — :disabled controls only, never a live mark. */
+  disabled: '#98A1B0',
   onDark: '#F4F1EA',
   onDark2: '#B6BAC3',
 } as const;
@@ -45,9 +52,9 @@ export const ink = {
 /** The six platform statuses — one status language across all screens. */
 export const status = {
   planned: { fg: '#4B5972', bg: '#E6E8EE' },
-  progress: { fg: '#1E6FB3', bg: '#DCEAF7' },
-  done: { fg: '#1F7A4D', bg: '#DBEEDF' },
-  risk: { fg: '#B5751F', bg: '#FAEFD4' },
+  progress: { fg: '#1B65A4', bg: '#DCEAF7' },
+  done: { fg: '#1C7046', bg: '#DBEEDF' },
+  risk: { fg: '#8F5915', bg: '#FAEFD4' },
   delayed: { fg: '#B23535', bg: '#F8DEDB' },
   blocked: { fg: '#6B4FB5', bg: '#E6DFF7' },
 } as const;

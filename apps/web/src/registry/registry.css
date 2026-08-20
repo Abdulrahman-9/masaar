@@ -45,7 +45,8 @@
   height: 28px;
   padding-inline: 10px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border-2);
+  /* control edge, not card hairline — §1-ج */
+  border: 1px solid var(--border-control);
   background: var(--bg-card);
   color: var(--ink-2);
   cursor: pointer;
@@ -62,7 +63,7 @@
   max-width: 340px;
   padding-inline: 12px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border-control);
   background: var(--bg-card);
   color: var(--ink-2);
   cursor: pointer;
@@ -79,6 +80,8 @@
   gap: 8px;
   height: 32px;
   padding-inline: 10px;
+  /* the FRAME only groups; the two <input> ends inside it are the controls, and they carry the
+     3:1 edge. Giving both the control weight would read as three stacked boxes. */
   border: 1px solid var(--border-2);
   border-radius: var(--r-md);
   background: var(--bg-card);
@@ -91,14 +94,14 @@
   font-size: 12px;
   height: 24px;
   padding-inline: 6px;
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--border-control);
   border-radius: var(--r-sm);
   background: var(--bg-page);
   color: var(--ink-1);
 }
 /* money ends are machine-format data — an LTR island in the mono face, like every other figure */
 .reg-range__in--num { font-family: var(--font-mono); direction: ltr; text-align: end; inline-size: 104px; }
-.reg-range__in:focus-visible { outline: 2px solid var(--brand-navy-700); outline-offset: 1px; }
+.reg-range__in:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 /* crossed ends: the group SAYS so — «لا صفوف مطابقة» and «المدى مقلوب» are different sentences */
 .reg-range--bad { border-color: var(--status-delayed); }
 .reg-range__warn { font-size: 11.5px; color: var(--status-delayed); white-space: nowrap; }
@@ -176,9 +179,7 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
 }
 .reg-explain__body p { margin: 0 0 6px; }
 .reg-explain__body p:last-child { margin-bottom: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .reg-explain__caret { transition-duration: 0.01ms; }
-}
+
 
 /* ---- the URL-borne filter chip (§5-ج) ----
    A standing chip carrying its own dismiss: the reader sees WHY the registry is short and can
@@ -204,7 +205,7 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
 .reg-chip__x:hover, .reg-chip__x:focus-visible { opacity: 1; }
 /* the chip body is navy-on-white-text, so the default navy focus ring would sit navy-on-navy —
    amber is the one ring that reads on this surface (the same pairing §1-ج prescribes for dark) */
-.reg-chip__x:focus-visible { outline-color: var(--brand-amber-400); }
+.reg-chip__x:focus-visible { outline-color: var(--focus-color-on-dark); }
 
 /* FilterChips badge — .acc-count lives in admin.css which the operator portal never loads;
    registry.css is bundled in both portals (identical to the admin.css rule, harmless duplicate). */
@@ -214,4 +215,28 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
   font-size: 10.5px;
   opacity: 0.75;
   margin-inline-start: 5px;
+}
+
+/* ---- polish pass (wave 6): hover parity for the keyboard ---- */
+.reg-sort:focus-visible,
+.reg-explain__sum:focus-visible { color: var(--ink-1); }
+.reg-pager__size:focus-visible,
+.reg-select:focus-visible { background: var(--bg-muted); }
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
+ * A per-selector list is a list that goes stale the next time someone adds a
+ * transition; the universal block cannot. Feedback is NOT removed — a hover
+ * tint, a border and a shadow still change, they simply arrive at once.
+ *
+ * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
+ * zero-length animation, and the drawer's teardown listens for exactly that.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

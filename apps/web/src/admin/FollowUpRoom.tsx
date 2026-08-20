@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useCountUp } from '@masaar/ui';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CompanyBars } from '../charts/CompanyBars';
 import { CompletionHistogram } from '../charts/CompletionHistogram';
@@ -15,6 +16,30 @@ import {
 } from './dashboardDerive';
 import { allTimeSchedulePct } from './scheduleDerive';
 import { TierPill } from './TierPill';
+
+/**
+ * The counting figure inside a KPI tile (spec §2-1).
+ *
+ * A COMPONENT, not a bare `useCountUp(…)` call inside the tile `.map()`: hooks may not be called
+ * from a loop whose length can change, and the tile row does change (the ladder tiles come and go
+ * with the store). One component per figure keeps the hook at the top level of its own render.
+ *
+ * `format` must be referentially stable — the caller memoizes it per language. An inline arrow
+ * here would re-run the effect every render and restart the count from zero, forever.
+ */
+function KpiCount({ value, format }: { value: number; format: (n: number) => string }) {
+  const ref = useCountUp(value, { format });
+  /**
+   * The markup ships the TRUE figure, already formatted by the caller's locale-aware `format`.
+   * A hard-coded `0` was wrong twice over on a governance dashboard: the count-up only starts on
+   * `IntersectionObserver` at `threshold: 0.4`, so a tile that never reaches 40% visibility — a
+   * short viewport, a headless print of the room — displayed and announced a figure of zero that
+   * no derivation had produced; and the literal was a Latin `0` whatever the language, and `0`
+   * rather than `0%` on the ratio tile. The hook overwrites this node when the reveal fires, so
+   * the animation is unchanged; what changed is that the pre-reveal state is now a fact.
+   */
+  return <span className="ad-kpi__v" ref={ref}>{format(value)}</span>;
+}
 
 export default function FollowUpRoom() {
   const { t, i18n } = useTranslation();
@@ -76,17 +101,26 @@ export default function FollowUpRoom() {
    * the band: `?tier=JMC` alone opens the whole band including the requests already decided, which
    * is a larger set than the number printed on the tile.
    */
-  const kpis: { l: string; v: number | string; dot: string; href?: string; go?: string; window?: string }[] = [
-    { l: t('admin.kpiOpen'), v: open.length, dot: 'var(--status-progress)', href: '#/admin/tenders?status=open' },
-    { l: t('admin.kpiRatify'), v: decisions.length, dot: 'var(--status-risk)', href: '#/admin/tenders?pending=1' },
-    { l: t('adroom.kpiLate'), v: late, dot: 'var(--status-delayed)', href: '#/admin/tenders?status=delayed' },
-    { l: t('adroom.kpiExecuting'), v: inExecution, dot: 'var(--status-done)', href: '#/admin/contracts?stage=execute' },
+  /* The two formatters the counting figures use. Memoized per language because `useCountUp` calls
+     `format` on every frame and re-runs its effect whenever the reference changes — an inline
+     arrow would reset the count on every render (spec §2-1, rule 1). Latin digits either way. */
+  const fmtN = useCallback((n: number) => fmtCount(n, lang), [lang]);
+  const fmtPct = useCallback((n: number) => `${fmtCount(n, lang)}%`, [lang]);
+
+  const kpis: {
+    l: string; v: number; fmt: (n: number) => string;
+    dot: string; href?: string; go?: string; window?: string;
+  }[] = [
+    { l: t('admin.kpiOpen'), v: open.length, fmt: fmtN, dot: 'var(--status-progress)', href: '#/admin/tenders?status=open' },
+    { l: t('admin.kpiRatify'), v: decisions.length, fmt: fmtN, dot: 'var(--status-risk)', href: '#/admin/tenders?pending=1' },
+    { l: t('adroom.kpiLate'), v: late, fmt: fmtN, dot: 'var(--status-delayed)', href: '#/admin/tenders?status=delayed' },
+    { l: t('adroom.kpiExecuting'), v: inExecution, fmt: fmtN, dot: 'var(--status-done)', href: '#/admin/contracts?stage=execute' },
     {
-      l: t('admin.kpiCompliance'), v: `${compliance}%`, dot: 'var(--status-done)',
+      l: t('admin.kpiCompliance'), v: compliance, fmt: fmtPct, dot: 'var(--status-done)',
       href: '#/admin/schedule', go: t('adroom.openSchedule'), window: t('adroom.windowAllTime'),
     },
-    { l: t('admin.kpiAwaitJmc'), v: awaitingJmc, dot: 'var(--tier-jmc)', href: '#/admin/approvals?tier=JMC&pending=1' },
-    { l: t('admin.kpiAwaitMdoc'), v: awaitingMdoc, dot: 'var(--tier-mdoc)', href: '#/admin/approvals?tier=MDOC&pending=1' },
+    { l: t('admin.kpiAwaitJmc'), v: awaitingJmc, fmt: fmtN, dot: 'var(--tier-jmc)', href: '#/admin/approvals?tier=JMC&pending=1' },
+    { l: t('admin.kpiAwaitMdoc'), v: awaitingMdoc, fmt: fmtN, dot: 'var(--tier-mdoc)', href: '#/admin/approvals?tier=MDOC&pending=1' },
   ];
 
   const ladderSub = t('ch.donut.sub', {
@@ -118,7 +152,7 @@ export default function FollowUpRoom() {
                 <span className="ad-kpi__l">{k.l}</span>
               </span>
               <span className="ad-kpi__row">
-                <span className="ad-kpi__v">{typeof k.v === 'number' ? fmtCount(k.v, lang) : k.v}</span>
+                <KpiCount value={k.v} format={k.fmt} />
               </span>
               {/* the window a figure covers is printed whenever it is not simply «the rows below» —
                   the ratio tile carries BOTH: what it measures, and where its decomposition lives */}

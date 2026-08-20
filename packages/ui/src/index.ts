@@ -5,6 +5,7 @@ export { KpiTile, type KpiTileProps } from './KpiTile';
 export { PathBadge, type PathBadgeProps } from './PathBadge';
 export { StatusPill, type StatusPillProps } from './StatusPill';
 export { Stepper, type StepperProps } from './Stepper';
+export { useCountUp, COUNT_UP_MS, type CountUpOpts } from './useCountUp';
 export { VerdictStrip, type VerdictStripProps } from './VerdictStrip';
 export { WdRail, type WdRailProps, type WdRailMarker } from './WdRail';
 

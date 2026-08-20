@@ -40,7 +40,51 @@
   transition: background var(--dur-base) var(--ease-out);
 }
 .ad-nav__btn:hover { background: rgba(244, 241, 234, 0.08); color: var(--ink-on-dark); }
-.ad-nav__btn--on, .ad-nav__btn--on:hover { background: var(--brand-amber-500); color: var(--brand-navy-900); }
+/* The active item is amber-on-navy here and navy-on-paper in the operator shell. That divergence
+   is CORRECT and is not to be "unified": the two surfaces are inverses of each other, and one
+   treatment would break whichever it was not designed against (amber fill + navy-900 text = 6.09
+   here; navy-800 fill + white text = 15.52 there). Weight carries the state as well as colour. */
+.ad-nav__btn--on, .ad-nav__btn--on:hover { background: var(--brand-amber-500); color: var(--brand-navy-900); font-weight: var(--fw-semibold); }
+.ad-nav__btn[aria-current='page'] { font-weight: var(--fw-semibold); }
+
+/* ---- «أدوات ومراجع» — the secondary disclosure (§4-د) ---- */
+.ad-nav__disc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  inline-size: 100%;
+  box-sizing: border-box;
+  padding-block: 9px;
+  padding-inline: 10px;
+  margin-block-start: 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-align: start;
+  color: var(--ink-on-dark-2);
+  border-radius: var(--r-sm);
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.ad-nav__disc:hover { background: rgba(244, 241, 234, 0.08); color: var(--ink-on-dark); }
+/* the current page lives inside the group, so it cannot be folded away — the pointer is told the
+   same thing the accessibility tree is told by aria-disabled, and the hover affordance is dropped */
+.ad-nav__disc[aria-disabled='true'] { cursor: default; }
+.ad-nav__disc[aria-disabled='true']:hover { background: transparent; }
+.ad-nav__caret { flex: none; transition: transform var(--dur-fast) var(--ease-out); }
+/* collapsed the caret points along the reading direction; open it points DOWN. The base glyph
+   (chevronStart) already points inline-start, so RTL needs no rotation and LTR gets the mirror. */
+.ad-nav__disc[aria-expanded='true'] .ad-nav__caret { transform: rotate(-90deg); }
+html[dir='ltr'] .ad-nav__caret { transform: scaleX(-1); }
+html[dir='ltr'] .ad-nav__disc[aria-expanded='true'] .ad-nav__caret { transform: rotate(90deg); }
+
+.ad-nav__sec { display: flex; flex-direction: column; gap: 2px; }
+/* MANDATORY: `display: flex` beats the UA's [hidden] { display: none }, so without this the
+   attribute would be set and nothing would actually hide. */
+.ad-nav__sec[hidden] { display: none; }
 .ad-nav__btn svg { flex-shrink: 0; }
 .ad-nav__count { margin-inline-start: auto; font-family: var(--font-mono); font-size: 11px; padding: 1px 7px; border-radius: var(--r-pill); background: rgba(244, 241, 234, 0.1); color: var(--ink-on-dark); }
 .ad-nav__btn--on .ad-nav__count { background: rgba(11, 37, 64, 0.18); color: var(--brand-navy-900); }
@@ -49,7 +93,9 @@
 .ad-side__sup-n { font-size: 13px; font-weight: var(--fw-semibold); color: var(--ink-on-dark); margin-top: 2px; }
 .ad-side__sup-r { font-size: 11px; color: var(--ink-on-dark-2); margin-top: 4px; font-family: var(--font-mono); direction: ltr; }
 .ad-side__credit { padding: 8px 10px 2px; text-align: center; border-top: 1px solid rgba(244, 241, 234, 0.14); }
-.ad-side__credit-l { font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.08em; font-weight: var(--fw-semibold); }
+/* the ink layer is defined for the LIGHT theme — on this navy panel the on-dark pair is the
+   correct token, and borrowing --ink-4 only ever worked by accident (§1-ب) */
+.ad-side__credit-l { font-size: 9.5px; color: var(--ink-on-dark-2); letter-spacing: 0.08em; font-weight: var(--fw-semibold); }
 .ad-side__credit-n { font-size: 11.5px; color: #DDE2E9; margin-top: 3px; font-weight: var(--fw-medium); }
 .ad-avatar { background: var(--brand-amber-500); color: var(--brand-navy-900); }
 
@@ -61,15 +107,24 @@
    crush them on a laptop or leave a hole on a wide screen, so the row sizes itself: at the
    1240px page width this settles on seven columns, and it sheds columns gracefully below. */
 .ad-kpis--wrap { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
-.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 6px; }
-/* a KPI that IS a queue: the tile opens the registry listing exactly what it counted */
+.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--elev-rest); display: flex; flex-direction: column; gap: 6px; }
+/* a KPI that IS a queue: the tile opens the registry listing exactly what it counted.
+   Height changes ONLY on an interaction state — no tile is born elevated (spec §1-ج). */
 a.ad-kpi--link {
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out);
 }
-a.ad-kpi--link:hover, a.ad-kpi--link:focus-visible { border-color: var(--border-3); box-shadow: var(--shadow-2); }
+a.ad-kpi--link:hover,
+a.ad-kpi--link:focus-visible {
+  border-color: var(--border-3);
+  box-shadow: var(--elev-hover);
+  transform: translateY(var(--lift));
+}
 a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { color: var(--ink-1); }
 /* The click affordance, printed in the RESTING state — a hint that appears only under a pointer
    does not exist for a touch or keyboard reader. A tile with no destination never renders it. */
@@ -96,7 +151,9 @@ a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { col
 .ad-kpi__dot { width: 8px; height: 8px; border-radius: var(--r-pill); }
 .ad-kpi__l { font-size: 12px; color: var(--ink-3); }
 .ad-kpi__row { display: flex; align-items: baseline; gap: 8px; }
-.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
+/* tabular figures are not optional here: the value counts up frame by frame (§2-1), and
+   proportional digits would make the whole tile twitch sideways for 600ms */
+.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
 .ad-kpi__delta { font-size: 11.5px; font-weight: var(--fw-semibold); }
 
 .ad-cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
@@ -127,11 +184,7 @@ html[dir='rtl'] .ad-disc__caret { transform: scaleX(-1); }
 html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 /* the same guard `.reg-explain__caret` carries: a reader who asked for less motion still gets the
    state change, it just arrives without the sweep */
-@media (prefers-reduced-motion: reduce) {
-  .ad-disc__caret,
-  a.ad-kpi--link,
-  .ad-kpi__go { transition-duration: 0.01ms; }
-}
+
 
 .ad-decision { padding: 14px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 14px; text-align: start; width: 100%; background: transparent; border-inline: none; border-top: none; font-family: inherit; cursor: pointer; }
 .ad-decision:last-child { border-bottom: none; }
@@ -180,7 +233,9 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .ctr-stage__dot { width: 24px; height: 24px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); font-family: var(--font-mono); }
 .ctr-stage__dot--done { background: var(--status-done); color: #fff; }
 .ctr-stage__dot--now { background: var(--brand-amber-500); color: var(--brand-navy-900); box-shadow: 0 0 0 3px var(--status-risk-bg); }
-.ctr-stage__dot--todo { background: var(--bg-muted); color: var(--ink-4); }
+/* the dot prints the STAGE NUMBER — text a reader counts with, in an enabled tracker, so 4.5:1
+   applies: --ink-3 on the tinted --bg-muted well is 5.30:1 (--ink-disabled was 2.31:1) */
+.ctr-stage__dot--todo { background: var(--bg-muted); color: var(--ink-3); }
 .ctr-stage__body { flex: 1; min-width: 0; }
 .ctr-stage__t { font-size: 13.5px; font-weight: var(--fw-medium); color: var(--ink-1); }
 .ctr-stage__d { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -217,7 +272,8 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
   max-width: 320px;
   padding-inline: 12px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border-2);
+  /* the edge IS the affordance on a control — 3:1 minimum (WCAG 1.4.11), not the card hairline */
+  border: 1px solid var(--border-control);
   background: var(--bg-card);
   color: var(--ink-2);
   cursor: pointer;
@@ -289,12 +345,12 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 
 /* ---- registry ---- */
 .acc-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 16px 12px; }
-.acc-scope-select { font: inherit; font-size: 12.5px; height: 32px; max-width: 260px; padding-inline: 12px; border-radius: var(--r-md); border: 1px solid var(--border-2); background: var(--bg-card); color: var(--ink-2); cursor: pointer; margin-inline-start: auto; }
+.acc-scope-select { font: inherit; font-size: 12.5px; height: 32px; max-width: 260px; padding-inline: 12px; border-radius: var(--r-md); border: 1px solid var(--border-control); background: var(--bg-card); color: var(--ink-2); cursor: pointer; margin-inline-start: auto; }
 .acc-row--off { opacity: 0.62; }
 .acc-count { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; opacity: 0.75; margin-inline-start: 5px; }
 
 /* rows are real buttons so a keyboard can open a file — a bare <tr onClick> cannot be reached */
-.acc-open { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding-inline: 11px; border-radius: var(--r-sm); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-2); font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; }
+.acc-open { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding-inline: 11px; border-radius: var(--r-sm); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-control); font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; }
 .acc-open:hover { background: var(--bg-muted); }
 
 /* ---- 360° file ---- */
@@ -312,8 +368,14 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-cell--yes     { background: var(--status-done-bg); color: var(--status-done); }
 .acc-cell--scoped  { background: var(--brand-amber-50); color: var(--brand-amber-700); }
 .acc-cell--open    { background: var(--bg-muted); color: var(--ink-3); border: 1px dashed var(--border-3); }
-.acc-cell--no      { background: transparent; color: var(--ink-4); }
-.acc-cell--session { background: transparent; color: var(--ink-4); opacity: 0.5; }
+/* «—» and «⊘» are the ABSENCE of a permission — informational marks with an aria-label, inside a
+   fully enabled table. WCAG 1.4.3's exemption covers text in an INACTIVE COMPONENT and does not
+   reach them, so neither may take --ink-disabled (2.61:1, and 1.55:1 once an opacity was stacked
+   on top). Both take --ink-3 on --bg-card = 5.98:1. They stay weaker than a granted cell by
+   having NO fill and no hue at all, and the two states are told apart by their glyphs — which is
+   what the legend and the aria-label name, never the colour. */
+.acc-cell--no      { background: transparent; color: var(--ink-3); }
+.acc-cell--session { background: transparent; color: var(--ink-3); }
 /* not a permission — a disagreement between the spec document and the enforced guard */
 .acc-cell--conflict { background: var(--status-delayed-bg); color: var(--status-delayed); }
 
@@ -352,7 +414,7 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-tab:hover { background: var(--bg-muted); border-color: var(--border-3); }
 .acc-tab--on { border-color: var(--brand-navy-600); box-shadow: inset 0 0 0 1px var(--brand-navy-600); background: var(--brand-navy-50); }
 .acc-tab--on > svg, .acc-tab--on .acc-tab__l { color: var(--brand-navy-800); }
-.acc-tab:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.acc-tab:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 
 /* ---- «من يوافق على ماذا» — the triad, with the live ceilings and a worked example ---- */
 .acc-triad { margin-block-start: var(--space-4); }
@@ -408,7 +470,7 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-rc__people { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .acc-rc__people .acc-avatar { box-shadow: inset 0 0 0 1px var(--border-2); text-decoration: none; transition: background 150ms ease-out; }
 .acc-rc__people .acc-avatar:hover { background: var(--brand-navy-100); }
-.acc-rc__people .acc-avatar:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.acc-rc__people .acc-avatar:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .acc-rc__orphan { padding: var(--space-2) var(--space-3); border-radius: var(--r-sm); background: var(--status-delayed-bg); color: var(--status-delayed); font-size: var(--t-caption); }
 
 .acc-rc__more {
@@ -417,7 +479,7 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
   font: inherit; font-size: var(--t-body-sm); font-weight: var(--fw-medium); cursor: pointer;
 }
 .acc-rc__more:hover { color: var(--brand-navy-800); text-decoration: underline; }
-.acc-rc__more:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; border-radius: var(--r-xs); }
+.acc-rc__more:focus-visible { outline: var(--focus-ring); outline-offset: 3px; border-radius: var(--r-xs); }
 /* «حاملو الدور» — the card's way to the ACCOUNTS register, filtered to this role. A link, not a
    button: it navigates, and grant/revoke/disable stay on the account file where the guards live. */
 .acc-rc__holderlink {
@@ -426,13 +488,13 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
   text-decoration: none;
 }
 .acc-rc__holderlink:hover { color: var(--brand-navy-800); text-decoration: underline; }
-.acc-rc__holderlink:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; border-radius: var(--r-xs); }
+.acc-rc__holderlink:focus-visible { outline: var(--focus-ring); outline-offset: 3px; border-radius: var(--r-xs); }
 /* same disclosure gesture as .reg-explain__caret — mirrored under RTL, 90° when open */
 .acc-rc__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out); }
 html[dir='rtl'] .acc-rc__caret { transform: scaleX(-1); }
 .acc-rc__more[aria-expanded='true'] .acc-rc__caret,
 html[dir='rtl'] .acc-rc__more[aria-expanded='true'] .acc-rc__caret { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { .acc-rc__caret { transition-duration: 0.01ms; } }
+
 .acc-rc__caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .acc-rc__caps li { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--t-caption); color: var(--ink-2); padding-block-end: var(--space-2); border-block-end: 1px solid var(--border-1); }
 .acc-rc__caps li:last-child { border-block-end: none; padding-block-end: 0; }
@@ -539,4 +601,53 @@ a.ent-crow:hover { background: var(--bg-page); }
   block-size: 20px;
   background: var(--border-2);
   margin-inline: 4px;
+}
+
+/* ============================================================
+   Polish pass (wave 6) — keyboard parity and rings that are not clipped.
+   ============================================================ */
+
+/* Hover parity (spec ذ6). Every rule below already tinted under a pointer and did NOTHING for a
+   keyboard reader. Each target is a real <a>/<button>, so :focus-visible costs nothing and closes
+   the gap; a non-focusable element simply never matches. */
+.ad-decision:focus-visible,
+.ad-disc > .ad-disc__sum:focus-visible,
+a.ent-crow:focus-visible { background: var(--bg-page); }
+
+.acc-open:focus-visible,
+.op-filter-select:focus-visible,
+.acc-scope-select:focus-visible,
+.ctr-menuitem:focus-visible { background: var(--bg-muted); }
+
+.ad-fromtender:focus-visible,
+.cf-add:focus-visible { background: var(--bg-muted); color: var(--ink-1); }
+.cf-row__rm:focus-visible { background: var(--status-delayed-bg); }
+.acc-tab:focus-visible { background: var(--bg-muted); border-color: var(--border-3); }
+.acc-rc__more:focus-visible,
+.acc-rc__holderlink:focus-visible { color: var(--brand-navy-800); }
+.ad-decision__go:focus-visible { background: var(--brand-navy-700); }
+
+/* A ring that gets cut off is not a ring. `.ad-panel` clips its children (`overflow: hidden` is
+   what keeps its rounded corners), so a FULL-BLEED row inside one loses the outer 2px of its
+   focus ring on three sides. Those rows draw the ring inward instead — same width, same colour,
+   negative offset. Rows that are inset from the panel edge keep the standard outward ring. */
+.ad-decision:focus-visible,
+.ad-disc > .ad-disc__sum:focus-visible { outline-offset: -2px; }
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
+ * A per-selector list is a list that goes stale the next time someone adds a
+ * transition; the universal block cannot. Feedback is NOT removed — a hover
+ * tint, a border and a shadow still change, they simply arrive at once.
+ *
+ * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
+ * zero-length animation, and the drawer's teardown listens for exactly that.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

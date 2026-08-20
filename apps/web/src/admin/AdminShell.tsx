@@ -7,7 +7,7 @@ import { loadSession } from '../session';
 import { useRegisterDispatchFail, useStore } from '../store';
 import { ToastViewport, useToasts, type ToastOpts } from '../Toasts';
 import { roleKey } from './access';
-import { decisionQueue } from './adminDerive';
+import { approvalChain, awaitingTier, decisionQueue } from './adminDerive';
 import './admin.css';
 
 export type AdminView =
@@ -28,30 +28,73 @@ export function useAdminUi(): AdminUi {
   return ctx;
 }
 
-const PRIMARY: { view: AdminView; hash: string; icon: string; counted?: 'decisions' | 'tenders' | 'accounts' }[] = [
+type NavCount = 'decisions' | 'tenders' | 'approvals' | 'contracts' | 'accounts';
+interface NavItem { view: AdminView; hash: string; icon: string; counted?: NavCount }
+
+/**
+ * PRIMARY — the five destinations of the daily job, always visible (spec §4-أ).
+ *
+ * The order is the lifecycle order a request travels: it is raised (tenders), it climbs the
+ * ladder (approvals), it becomes a contract, and companies are the register all three refer to.
+ * «المتابعة» sits on top because it is where a manager starts the morning.
+ *
+ * «سلسلة الموافقات» is promoted OUT of the tool drawer: after ق1/ق3 it is a daily destination,
+ * not a reference table. «التقارير» and «الوصول والمستخدمون» move the other way — printing and
+ * account administration are periodic work, not the work of the day (§4-أ).
+ */
+const PRIMARY: NavItem[] = [
   { view: 'room', hash: '#/admin', icon: 'layers', counted: 'decisions' },
   { view: 'tenders', hash: '#/admin/tenders', icon: 'list', counted: 'tenders' },
-  { view: 'contracts', hash: '#/admin/contracts', icon: 'doc' },
+  { view: 'approvals', hash: '#/admin/approvals', icon: 'check', counted: 'approvals' },
+  { view: 'contracts', hash: '#/admin/contracts', icon: 'doc', counted: 'contracts' },
   // entities are companies, not people — the people glyph belongs to the access registry
   { view: 'entities', hash: '#/admin/entities', icon: 'building' },
-  { view: 'reports', hash: '#/admin/reports', icon: 'chart' },
-  { view: 'users', hash: '#/admin/users', icon: 'users', counted: 'accounts' },
 ];
-const TOOLS: { view: AdminView; hash: string; icon: string }[] = [
-  { view: 'operators', hash: '#/admin/operators', icon: 'building' },
-  { view: 'fields', hash: '#/admin/fields', icon: 'layers' },
-  { view: 'holidays', hash: '#/admin/holidays', icon: 'calendar' },
-  // «الأدوار والصلاحيات» left the tool list: it is a TAB of the access section now, and a second
-  // sidebar entry landing on the same page would re-create the three-places-one-question problem
-  // the merge exists to end.
-  { view: 'approvals', hash: '#/admin/approvals', icon: 'check' },
+
+/**
+ * SECONDARY — «أدوات ومراجع»: printing, registers and evidence. Nine items, so it is a real
+ * disclosure (the ≥3 rule in §4-ب); the operator shell, with one, stays a flat label.
+ *
+ * «الأدوار والصلاحيات» is deliberately absent: it is a TAB of the access section now, and a
+ * second sidebar entry landing on the same page would re-create the three-places-one-question
+ * problem the merge exists to end.
+ */
+const SECONDARY: NavItem[] = [
+  { view: 'reports', hash: '#/admin/reports', icon: 'chart' },
   // schedule sits directly above §9 compliance: the two answer «هل التزمنا؟» about different
   // things (time / local content), and the adjacency is what makes the difference readable
   { view: 'schedule', hash: '#/admin/schedule', icon: 'clock' },
   { view: 'compliance', hash: '#/admin/compliance', icon: 'shield' },
+  { view: 'operators', hash: '#/admin/operators', icon: 'building' },
+  { view: 'fields', hash: '#/admin/fields', icon: 'layers' },
+  { view: 'holidays', hash: '#/admin/holidays', icon: 'calendar' },
+  { view: 'users', hash: '#/admin/users', icon: 'users', counted: 'accounts' },
   { view: 'paths', hash: '#/admin/paths', icon: 'chart' },
   { view: 'audit', hash: '#/admin/audit', icon: 'doc' },
 ];
+
+/**
+ * The disclosure's remembered state. Namespaced OUTSIDE the business store key
+ * (`masaar-operator-v11`): a chrome preference must never travel with, or be wiped by, a data
+ * migration. '1' open · '0' (or absent) collapsed — collapsed is the default, which is the whole
+ * point of a secondary group.
+ */
+export const NAV_SEC_KEY = 'masaar.nav.sec';
+
+function readSecPref(): boolean {
+  try {
+    return localStorage.getItem(NAV_SEC_KEY) === '1';
+  } catch {
+    return false; // private mode / disabled storage — the drawer still works, it just forgets
+  }
+}
+function writeSecPref(open: boolean): void {
+  try {
+    localStorage.setItem(NAV_SEC_KEY, open ? '1' : '0');
+  } catch {
+    /* a preference that cannot be stored is not an error worth interrupting anybody for */
+  }
+}
 
 function initials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('');
@@ -75,7 +118,50 @@ export default function AdminShell({ view, onLogout, children }: { view: AdminVi
 
   // one definition, shared with the follow-up room's tile and the `?pending=1` registry it opens
   const decisions = decisionQueue(state).length;
-  const counts = { decisions, tenders: state.tenders.length, accounts: state.users.filter((u) => !u.disabled).length };
+  /**
+   * «سلسلة الموافقات» badges the OUTSTANDING SIGNATURES, not the size of the chain: the same
+   * `awaitingTier` predicate the room's two ladder tiles and the approvals screen's own KPI strip
+   * call, so no two surfaces can disagree about how many decisions are owed.
+   */
+  const chain = approvalChain(state);
+  const approvals = awaitingTier(chain, 'JMC').length + awaitingTier(chain, 'MDOC').length;
+  const counts: Record<NavCount, number> = {
+    decisions,
+    tenders: state.tenders.length,
+    approvals,
+    contracts: state.contracts.length,
+    accounts: state.users.filter((u) => !u.disabled).length,
+  };
+
+  /**
+   * The secondary group. Two inputs, deliberately kept apart:
+   *   · `secPref` — what the reader chose, persisted.
+   *   · `activeInSecondary` — a forced open, so a deep link (`#/admin/audit`) can never land on a
+   *     highlighted item that is not on screen.
+   * The forced open is NOT written back: leaving the section restores the reader's own choice.
+   */
+  const [secPref, setSecPref] = useState(readSecPref);
+  const activeInSecondary = SECONDARY.some((n) => n.view === view);
+  const secOpen = secPref || activeInSecondary;
+  /**
+   * While a secondary destination is the current page the group CANNOT be collapsed — collapsing
+   * it would hide the page the reader is on. That makes the disclosure genuinely unavailable
+   * there, and it has to SAY so: a button that reports `aria-expanded="true"` and then does
+   * nothing when activated is a lie told to exactly the reader who cannot see the caret. It also
+   * used to compute `!secOpen`, i.e. always `false` on such a page, so every click wrote
+   * `masaar.nav.sec = '0'` — the stored preference could only ever be destroyed there, never
+   * restored. The toggle now reads and writes the PREFERENCE, and is inert only where it is
+   * announced as inert.
+   */
+  const secForced = activeInSecondary;
+  const toggleSec = () => {
+    if (secForced) return;
+    const next = !secPref;
+    setSecPref(next);
+    writeSecPref(next);
+  };
+  // collapsing must never hide an alarm: the header carries the sum of what it folded away
+  const hiddenCount = SECONDARY.reduce((n, i) => n + (i.counted ? counts[i.counted] : 0), 0);
 
   const qn = q.trim().toLowerCase();
   type Result = { kind: 'tender' | 'contract' | 'entity'; name: string; code: string; hash: string };
@@ -107,22 +193,57 @@ export default function AdminShell({ view, onLogout, children }: { view: AdminVi
             <img src="/logo-on-dark.svg" alt={t('app.title')} onError={(e) => { (e.target as HTMLImageElement).src = '/logo.svg'; }} />
             <span className="ad-side__badge">{t('adnav.badge')}</span>
           </div>
-          <nav className="ad-nav">
+          <nav className="ad-nav" aria-label={t('adnav.navLabel')}>
             {PRIMARY.map((n) => {
               const on = n.view === view || (n.view === 'tenders' && view === 'review');
               return (
-                <a key={n.view} href={n.hash} className={`ad-nav__btn${on ? ' ad-nav__btn--on' : ''}`}>
+                <a
+                  key={n.view}
+                  href={n.hash}
+                  className={`ad-nav__btn${on ? ' ad-nav__btn--on' : ''}`}
+                  aria-current={on ? 'page' : undefined}
+                >
                   <Icon name={n.icon} size={17} /><span>{t(`adnav.${n.view}`)}</span>
                   {n.counted && <span className="ad-nav__count">{fmtCount(counts[n.counted], lang)}</span>}
                 </a>
               );
             })}
-            <div className="ad-nav__group">{t('adnav.tools')}</div>
-            {TOOLS.map((n) => (
-              <a key={n.view} href={n.hash} className={`ad-nav__btn${n.view === view ? ' ad-nav__btn--on' : ''}`}>
-                <Icon name={n.icon} size={17} /><span>{t(`adnav.${n.view}`)}</span>
-              </a>
-            ))}
+
+            {/* The disclosure. `hidden` is the attribute — a screen reader understands it, whereas
+                a bare `display: none` is invisible to the accessibility tree's own bookkeeping;
+                `aria-controls` names the container it governs. Only the caret animates: growing a
+                block-size costs a layout pass per frame and fights `hidden` besides (§4-ج). */}
+            <button
+              type="button"
+              className="ad-nav__disc"
+              aria-expanded={secOpen}
+              aria-controls="ad-nav-secondary"
+              aria-disabled={secForced || undefined}
+              onClick={toggleSec}
+            >
+              <Icon name="chevronStart" size={14} strokeWidth={2} className="ad-nav__caret" />
+              <span>{t('adnav.tools')}</span>
+              {!secOpen && hiddenCount > 0 && (
+                <span className="ad-nav__count">{fmtCount(hiddenCount, lang)}</span>
+              )}
+            </button>
+
+            <div id="ad-nav-secondary" className="ad-nav__sec" hidden={!secOpen}>
+              {SECONDARY.map((n) => {
+                const on = n.view === view;
+                return (
+                  <a
+                    key={n.view}
+                    href={n.hash}
+                    className={`ad-nav__btn${on ? ' ad-nav__btn--on' : ''}`}
+                    aria-current={on ? 'page' : undefined}
+                  >
+                    <Icon name={n.icon} size={17} /><span>{t(`adnav.${n.view}`)}</span>
+                    {n.counted && <span className="ad-nav__count">{fmtCount(counts[n.counted], lang)}</span>}
+                  </a>
+                );
+              })}
+            </div>
           </nav>
           <div className="ad-side__sup">
             <div className="ad-side__sup-l">{t('adnav.supLabel')}</div>

@@ -1,7 +1,7 @@
 import { stageByKey } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
 import { calendarDaysBetween, workingDaysBetween } from '@masaar/working-days';
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { calendarOf, currentStage, expectedAwardDate, stageStatus, todayIso, useStore } from '../store';
 import { fmtCount, fmtMoney, tenderStatus, wizardTypeFor } from './derive';
@@ -12,6 +12,7 @@ import { Icon } from './Icon';
 import { PathChip } from './PathChip';
 
 type Tab = 'timeline' | 'docs' | 'bidders';
+const TABS: readonly Tab[] = ['timeline', 'docs', 'bidders'];
 
 export default function TenderDetail({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
@@ -22,6 +23,36 @@ export default function TenderDetail({ id }: { id: string }) {
 
   const [tab, setTab] = useState<Tab>('timeline');
   const [focus, setFocus] = useState<string | null>(null);
+
+  /**
+   * Tab anatomy (spec §2-4). Three buttons styled as tabs were not a tablist to anything but a
+   * sighted reader: no role, no aria-selected, no arrow keys, and Tab itself stopped on each of
+   * the three before reaching the panel. A roving tabindex fixes the last part — only the
+   * selected tab is in the tab order, the arrows move between them.
+   */
+  const tabsId = useId();
+  const tabId = (k: Tab) => `${tabsId}-tab-${k}`;
+  const panelId = (k: Tab) => `${tabsId}-panel-${k}`;
+  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+  const isRtl = lang === 'ar';
+
+  const onTabKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const i = TABS.indexOf(tab);
+    let next = -1;
+    if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = TABS.length - 1;
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      // the arrows follow the SCREEN, not the array: under RTL the next tab is the one to the
+      // left, and a reader who presses «left to go forward» is right in Arabic and wrong in English
+      const forward = (e.key === 'ArrowLeft') === isRtl;
+      next = (i + (forward ? 1 : -1) + TABS.length) % TABS.length;
+    }
+    const key = next < 0 ? undefined : TABS[next];
+    if (!key) return;
+    e.preventDefault();
+    setTab(key);
+    tabRefs.current[key]?.focus();
+  };
 
   const tender = state.tenders.find((x) => x.id === id);
   if (!tender) {
@@ -101,17 +132,43 @@ export default function TenderDetail({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="file-tabs">
-        {(['timeline', 'docs', 'bidders'] as Tab[]).map((k) => (
-          <button key={k} className={`file-tab${tab === k ? ' file-tab--on' : ''}`} onClick={() => setTab(k)}>
+      <div className="file-tabs" role="tablist" aria-label={t('file.tabsLabel')}>
+        {TABS.map((k) => (
+          <button
+            key={k}
+            id={tabId(k)}
+            ref={(el) => { tabRefs.current[k] = el; }}
+            role="tab"
+            type="button"
+            aria-selected={tab === k}
+            aria-controls={panelId(k)}
+            tabIndex={tab === k ? 0 : -1}
+            className={`file-tab${tab === k ? ' file-tab--on' : ''}`}
+            onClick={() => setTab(k)}
+            onKeyDown={onTabKey}
+          >
             {t(`file.tabs.${k}`)}
           </button>
         ))}
       </div>
 
-      {tab === 'timeline' && <FileTimeline tender={tender} focus={focus} onFocus={setFocus} onWizard={openWizard} />}
-      {tab === 'docs' && <FileDocs tender={tender} />}
-      {tab === 'bidders' && <FileBidders tender={tender} />}
+      {/* one panel is rendered at a time; each still names the tab that owns it, so a screen
+          reader entering the panel is told which of the three it is inside */}
+      {tab === 'timeline' && (
+        <div role="tabpanel" id={panelId('timeline')} aria-labelledby={tabId('timeline')}>
+          <FileTimeline tender={tender} focus={focus} onFocus={setFocus} onWizard={openWizard} />
+        </div>
+      )}
+      {tab === 'docs' && (
+        <div role="tabpanel" id={panelId('docs')} aria-labelledby={tabId('docs')}>
+          <FileDocs tender={tender} />
+        </div>
+      )}
+      {tab === 'bidders' && (
+        <div role="tabpanel" id={panelId('bidders')} aria-labelledby={tabId('bidders')}>
+          <FileBidders tender={tender} />
+        </div>
+      )}
     </div>
   );
 }
