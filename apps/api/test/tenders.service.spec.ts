@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { DEFAULT_APPROVAL_TIERS } from '@masaar/scpp-rules';
 import { describe, expect, it, vi } from 'vitest';
 import { TendersService } from '../src/tenders/tenders.service.js';
 import type { AuthUser } from '../src/auth/auth.types.js';
@@ -13,6 +14,8 @@ import type { AuthUser } from '../src/auth/auth.types.js';
 
 const MDOC: AuthUser = { userId: 'u-roc', name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' };
 const OP: AuthUser = { userId: 'u-op', name: 'Operator', role: 'OPERATOR_ADMIN', operatorId: 'op1' };
+/** The ط2 seat (client request 19ب) — admitted by the ratify decorator, gated by the band. */
+const JMC: AuthUser = { userId: 'u-jmc', name: 'م. رافد الدليمي', role: 'JMC_APPROVER' };
 
 function makeService(tender: unknown) {
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
@@ -235,6 +238,106 @@ describe('ratify / return guards', () => {
     const { svc, prisma } = makeService(tender);
     await svc.ratify(MDOC, 't1');
     expect(prisma.ratification.create).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * The ق1 ladder as an AUTHORITY gate on the server (client request 19ب).
+ *
+ * The decorator (`RATIFY_ROLES`) admits three roles to the ratification seat; this is the second
+ * gate, which decides which of them may sign THIS band. Refusals are 403 and audited, and the
+ * check runs before any merit guard — a body with no standing must not learn the award figures.
+ */
+describe('tier authority on ratify / return (ق1 ladder, request 19ب)', () => {
+  const atRatify = (estimatedValueUSD: number) => ({
+    id: 't1', code: 'RU-1', operatorId: 'op1', estimatedValueUSD, mct: null, announcement: null,
+    stages: baseStages, bidders: [],
+  });
+
+  it('lets the joint committee ratify a ط2 award (5M < value ≤ 10M)', async () => {
+    const { svc, prisma, audit } = makeService(atRatify(7_800_000));
+    await svc.ratify(JMC, 't1');
+    expect(prisma.ratification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: 'RATIFIED', by: 'م. رافد الدليمي', byUserId: 'u-jmc' }),
+    });
+    expect(audit.record).toHaveBeenCalledWith('u-jmc', 'RATIFY', 'RU-1');
+  });
+
+  it('refuses the joint committee on a ط3 award, and audits the attempt with the band', async () => {
+    const { svc, prisma, audit } = makeService(atRatify(12_400_000));
+    await expect(svc.ratify(JMC, 't1')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.ratification.create).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith('u-jmc', 'RATIFY_REFUSED', 'RU-1 (tier MDOC)');
+  });
+
+  it('refuses it on ط3 through the RETURN door too — the same seat, the same band', async () => {
+    const { svc, prisma, audit } = makeService(atRatify(12_400_000));
+    await expect(svc.returnWithNotes(JMC, 't1', 'ملاحظات')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.ratification.create).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith('u-jmc', 'RETURN_WITH_NOTES_REFUSED', 'RU-1 (tier MDOC)');
+  });
+
+  it('lets it return a ط2 file with notes', async () => {
+    const { svc, prisma } = makeService(atRatify(7_800_000));
+    await svc.returnWithNotes(JMC, 't1', 'إعادة تقييم البند الرابع');
+    expect(prisma.ratification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: 'RETURNED', byUserId: 'u-jmc' }),
+    });
+  });
+
+  it('keeps the parent company clearing every band, including the committee’s', async () => {
+    for (const value of [4_200_000, 7_800_000, 12_400_000]) {
+      const { svc, prisma } = makeService(atRatify(value));
+      await svc.ratify(MDOC, 't1');
+      expect(prisma.ratification.create).toHaveBeenCalledOnce();
+    }
+  });
+
+  it('checks the band BEFORE the merits — a decided file still refuses on authority', async () => {
+    const { svc, prisma, audit } = makeService(atRatify(12_400_000));
+    prisma.ratification.findUnique.mockResolvedValue({ id: 'r1', status: 'RATIFIED' });
+    await expect(svc.ratify(JMC, 't1')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(audit.record).toHaveBeenCalledWith('u-jmc', 'RATIFY_REFUSED', 'RU-1 (tier MDOC)');
+  });
+
+  it('fails closed on an unreadable estimate — the highest band, so only the parent company signs', async () => {
+    const { svc } = makeService({ ...atRatify(Number.NaN), estimatedValueUSD: undefined });
+    await expect(svc.ratify(JMC, 't1')).rejects.toBeInstanceOf(ForbiddenException);
+    const ok = makeService({ ...atRatify(Number.NaN), estimatedValueUSD: undefined });
+    await ok.svc.ratify(MDOC, 't1');
+    expect(ok.prisma.ratification.create).toHaveBeenCalledOnce();
+  });
+
+  /**
+   * DRIFT ALARM — the server's authoritative ladder vs. the client's editable one.
+   *
+   * `assertTierAuthority` reads `DEFAULT_APPROVAL_TIERS` (there is no server tiers model); the web
+   * store reads `state.approvalTiers`, seeded from the same constant. Today they are one ladder,
+   * and the ONLY reason a disabled «صادق» button and a 403 always agree. Named debt: the governed
+   * action that moves the ceilings will make the client's side genuinely mutable — this test is
+   * what fails first if that lands on one side only.
+   *
+   * Asserted BEHAVIOURALLY, not by re-reading the constant: the boundaries are probed through the
+   * real gate, so a future change that swaps in a different source is caught even if it keeps the
+   * same numbers in a comment.
+   */
+  it('reads the ENGINE ladder, at the exact boundaries the client draws its bands on', async () => {
+    const { operatorMaxUSD, jmcMaxUSD } = DEFAULT_APPROVAL_TIERS;
+    // the ceilings are INCLUSIVE at the top of each band, and one cent past moves the seat up
+    const jmcClears = [operatorMaxUSD, operatorMaxUSD + 0.01, jmcMaxUSD];
+    for (const value of jmcClears) {
+      const { svc, prisma } = makeService(atRatify(value));
+      await svc.ratify(JMC, 't1');
+      expect(prisma.ratification.create, `JMC should clear ${value}`).toHaveBeenCalledOnce();
+    }
+    const { svc } = makeService(atRatify(jmcMaxUSD + 0.01));
+    await expect(svc.ratify(JMC, 't1')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('holds the two ladders identical TODAY — the invariant the debt will end', () => {
+    // the client seeds `state.approvalTiers` from this very object (store.tsx SEED_APPROVAL_TIERS).
+    // Restated here so the alarm rings on the SERVER side too, where the constant is authoritative.
+    expect(DEFAULT_APPROVAL_TIERS).toEqual({ operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 });
   });
 });
 

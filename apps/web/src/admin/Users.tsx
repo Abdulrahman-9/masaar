@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount } from '../operator/derive';
 import { Icon } from '../operator/Icon';
-import { isOperatorRole, loadSession, type ApiRole } from '../session';
+import { API_ROLES, isOperatorRole, loadSession, type ApiRole } from '../session';
 import { enabledSuperAdmins, scopeConsistent, todayIso, useStore, type UserAccount } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
 import { PaginationBar } from '../registry/PaginationBar';
 import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
@@ -18,7 +19,12 @@ import { useAdminUi } from './AdminShell';
 import { impactfulCount, matchUser, orphanRoleCount, readCount, roleKey, roleTone } from './access';
 import { AddAccountModal } from './UserActions';
 
-const ROLE_ORDER: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+/**
+ * The governance hierarchy, as data — `API_ROLES` itself, so a role added to the universe cannot
+ * be missing from the sort order, the chip row or the export (the seventh, JMC_APPROVER, would
+ * otherwise have needed three separate hand-edits to become visible).
+ */
+const ROLE_ORDER: readonly ApiRole[] = API_ROLES;
 
 export function initials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('');
@@ -27,7 +33,13 @@ export function initials(name: string): string {
 /** '' = all roles, a role, or the synthetic 'disabled' bucket. */
 type RoleFilter = '' | ApiRole | 'disabled';
 
-export default function Users() {
+/**
+ * The ACCOUNTS tab of «الوصول والأدوار» (client request 20). Behaviour is untouched from the
+ * standalone screen it used to be — the same filters, sort, pagination, stamp and export — but the
+ * page shell, title and breadcrumb now belong to `Access.tsx`, which owns the section the three
+ * tabs share. What was three screens is one subject with three views.
+ */
+export default function UsersRegistry() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state } = useStore();
@@ -37,7 +49,20 @@ export default function Users() {
   const words = useStampWords();
 
   const [q, setQ] = useState('');
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
+  /**
+   * The role narrowing lives in the ADDRESS (`?role=`), so «حاملو الدور» on a role card can link
+   * straight to this register already filtered — one register, reached from the card, instead of a
+   * second thinner list of holders grown next to it.
+   *
+   * The mirror follows the phase-4 `useFilterParams` doctrine rather than a bare `useState(param)`:
+   * the address is the source of truth whenever it MOVES (a card link, Back), and a chip moves the
+   * mirror first so the table answers in the same frame. A value outside the vocabulary is refused
+   * on read by `hashParam` and simply narrows nothing — the whole register, never an empty one.
+   */
+  const params = useHashParams();
+  const roleParam = hashParam(params, 'role') as RoleFilter;
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>(roleParam);
+  useEffect(() => { setRoleFilter(roleParam); }, [roleParam]);
   const [scope, setScope] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -152,20 +177,23 @@ export default function Users() {
     });
   }
 
-  // Role chips only set the role filter; the conflict chip is a shortcut that also pins the scope.
+  /**
+   * Role chips set the role filter AND the address — the narrowing a reader can see is the
+   * narrowing they can copy and send. The conflict chip is a shortcut that pins the scope instead,
+   * and clears the role in both places so the two never describe different registers.
+   */
   const onChip = (key: string) => {
-    if (key === '__conflict') { setRoleFilter(''); setScope('__conflict'); }
-    else setRoleFilter(key as RoleFilter);
+    if (key === '__conflict') { setRoleFilter(''); setScope('__conflict'); writeHashParam('role', null); return; }
+    setRoleFilter(key as RoleFilter);
+    writeHashParam('role', key || null);
   };
+  const clearFilters = () => { setQ(''); setRoleFilter(''); setScope(''); writeHashParam('role', null); };
 
   return (
-    <div className="op-page" style={{ maxWidth: 1240 }}>
-      <div className="op-page__head">
-        <div>
-          <h1 className="op-page__title">{t('access.title')}</h1>
-          <div className="op-page__sub">{t('access.registrySub', { n: fmtCount(users.length, lang), e: fmtCount(enabled, lang) })}</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+    <>
+      <div className="acc-tabhead">
+        <div className="acc-tabhead__s">{t('access.registrySub', { n: fmtCount(users.length, lang), e: fmtCount(enabled, lang) })}</div>
+        <div className="acc-tabhead__a">
           <button className="op-btn-primary" disabled={!isSuper} title={isSuper ? undefined : t('access.gateNotSuper')} onClick={() => setAdding(true)}>
             {t('access.addAccount')}
           </button>
@@ -219,7 +247,7 @@ export default function Users() {
       ) : rows.length === 0 ? (
         <EmptyState
           mode="noMatch"
-          action={<button className="op-btn-ghost" onClick={() => { setQ(''); setRoleFilter(''); setScope(''); }}>{t('access.clearFilters')}</button>}
+          action={<button className="op-btn-ghost" onClick={clearFilters}>{t('access.clearFilters')}</button>}
         >
           {t('access.noMatch')}
         </EmptyState>
@@ -329,6 +357,6 @@ export default function Users() {
       )}
 
       {adding && <AddAccountModal onClose={() => setAdding(false)} />}
-    </div>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Length } from 'class-validator';
 import type { Role } from '../auth/auth.types.js';
 
-export const ROLES: Role[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+export const ROLES: Role[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 export class CreateUserDto {
   @IsString() @Length(1, 64) azureOid!: string;

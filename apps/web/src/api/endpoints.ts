@@ -1,11 +1,17 @@
 import { api, ApiError } from './client';
 import { mapAudit, mapContract, mapTender, mapUser, mapVendor } from './mappers';
 import type { ApiAudit, ApiContract, ApiSession, ApiTender, ApiUser, ApiVendor } from './types';
+import type { ApiLoginableRole } from '../session';
 import { SEED_APPROVAL_TIERS, type Action, type State, type Tender } from '../store';
 
 /* ---------------- auth ---------------- */
 
-export function apiLogin(role: 'OPERATOR_ADMIN' | 'MDOC_ADMIN', otp: string) {
+/**
+ * The role parameter is typed from `API_LOGINABLE_ROLES`, the client's mirror of the server's
+ * `LoginDto @IsIn(...)`. One list: a role the server will not mint a session for cannot be typed
+ * into this call, and a role added there is admitted here without a second edit.
+ */
+export function apiLogin(role: ApiLoginableRole, otp: string) {
   return api<ApiSession>('/auth/login', { method: 'POST', body: { role, otp } });
 }
 export function apiLogout() {
@@ -17,6 +23,15 @@ export function apiMe() {
 
 /* ---------------- reads ---------------- */
 
+/**
+ * Roles whose session actually passes the `/vendors`, `/contracts` and `/audit` guards. It is a
+ * fetch plan, not a permission: a role missing here is a role the server would refuse anyway.
+ *
+ * JMC_APPROVER is deliberately ABSENT (request 19ب). Its @Roles lists name only the two ratify
+ * rows, so those three calls would each 403 — and each refusal is audited ROLE_REFUSED, which
+ * would write three spurious refusal rows into the trail on every page load by a body that has
+ * no such right and never claimed one. Add it here the day a decorator actually grants it.
+ */
 const ADMIN_ROLES = ['SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR', 'EVALUATION'];
 
 /** store guarantee kinds → the API's uppercase enum (Prisma GuaranteeKind). */

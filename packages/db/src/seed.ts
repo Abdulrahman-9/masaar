@@ -109,6 +109,12 @@ async function main() {
       // that binds sessions and persisted client blobs to this account. Renaming an identifier
       // that exists to never change would strand every stored session for a cosmetic gain.
       { azureOid: 'oid-roc-01', name: 'د. سارة الجبوري', email: 'sara.jubouri@mdoc.iq', role: 'MDOC_ADMIN' },
+      // اللجنة المشتركة (client request 19ب) — the ط2 seat. `auth.controller.ts` mints a session
+      // for the first ENABLED user of the requested role, so without this row the JMC login the
+      // LoginDto now accepts would 401 and the tier-2 gate would be untestable against a database.
+      // Platform-scoped (no operatorId): a joint committee sits above any one operating company.
+      { azureOid: 'oid-jmc-01', name: 'م. رافد الدليمي', email: 'rafid.dulaimi@jmc.iq', role: 'JMC_APPROVER' },
+      { azureOid: 'oid-jmc-02', name: 'سُهاد العزاوي', email: 'suhad.azzawi@jmc.iq', role: 'JMC_APPROVER' },
     ],
   });
 
@@ -260,7 +266,7 @@ async function main() {
   });
 
   console.log(
-    `Seed complete: ${OPERATORS.length} operators, ${FIELDS.length} fields + service contracts, 3 users, 9 vendors, 3 tenders, 1 contract.`,
+    `Seed complete: ${OPERATORS.length} operators, ${FIELDS.length} fields + service contracts, 5 users, 9 vendors, 3 tenders, 1 contract.`,
   );
 }
 

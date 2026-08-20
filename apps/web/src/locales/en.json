@@ -646,8 +646,7 @@
     "kind_tender": "Tender",
     "kind_contract": "Contract",
     "kind_entity": "Entity",
-    "users": "Users & access",
-    "roles": "Roles & permissions",
+    "users": "Access & roles",
     "operators": "Operators",
     "fields": "Fields",
     "holidays": "Public holidays",
@@ -849,6 +848,34 @@
       "MDOC": "Above the JMC ceiling: more than {{min}} — the parent company gate."
     },
     "sentence": "This tender sits in tier {{tier}} — the decision rests with {{body}}."
+  },
+  "triad": {
+    "title": "Who approves what",
+    "sub": "Three bodies, two ceilings between them — the limits are read from the live approval ladder, not restated here",
+    "what": {
+      "OPERATOR": "The operating company acts within its delegated authority: no outside signature, follow-up and audit only.",
+      "JMC": "Anything past the operator’s authority stops at the Joint Management Committee: it alone ratifies or returns in this band.",
+      "MDOC": "Anything past the committee ceiling rises to the parent company: MDOC’s decision alone, and the committee cannot stand in for it."
+    },
+    "exampleLead": "A live example:",
+    "exampleTail": "→ the decision rests with {{body}}",
+    "noExample": "No live request sits in this band today — the limits above are the definition.",
+    "foot": "Examples are drawn from the {{n}} tenders on record and move with them; no example is invented for an empty band."
+  },
+  "rolecard": {
+    "gridSub": "One card per role — the three financial facts first, the detailed permissions on request",
+    "qApproves": "Approves up to?",
+    "qWitnesses": "Signs the decision?",
+    "qScope": "Scope?",
+    "approvesNone": "Does not approve",
+    "approvesAll": "No ceiling",
+    "approvesUpTo": "Up to",
+    "witnessYes": "Yes — ratifies and returns",
+    "witnessNo": "No",
+    "holders": "Enabled accounts holding this role",
+    "showCaps": "Show detailed permissions ({{n}})",
+    "holdersLink": "Holders of this role ({{n}}) — open the filtered account register",
+    "noCaps": "This role reaches no capability in the endpoint register."
   },
   "approvals": {
     "title": "Approval chain",
@@ -1088,6 +1115,7 @@
     "names": {
       "superAdmin": "Super Admin",
       "mdocAdmin": "MDOC Administration",
+      "jmcApprover": "Joint Management Committee (JMC)",
       "evaluation": "Evaluation Committees",
       "auditor": "Auditor",
       "operatorAdmin": "Operator Admin",
@@ -1182,10 +1210,23 @@
     "ratifiedDesc": "Accredited estimate {{accredited}} · lowest bid {{lowest}}",
     "toastReturned": "Award returned with notes — {{code}} · by {{name}}",
     "returnedDesc": "Notes recorded in the audit log",
-    "producedContract": "Resulting contract: {{code}}"
+    "producedContract": "Resulting contract: {{code}}",
+    "tierGate": "This request sits in tier {{tier}} — its decision belongs to {{body}}, and your current session “{{role}}” does not reach that tier. Both controls are held, and any attempt is refused and written to the audit log (8.1-e).",
+    "tierGateNote": "The approval ladder decides whose signature this is, not the screen: the decision opens by itself for whoever holds the tier’s authority.",
+    "tierGateNoSession": "This request sits in tier {{tier}} — its decision belongs to {{body}}, and there is no live session to attribute a decision to. Both controls are held until you sign in with an account that holds this tier’s authority.",
+    "noSessionGate": "No live session — every act here is written under an immutable actor, and there is no actor without a sign-in (8.1-e)."
   },
   "access": {
     "title": "Users & access",
+    "sectionTitle": "Access & roles",
+    "sectionSub": "{{n}} of {{r}} accounts enabled — accounts, roles and permissions in one section with three views",
+    "orphanBanner": "{{n}} governance role(s) have no enabled account — every call against them is refused 403 and logged ROLE_REFUSED. Open the “Roles” tab to see which.",
+    "tab_accounts": "Accounts",
+    "tabSub_accounts": "Who holds an account, in which role and scope",
+    "tab_roles": "Roles",
+    "tabSub_roles": "Who this role is, and what it may approve",
+    "tab_matrix": "Reference matrix",
+    "tabSub_matrix": "Every endpoint × every role — for audit and reconciliation",
     "registrySub": "{{n}} accounts · {{e}} enabled — open any account for its full access file",
     "addAccount": "Add account",
     "exportCsv": "Export CSV",
@@ -1314,8 +1355,7 @@
     "toastExport": "Access registry exported locally"
   },
   "caps": {
-    "title": "Roles & permissions",
-    "sub": "{{n}} endpoints · 6 roles · 7 domains — taken from the server's real guard, not a front-end setting",
+    "sub": "{{n}} endpoints · {{r}} roles · {{d}} domains — taken from the server’s real guard, not a front-end setting",
     "provenance": "Source: the @Roles matrix in *.controller.ts — revision {{rev}} · last extracted {{on}}. capabilities.test.ts pins the counts, and that every guarded capability is held by the super admin, on npm run test.",
     "stale": "{{n}} days since the last extraction — re-reconcile before relying on this.",
     "legendYes": "Granted",
@@ -1323,8 +1363,6 @@
     "legendOpen": "No @Roles",
     "legendNo": "Withheld",
     "legendSession": "Outside the count (session & infra)",
-    "tabByCap": "By capability",
-    "tabByRole": "By role",
     "colCap": "Capability",
     "colClause": "Clause",
     "colHolders": "Holders",
@@ -1332,7 +1370,6 @@
     "sessionGroup": "Session & infrastructure endpoints (outside the count)",
     "noHolder": "No enabled account holds this role — its capabilities are effectively dead",
     "holdersOf": "Holders of this capability",
-    "openRegistry": "Open the filtered registry",
     "authority": "Granted — {{route}} · @Roles({{roles}})",
     "noSignCapability": "Note: “sign contracts” is not a column here — no signing endpoint exists in the platform.",
     "dom_tenders": "Tenders",
@@ -1345,9 +1382,9 @@
     "dom_system": "Session & infrastructure",
     "statActions": "Impactful actions",
     "statReads": "Reads",
-    "statDomains": "Domains",
     "layer_SUPER_ADMIN": "Runs the platform and concentrates every duty",
     "layer_MDOC_ADMIN": "Ratifies, and governs contracts and vendors",
+    "layer_JMC_APPROVER": "Approves tier 2 — requests above the operator’s authority, up to the committee ceiling",
     "layer_EVALUATION": "Opens and evaluates, without ratifying",
     "layer_AUDITOR": "Reads, never writes — by separation of duties",
     "layer_OPERATOR_ADMIN": "Documents and cancels, within their company",

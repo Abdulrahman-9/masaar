@@ -74,3 +74,39 @@ describe('RolesGuard tolerates a pre-rename token', () => {
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 });
+
+/**
+ * The ratification seat after client request 19ب. The guard's only question is «may you sit
+ * here»; WHICH band a seated body may sign is the service's (TendersService.assertTierAuthority),
+ * and these tests pin that the two gates stay separate — a role admitted here is not thereby
+ * granted every band, and a role refused here never reaches the band check at all.
+ */
+describe('the ratification seat (RATIFY_ROLES)', () => {
+  const RATIFY_ROLES: Role[] = ['MDOC_ADMIN', 'SUPER_ADMIN', 'JMC_APPROVER'];
+
+  it('admits the joint committee to the ratify endpoint', async () => {
+    const { guard, ctx, audit } = makeGuard(RATIFY_ROLES, user('JMC_APPROVER'));
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('does not seat the committees, the auditor or an operator — refused and audited (8.1-e)', async () => {
+    for (const r of ['EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER']) {
+      const { guard, ctx, audit } = makeGuard(RATIFY_ROLES, user(r));
+      await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(audit.record).toHaveBeenCalledWith('u1', 'ROLE_REFUSED', 'POST /api/tenders/t1/ratify');
+    }
+  });
+
+  it('buys the joint committee nothing outside that seat', async () => {
+    // e.g. the vendor-governance endpoints, which its @Roles list does not name
+    const { guard, ctx } = makeGuard(['MDOC_ADMIN', 'SUPER_ADMIN'], user('JMC_APPROVER'));
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('resolves JMC_APPROVER as a real role and rejects a look-alike', () => {
+    expect(normalizeRole('JMC_APPROVER')).toBe('JMC_APPROVER');
+    expect(normalizeRole('JMC')).toBeUndefined();
+    expect(normalizeRole('JMC_APPROVE')).toBeUndefined();
+  });
+});

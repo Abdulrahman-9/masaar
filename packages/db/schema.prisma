@@ -61,9 +61,13 @@ model ServiceContract {
 /// «شركة نفط الوسط» / Midland Oil Company. Renamed in place — see the
 /// 20260820000000_role_roc_to_mdoc migration, which ALTERs the value rather than
 /// adding-and-backfilling, so no User row ever changes and no audit row is rewritten.
+// Ordered by the governance ladder, not alphabetically: JMC_APPROVER (client request 19ب) sits
+// between the parent company and the evaluation committees because that is exactly where its
+// authority sits — above the operator's own band, below نفط الوسط's (ق1 ladder).
 enum Role {
   SUPER_ADMIN
   MDOC_ADMIN
+  JMC_APPROVER
   EVALUATION
   AUDITOR
   OPERATOR_ADMIN

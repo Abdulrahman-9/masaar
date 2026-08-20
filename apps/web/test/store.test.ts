@@ -130,6 +130,35 @@ describe('RATIFY / RETURN_WITH_NOTES guards (admin award decision)', () => {
     expect(ratifyOf(atRatify(1, 14))).toBeUndefined();               // single bid + 14 days → blocked (15.3)
     expect(ratifyOf(atRatify(1, 21))?.status).toBe('ratified');      // single bid + 21 days → permitted
     expect(ratifyOf(atRatify(3, 14))?.status).toBe('ratified');      // more than one bid → not a lone-bid case
+
+    /**
+     * The §15.3 block is a GOVERNANCE refusal — it cites a clause — so it is RECORDED, exactly
+     * like the tier refusal above it. It used to return silently, which left the local log unable
+     * to explain a refusal it had just made while the server (api mode) wrote RATIFY_REFUSED (15.3)
+     * for the very same act.
+     */
+    const blocked = reducer({ ...emptyState(), tenders: [atRatify(1, 14)] }, { type: 'RATIFY', tenderId: 'tr', by: MDOC });
+    const row = blocked.audit[blocked.audit.length - 1]!;
+    expect(row).toMatchObject({ action: 'RATIFY', target: 'TR-0001', outcome: 'refused', reasonCode: 'clause-15.3' });
+    expect(row.by).toEqual(MDOC);                                    // WHO tried — the immutable actor
+    expect(blocked.tenders[0]!.ratification).toBeUndefined();        // and the tender is untouched
+  });
+
+  /**
+   * The other side of that line: a STATE-SHAPE guard refuses a non-event (an already-decided file,
+   * a tender not at the ratification stage). No clause is broken because nothing was attempted
+   * against a rule, so nothing is written — the log must not fill up with the consequences of a
+   * stale screen.
+   */
+  it('leaves the pure state-shape guards silent — a non-event writes no audit row', () => {
+    const decided = reducer(fresh(), { type: 'RATIFY', tenderId: 't3', by: MDOC });
+    const before = decided.audit.length;
+    const again = reducer(decided, { type: 'RATIFY', tenderId: 't3', by: MDOC }); // already decided
+    expect(again).toBe(decided);        // the SAME reference — nothing was produced at all
+    expect(again.audit).toHaveLength(before);
+    // and a tender that is simply not at the ratification stage behaves the same way
+    const notAtRatify = reducer(fresh(), { type: 'RATIFY', tenderId: 't1', by: MDOC });
+    expect(notAtRatify.audit).toHaveLength(0);
   });
 
   it('refuses to return without notes', () => {
@@ -408,6 +437,8 @@ const OTHER_SUPER: Actor = { oid: 'oid-x', name: 'مشرف آخر', role: 'SUPER
 const WHY = 'مسوّغ نظامي مكتوب بطول كافٍ للتوثيق';
 const u = (s: State, id: string) => s.users.find((x) => x.id === id)!;
 const lastRow = (s: State) => s.audit[s.audit.length - 1]!;
+/** Seeded accounts. 10 until 2026-08-20, when the two JMC members joined (request 19ب). */
+const SEED_ACCOUNTS = 12;
 
 describe('access guards mirror users.service.ts', () => {
   it('refuses to demote the last enabled super admin, and labels the refusal', () => {
@@ -455,23 +486,25 @@ describe('access guards mirror users.service.ts', () => {
 
   it('refuses a duplicate email or azure oid on create', () => {
     const base = { type: 'CREATE_USER', userId: 'uX', name: 'حساب جديد', role: 'AUDITOR', twoFa: true, reason: WHY, by: SUPER } as const;
+    // the duplicate is the WITHDRAWN auditor account (19أ): a disabled account still occupies its
+    // email and its oid — withdrawal is not erasure, and the uniqueness guard must still see it
     const dupEmail = reducer(fresh(), { ...base, azureOid: 'oid-new', email: 'auditor@bsa.iq' });
-    expect(dupEmail.users).toHaveLength(10);
+    expect(dupEmail.users).toHaveLength(SEED_ACCOUNTS);
     expect(lastRow(dupEmail).reasonCode).toBe('dup-email');
 
     const dupOid = reducer(fresh(), { ...base, azureOid: 'oid-audit-01', email: 'new@bsa.iq' });
-    expect(dupOid.users).toHaveLength(10);
+    expect(dupOid.users).toHaveLength(SEED_ACCOUNTS);
     expect(lastRow(dupOid).reasonCode).toBe('dup-oid');
   });
 
   it('refuses an unknown company and creates against a known one', () => {
     const base = { type: 'CREATE_USER', userId: 'uX', azureOid: 'oid-new', name: 'موظف عقود', email: 'new@alwaha.iq', role: 'OPERATOR_USER', twoFa: true, reason: WHY, by: SUPER } as const;
     const bad = reducer(fresh(), { ...base, operatorId: 'op-nope' });
-    expect(bad.users).toHaveLength(10);
+    expect(bad.users).toHaveLength(SEED_ACCOUNTS);
     expect(lastRow(bad).reasonCode).toBe('unknown-operator');
 
     const ok = reducer(fresh(), { ...base, operatorId: 'op-alwaha' });
-    expect(ok.users).toHaveLength(11);
+    expect(ok.users).toHaveLength(SEED_ACCOUNTS + 1);
     expect(lastRow(ok).outcome).toBe('applied');
     expect(lastRow(ok).target).toBe('new@alwaha.iq'); // same target the server audits (dto.email)
     expect(u(ok, 'uX').events![0]!.kind).toBe('create');

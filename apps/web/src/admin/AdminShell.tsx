@@ -12,7 +12,9 @@ import './admin.css';
 
 export type AdminView =
   | 'room' | 'tenders' | 'contracts' | 'entities' | 'reports'
-  | 'users' | 'roles' | 'operators' | 'fields' | 'holidays'
+  // 'users' is now the WHOLE access section («الوصول والأدوار») — the retired 'roles' view is a
+  // tab of it (client request 20), so `#/admin/roles` redirects instead of rendering its own screen
+  | 'users' | 'operators' | 'fields' | 'holidays'
   // 'approvals' replaces the retired 'mct' view (client ق3) — the engine stays, the screen does not
   // 'schedule' (request 10) is the TIME-compliance registry; 'compliance' remains the §9 local
   // content + §12.2 nominations screen — two subjects that shared one word, never one screen
@@ -39,8 +41,9 @@ const TOOLS: { view: AdminView; hash: string; icon: string }[] = [
   { view: 'operators', hash: '#/admin/operators', icon: 'building' },
   { view: 'fields', hash: '#/admin/fields', icon: 'layers' },
   { view: 'holidays', hash: '#/admin/holidays', icon: 'calendar' },
-  // 'shield' is the compliance glyph; 'lock' was free
-  { view: 'roles', hash: '#/admin/roles', icon: 'lock' },
+  // «الأدوار والصلاحيات» left the tool list: it is a TAB of the access section now, and a second
+  // sidebar entry landing on the same page would re-create the three-places-one-question problem
+  // the merge exists to end.
   { view: 'approvals', hash: '#/admin/approvals', icon: 'check' },
   // schedule sits directly above §9 compliance: the two answer «هل التزمنا؟» about different
   // things (time / local content), and the adjacency is what makes the difference readable

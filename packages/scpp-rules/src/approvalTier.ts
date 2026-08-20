@@ -62,3 +62,66 @@ export function approvalTierFor(valueUSD: number, tiers: ApprovalTiers | null | 
 export function tierNeedsApproval(tier: ApprovalTier): boolean {
   return tier !== 'OPERATOR';
 }
+
+/**
+ * The ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating company's own, 5–10M the
+ * Joint Management Committee's, >10M نفط الوسط's.
+ *
+ * It lives HERE, in the engine, rather than in either app: the API service gates ratification on
+ * it and the web store seeds its state from it, and two copies of a ladder are two ladders. NAMED
+ * DEBT (ops/CLIENT-FEEDBACK-PLAN.md, phase 1): there is still no governed action and no endpoint
+ * to move these two ceilings — they are seed constants until that lands.
+ */
+export const DEFAULT_APPROVAL_TIERS: ApprovalTiers = { operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 };
+
+/* ---------------- who may sign which band (client requests 19ب / 21) ---------------- */
+
+/**
+ * WHICH BODY a role speaks for at the ratification seat, expressed as its height on the SAME
+ * ladder `approvalTierFor` reads a value against. A tier says «this band needs the joint
+ * committee's signature»; this says «this session carries the joint committee's signature».
+ *
+ * Keyed on the role IDENTIFIERS the server's `enum Role` and the client's `ApiRole` share — one
+ * vocabulary by construction since the ق2 rename — and typed `string` deliberately, so this engine
+ * never takes a dependency on an authentication union it must not own.
+ *
+ * Only three roles appear, because only three are on the `@Roles(...)` list of
+ * `POST /api/tenders/:id/ratify` and `/return`. Everything else scores below the lowest band and
+ * is refused by the guard long before this function is consulted:
+ *
+ *   · `JMC_APPROVER` — اللجنة المشتركة. Its remit IS the ط2 band, so it clears ط1 and ط2 and
+ *     stops at the JMC ceiling: past that ceiling the request left its authority by definition.
+ *   · `MDOC_ADMIN`   — نفط الوسط, the parent company: the top gate, so it clears every band.
+ *   · `SUPER_ADMIN`  — the platform administrator, which holds every role-guarded capability by
+ *     construction (pinned in apps/web/test/capabilities.test.ts). Ranked above MDOC so that
+ *     invariant needs no exception here.
+ */
+const RATIFYING_RANK: Readonly<Record<string, number>> = {
+  JMC_APPROVER: 1,
+  MDOC_ADMIN: 2,
+  SUPER_ADMIN: 3,
+};
+
+/** How high a signature must reach to clear a band. ط1 needs no outside body (`tierNeedsApproval`). */
+const TIER_RANK: Readonly<Record<ApprovalTier, number>> = { OPERATOR: 0, JMC: 1, MDOC: 2 };
+
+/**
+ * The height of this role's signature, or `-1` when it carries no ratifying authority at all —
+ * an unknown, retired or forged name scores lowest rather than being trusted (fail closed, the
+ * same discipline `approvalTierFor` applies to an unusable ladder).
+ */
+export function ratifyingRank(role: string): number {
+  return RATIFYING_RANK[role] ?? -1;
+}
+
+/**
+ * May a holder of `role` decide (ratify or return) a request in this band?
+ *
+ * Monotone by construction: a body that clears a band clears every band beneath it, and none
+ * above it. A role with no ratifying authority clears nothing — including ط1, which opens no
+ * external gate but is still a decision seat somebody must legitimately occupy.
+ */
+export function mayRatifyTier(role: string, tier: ApprovalTier): boolean {
+  const rank = ratifyingRank(role);
+  return rank >= 0 && rank >= TIER_RANK[tier];
+}

@@ -1,11 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  approvalTierFor,
   awardVerdict,
   checkAnnouncement,
   contractFinancialAuthority,
+  DEFAULT_APPROVAL_TIERS,
   detectSplitRisk,
   effectiveClosingDate,
   isLateBidByDate,
+  mayRatifyTier,
   isPriceVisible,
   lowestQualified,
   bidderOriginBlocker,
@@ -476,8 +479,51 @@ export class TendersService {
     return this.presented(user, id);
   }
 
+  /**
+   * The ق1 ladder as an AUTHORITY gate: does this session's body reach the band this request sits
+   * in? Refused with 403 and audited (8.1-e), because an attempt to sign somebody else's band is
+   * exactly the act the trail exists to preserve.
+   *
+   * Checked BEFORE the merits (already-decided, stage, §15.3, the ±20% band): whether the caller
+   * may decide at all precedes what the decision would be — and a body with no authority here must
+   * not learn the award figures by probing the endpoint.
+   *
+   * ── THE AUTHORITATIVE LADDER ────────────────────────────────────────────────────────────────
+   * `DEFAULT_APPROVAL_TIERS` IS the server's own ladder, not a borrowed default: this gate reads
+   * it directly, so what it says is what a request is actually judged against. There is no server
+   * tiers model and no endpoint that moves the two ceilings, so this constant is the whole of the
+   * server's persisted source — it has nothing else to read.
+   *
+   * The client reads `state.approvalTiers` (apps/web/src/store.tsx), seeded from `SEED_APPROVAL_TIERS`
+   * which is a re-export of this same constant. TODAY the two are the same object, so the button and
+   * the 403 can never disagree. That equality is an INVARIANT, not a coincidence, and it is pinned:
+   *   · apps/api/test/tenders.service.spec.ts — «the ladder this gate reads is the engine's»
+   *   · apps/web/test/jmcRole.test.ts        — SEED_APPROVAL_TIERS === DEFAULT_APPROVAL_TIERS
+   *
+   * NAMED DEBT (ops/CLIENT-FEEDBACK-PLAN.md, phase 1 — ONE debt, two halves): the day a governed
+   * action lets an admin move the ceilings, the client's ladder becomes editable state while this
+   * gate still reads a constant, and they diverge. Whoever lands that action must move BOTH sites —
+   * this one and store.tsx SEED_APPROVAL_TIERS — or the drift alarms above will fail, which is
+   * exactly what they are for.
+   */
+  private async assertTierAuthority(
+    user: AuthUser,
+    tender: { code: string; estimatedValueUSD?: unknown },
+    act: 'RATIFY' | 'RETURN_WITH_NOTES',
+  ) {
+    // an unreadable estimate resolves to MDOC — the highest gate (approvalTierFor fails closed)
+    const tier = approvalTierFor(Number(tender.estimatedValueUSD), DEFAULT_APPROVAL_TIERS);
+    if (mayRatifyTier(user.role, tier)) return;
+    await this.audit.record(user.userId, `${act}_REFUSED`, `${tender.code} (tier ${tier})`);
+    throw new ForbiddenException({
+      message: `This decision belongs to the ${tier} tier and your role does not reach it`,
+      tier,
+    });
+  }
+
   async ratify(user: AuthUser, id: string) {
     const tender = await this.loadScopedActive(user, id);
+    await this.assertTierAuthority(user, tender, 'RATIFY');
     const existing = await this.prisma.ratification.findUnique({ where: { tenderId: id } });
     if (existing) throw new BadRequestException('Already decided');
     if (this.currentStageKey(tender.stages) !== 'ratify') {
@@ -542,6 +588,9 @@ export class TendersService {
 
   async returnWithNotes(user: AuthUser, id: string, notes: string) {
     const tender = await this.loadScopedActive(user, id);
+    // returning with notes is the SAME seat as ratifying — a refusal to approve is a decision on
+    // the file, so it answers to the same band authority rather than being the unguarded way in.
+    await this.assertTierAuthority(user, tender, 'RETURN_WITH_NOTES');
     const existing = await this.prisma.ratification.findUnique({ where: { tenderId: id } });
     if (existing) throw new BadRequestException('Already decided');
     if (!notes.trim()) throw new BadRequestException('Notes are required to return');

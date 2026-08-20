@@ -2,6 +2,7 @@ import {
   approvalTierFor,
   checkAnnouncement,
   contractFinancialAuthority,
+  DEFAULT_APPROVAL_TIERS,
   effectiveClosingDate,
   extensionCap,
   bidderOriginBlocker,
@@ -12,6 +13,7 @@ import {
   localContentApplies,
   localContentStatus,
   lowestQualified,
+  mayRatifyTier,
   performanceBondValid,
   renewalAllowed,
   singleBidAcceptable,
@@ -1022,22 +1024,58 @@ function apply(state: State, action: Action): State {
       });
     case 'RATIFY': {
       const rt = state.tenders.find((x) => x.id === action.tenderId);
-      // ratification only at the award-ratification stage, never twice, never on a paused/cancelled
-      // tender — refuse by returning the SAME reference so the wrapper writes no misleading row.
-      if (!rt || rt.lifecycle || rt.ratification || currentStage(rt)?.key !== 'ratify') return state;
+      if (!rt) return state;
+      // AUTHORITY BEFORE MERITS (client request 19ب) — the ق1 ladder says which body clears this
+      // band, and `mayRatifyTier` is the same judgement TendersService.assertTierAuthority makes on
+      // the server. A body reaching past its band is refused AND RECORDED: unlike the merit guards
+      // below (which refuse an act nobody was entitled to attempt), this one refuses an ATTEMPT by
+      // a named actor to sign somebody else's band, and that attempt is the trail's business (8.1-e).
+      const tier = tenderApprovalTier(state, rt);
+      if (!mayRatifyTier(action.by.role, tier)) {
+        return auditAccess(state, action.type, rt.code, action.by, 'refused', `tier-${tier}`);
+      }
+      /**
+       * ── WHICH REFUSALS ARE RECORDED, AND WHY ──────────────────────────────────────────────────
+       * Two kinds of guard live below this line, and they are deliberately not treated alike:
+       *
+       *   · A GOVERNANCE refusal cites a clause and names a rule the actor broke — the band above,
+       *     and §15.3 here. Somebody with standing asked for something the procedure forbids, and
+       *     THAT is precisely what the trail exists to preserve (8.1-e). It is audited.
+       *   · A STATE-SHAPE guard refuses a non-event: an already-decided file, a tender not at the
+       *     ratification stage, a cancelled or suspended one. Nothing was attempted against a rule —
+       *     the act had no subject at all. Recording it would fill the log with the consequences of
+       *     a stale screen, so these return the SAME state reference and write nothing.
+       *
+       * The test is whether a CLAUSE can be cited. If one can, the refusal is a governance event.
+       */
+      if (rt.lifecycle || rt.ratification || currentStage(rt)?.key !== 'ratify') return state;
       // §15.3 hard block — a lone bid advertised under 21 days may NOT be awarded; the remedy is to
-      // re-advertise, not to ratify. Refused here (silent, like its sibling guards); the server —
-      // the audit authority in api mode — records RATIFY_REFUSED (15.3). (An audited client refusal
-      // would need self-audit, but RATIFY is server-modeled so it must not be NON_AUDITED.)
+      // re-advertise, not to ratify. RECORDED (phase-5 fix): this used to return silently, which
+      // left the client's own log unable to explain a refusal it had just made. The server records
+      // `RATIFY_REFUSED … (15.3)` in api mode; local mode is the audit authority for itself, and
+      // the two must not tell different stories about the same act.
       const sb = singleBidStatus(rt);
-      if (sb.single && !sb.ok) return state;
-      return patchTender(state, action.tenderId, (t) => ({ ...t, ratification: { status: 'ratified', by: action.by, on: todayIso() } }));
+      if (sb.single && !sb.ok) {
+        return auditAccess(state, action.type, rt.code, action.by, 'refused', 'clause-15.3');
+      }
+      const ratified = patchTender(state, action.tenderId, (t) => ({ ...t, ratification: { status: 'ratified', by: action.by, on: todayIso() } }));
+      return auditAccess(ratified, action.type, rt.code, action.by, 'applied');
     }
-    case 'RETURN_WITH_NOTES':
-      return patchTender(state, action.tenderId, (t) => {
-        if (t.lifecycle || t.ratification || currentStage(t)?.key !== 'ratify' || !action.notes.trim()) return t;
-        return { ...t, ratification: { status: 'returned', by: action.by, on: todayIso(), notes: action.notes.trim() } };
-      });
+    case 'RETURN_WITH_NOTES': {
+      const qt = state.tenders.find((x) => x.id === action.tenderId);
+      if (!qt) return state;
+      // returning with notes occupies the SAME seat as ratifying — a refusal to approve is still a
+      // decision on the file, so it answers to the same band authority (mirrors the server).
+      const qTier = tenderApprovalTier(state, qt);
+      if (!mayRatifyTier(action.by.role, qTier)) {
+        return auditAccess(state, action.type, qt.code, action.by, 'refused', `tier-${qTier}`);
+      }
+      if (qt.lifecycle || qt.ratification || currentStage(qt)?.key !== 'ratify' || !action.notes.trim()) return state;
+      const returned = patchTender(state, action.tenderId, (t) => ({
+        ...t, ratification: { status: 'returned', by: action.by, on: todayIso(), notes: action.notes.trim() },
+      }));
+      return auditAccess(returned, action.type, qt.code, action.by, 'applied');
+    }
     case 'CANCEL_TENDER':
       return patchTender(state, action.tenderId, (t) => {
         // documented cancellation — refused once awarded (mirrors the server guard)
@@ -1441,6 +1479,12 @@ function apply(state: State, action: Action): State {
 
 const NON_AUDITED = new Set([
   'RESET', 'HYDRATE', 'UPSERT_TENDER',
+  // The award decision joined the self-auditing set when the ladder became an authority gate
+  // (19ب): an attempt to sign a band above one's body is a refusal that MUST be attributed and
+  // reason-coded, and the generic wrapper writes one success-shaped row for everything. Note this
+  // is NON_AUDITED only — not CLIENT_ONLY — so in api mode both still travel to the server, which
+  // remains the audit authority there (the two sets are decoupled exactly for this).
+  'RATIFY', 'RETURN_WITH_NOTES',
   // access actions audit themselves inside apply() with an outcome + actor the wrapper cannot supply
   'CREATE_USER', 'SET_USER_ROLE', 'SET_USER_SCOPE', 'SET_USER_TWOFA', 'SET_USER_DISABLED',
   'CREATE_OPERATOR', 'CREATE_FIELD', 'SET_CONTRACT_FA',
@@ -1456,7 +1500,7 @@ const NON_AUDITED = new Set([
  * LOCAL_ONLY — actions with NO server route, always applied to local state (even in API mode). This
  * is DISTINCT from NON_AUDITED (which only governs the audit wrapper): decoupling the two is what
  * lets a self-auditing action (e.g. holidays) still reach the server in API mode. An action that is
- * NON_AUDITED but NOT here (RATIFY, ADD_BIDDER, ADD_HOLIDAY) goes through runAction to the server.
+ * NON_AUDITED but NOT here (RATIFY, RETURN_WITH_NOTES, ADD_HOLIDAY) goes through runAction to the server.
  * The access actions are server-modeled (`/api/users` exists), but api-mode login cannot mint a
  * SUPER_ADMIN session and runAction has no /users branch yet, so they apply locally for now.
  */
@@ -1495,10 +1539,24 @@ export function reducer(state: State, action: Action): State {
 
 /**
  * The GLOBAL approval ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating
- * company's own, 5–10M the Joint Management Committee's, >10M نفط الوسط's. One constant, so the
- * store seed, an empty state and the api-mode hydrate can never drift into two different ladders.
+ * company's own, 5–10M the Joint Management Committee's, >10M نفط الوسط's.
+ *
+ * The figures now live in the engine (`DEFAULT_APPROVAL_TIERS`) and are re-exported under the
+ * store's own name: the API service gates ط2/ط3 ratification on the same two ceilings, and a
+ * second literal here would be a second ladder — the exact drift `normTiers` refuses to create.
+ *
+ * ── THE OTHER HALF OF THIS LADDER ───────────────────────────────────────────────────────────────
+ * The client reads `state.approvalTiers`, which is EDITABLE STATE seeded from here. The server
+ * reads the engine constant directly (`TendersService.assertTierAuthority`, apps/api/src/tenders/
+ * tenders.service.ts) and has no tiers model to read instead — that constant is its authoritative
+ * ladder. Today the two are the same object, so a disabled «صادق» button and a 403 always agree.
+ *
+ * NAMED DEBT (ops/CLIENT-FEEDBACK-PLAN.md, phase 1 — ONE debt, two halves): the governed action
+ * that moves the two ceilings does not exist yet. When it lands, this side becomes genuinely
+ * mutable while the server's stays constant, and they part. Move BOTH sites together or the drift
+ * alarms (jmcRole.test.ts here, tenders.service.spec.ts there) will fail — which is their job.
  */
-export const SEED_APPROVAL_TIERS: ApprovalTiers = { operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 };
+export const SEED_APPROVAL_TIERS: ApprovalTiers = DEFAULT_APPROVAL_TIERS;
 
 /**
  * The demo universe is نفط الوسط (MDOC — Midland Oil Company, central Iraq): the 13 real fields
@@ -1906,8 +1964,29 @@ export function seedState(): State {
     sc('f-dhufriya', 'DHUFRIYA', 2_000_000, '2028-12-31'),
   ];
 
-  // Exactly ONE enabled super admin, so the "last enabled super admin" gate is live on first
-  // load rather than theoretical — the hardest governance state is the default state.
+  /**
+   * The seeded directory (client requests 19أ + 19ب, 2026-08-20).
+   *
+   * Exactly ONE enabled super admin, so the "last enabled super admin" gate is live on first
+   * load rather than theoretical — the hardest governance state is the default state. The same
+   * reasoning now covers TWO more facts of this seed, both deliberate:
+   *
+   *  · **19أ — the title-named account is disabled, not deleted.** «حساب المدقق الخارجي» was a
+   *    JOB TITLE wearing an account, which is precisely what the platform's attribution law
+   *    forbids: an act is bound to an immutable oid and a real person, never to a label anyone
+   *    could later occupy. The client flagged it as confusing and it is withdrawn — by DISABLING
+   *    (the platform's only access-withdrawal mechanism, ق7/8.1-e) with a documented trail, so the
+   *    account and its history stay readable instead of vanishing.
+   *  · **the AUDITOR role is therefore left with no enabled holder, on purpose.** That is the true
+   *    state of a register whose only auditor was a placeholder, and the orphan-role KPI exists to
+   *    say exactly that — «كل استدعاء يُرفض 403 ويُسجَّل ROLE_REFUSED». Inventing a replacement
+   *    auditor to keep the tile green would be fabricating a person to hide a real gap.
+   */
+  const seedEvent = (reason: string, kind: UserEvent['kind'] = 'create'): UserEvent => ({
+    kind, reason, on: '2026-08-20', at: '2026-08-20T00:00:00.000Z',
+    // the constituting act belongs to the platform administrator seeded alongside it
+    by: { oid: 'oid-super-01', name: 'م. مصطفى الكرخي', role: 'SUPER_ADMIN' },
+  });
   const users: UserAccount[] = [
     { id: 'u1', azureOid: 'oid-super-01', name: 'م. مصطفى الكرخي', email: 'mustafa.karkhi@masaar.iq', role: 'SUPER_ADMIN', twoFa: true, disabled: false },
     { id: 'u2', azureOid: 'oid-super-02', name: 'م. ليث الأنباري', email: 'laith.anbari@masaar.iq', role: 'SUPER_ADMIN', twoFa: true, disabled: true },
@@ -1916,9 +1995,21 @@ export function seedState(): State {
     // never to change is not renamed for a label; the email and the role are what people read.
     { id: 'u3', azureOid: 'oid-roc-01', name: 'د. سارة الجبوري', email: 'sara.jubouri@mdoc.iq', role: 'MDOC_ADMIN', twoFa: true, disabled: false },
     { id: 'u4', azureOid: 'oid-roc-02', name: 'هدى العبيدي', email: 'huda.obeidi@mdoc.iq', role: 'MDOC_ADMIN', twoFa: true, disabled: false },
+    // 19ب — اللجنة المشتركة: two NAMED members, platform-scoped (a joint committee sits above any
+    // single operating company, so `operatorId` must be absent for scopeConsistent to hold). Two,
+    // not one, so disabling either still leaves the ط2 band with a signature.
+    { id: 'u11', azureOid: 'oid-jmc-01', name: 'م. رافد الدليمي', email: 'rafid.dulaimi@jmc.iq', role: 'JMC_APPROVER', twoFa: true, disabled: false, events: [seedEvent('عضو اللجنة المشتركة — يمثّل الجهة المخوّلة بالموافقة على الطبقة الثانية وفق سلّم الموافقات المعتمد')] },
+    { id: 'u12', azureOid: 'oid-jmc-02', name: 'سُهاد العزاوي', email: 'suhad.azzawi@jmc.iq', role: 'JMC_APPROVER', twoFa: true, disabled: false, events: [seedEvent('عضو اللجنة المشتركة — الحساب الثاني كي لا تبقى الطبقة الثانية بحاملٍ واحد لا بديل له')] },
     { id: 'u5', azureOid: 'oid-eval-01', name: 'سعد الجبوري', email: 'saad.jubouri@mdoc.iq', role: 'EVALUATION', twoFa: true, disabled: false },
     { id: 'u6', azureOid: 'oid-eval-02', name: 'زينب الحسني', email: 'zainab.hasani@mdoc.iq', role: 'EVALUATION', twoFa: false, disabled: false },
-    { id: 'u7', azureOid: 'oid-audit-01', name: 'حساب المدقق الخارجي', email: 'auditor@bsa.iq', role: 'AUDITOR', twoFa: true, disabled: false },
+    // 19أ — withdrawn: a title, not a person. Kept (disabled) with the trail that explains why.
+    {
+      id: 'u7', azureOid: 'oid-audit-01', name: 'حساب المدقق الخارجي', email: 'auditor@bsa.iq', role: 'AUDITOR', twoFa: true, disabled: true,
+      events: [
+        seedEvent('سُحب الوصول: الحساب باسم وظيفة لا باسم شخص، والإسناد في المنظومة يرتبط بهوية ثابتة وشخص معيّن — يُستبدل بحساب مدقق مسمّى عند تزويدنا باسمه', 'disable'),
+        seedEvent('حساب تجريبي للمدقق الخارجي — أُنشئ ضمن البذرة الأولى'),
+      ],
+    },
     // the three operator accounts are scoped to MDOC Lead Contractors that actually raise seed
     // tenders — AlWaha (AHDAB, t1) and Badra (t2) — so every scoped account has real work in view.
     { id: 'u8', azureOid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', email: 'ahmed.abdulrahman@alwaha.iq', role: 'OPERATOR_ADMIN', operatorId: 'op-alwaha', twoFa: true, disabled: false },

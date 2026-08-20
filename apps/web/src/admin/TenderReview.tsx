@@ -1,4 +1,4 @@
-import { awardVerdict, bidderCounts, lowestQualified, mctCycleStatus, stageByKey, stageDeviationDays } from '@masaar/scpp-rules';
+import { awardVerdict, bidderCounts, lowestQualified, mayRatifyTier, mctCycleStatus, stageByKey, stageDeviationDays } from '@masaar/scpp-rules';
 import { PathBadge, StatusPill, VerdictStrip } from '@masaar/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
 import { accreditedEstimate, byName, byOid, calendarOf, currentStage, govReasonValid, singleBidStatus, tenderApprovalTier, todayIso, useStore, type Actor, type Tender } from '../store';
+import { roleKey } from './access';
 import { useAdminUi } from './AdminShell';
 import { Modal } from './Modal';
 import { TierPill } from './TierPill';
@@ -31,8 +32,24 @@ export default function TenderReview({ id }: { id: string }) {
   const [decide, setDecide] = useState<Decide>(null);
   const today = todayIso();
   const session = loadSession();
-  // the immutable identity the audit record is bound to (oid), taken from the live session
-  const actor: Actor = { oid: session?.oid ?? '—', name: session?.name ?? 'MDOC', role: session?.role ?? 'MDOC_ADMIN' };
+  /**
+   * The immutable identity the audit record is bound to (oid), taken from the live session — and
+   * NOTHING when there is no live session.
+   *
+   * FAIL CLOSED (phase-5 fix). This used to read
+   *   `{ oid: session?.oid ?? '—', name: session?.name ?? 'MDOC', role: session?.role ?? 'MDOC_ADMIN' }`
+   * — an absent or unreadable session was handed the parent company's seat, the HIGHEST ratifying
+   * body on the ق1 ladder, by default. That is the one direction a default may never point: a
+   * reader with no standing at all saw an enabled «صادق» and a ledger preview attributing the act
+   * to «MDOC». `loadSession` already returns null for a blob whose role names nothing
+   * (`normalizeRole` fails closed), and `ratifyingRank` scores an unknown name -1 rather than
+   * trusting it — this screen now agrees with both instead of overriding them.
+   *
+   * `Actor | null` rather than a harmless-looking placeholder role: a decision, a cancellation or
+   * a suspension that cannot be attributed to a real identity is not a record (8.1-e), so the
+   * absence is modelled instead of papered over. Every control that dispatches is gated on it.
+   */
+  const actor: Actor | null = session ? { oid: session.oid, name: session.name, role: session.role } : null;
 
   const tender: Tender | undefined = state.tenders.find((x) => x.id === id);
   if (!tender) {
@@ -80,7 +97,7 @@ export default function TenderReview({ id }: { id: string }) {
   // cancel/suspend/resume — await the server verdict, then toast success only on ok:true
   // (the shell's registered fail handler surfaces refusals; we never double-toast).
   const confirmGov = async () => {
-    if (!gov) return;
+    if (!gov || !actor) return; // no identity → no governance act to attribute
     const reason = govReason.trim();
     const res = await (gov === 'cancel'
       ? dispatch({ type: 'CANCEL_TENDER', tenderId: tender.id, reason, by: actor })
@@ -96,6 +113,7 @@ export default function TenderReview({ id }: { id: string }) {
   const closeDecide = () => setDecide(null);
 
   const commitRatify = async () => {
+    if (!actor || !mayDecide) return; // the same two gates the button is disabled on
     const res = await dispatch({ type: 'RATIFY', tenderId: tender.id, by: actor });
     if (res.ok) {
       toast(tr('review.toastRatified', { code: tender.code, name: actor.name }), {
@@ -107,7 +125,7 @@ export default function TenderReview({ id }: { id: string }) {
   };
 
   const commitReturn = async () => {
-    if (!notesOk) return;
+    if (!notesOk || !actor || !mayDecide) return;
     const res = await dispatch({ type: 'RETURN_WITH_NOTES', tenderId: tender.id, by: actor, notes: notes.trim() });
     if (res.ok) toast(tr('review.toastReturned', { code: tender.code, name: actor.name }), { kind: 'success', desc: tr('review.returnedDesc') });
     closeDecide();
@@ -118,7 +136,11 @@ export default function TenderReview({ id }: { id: string }) {
   const ledger = (
     <div className="rv-ledger">
       <div className="rv-ledger__cap">{tr('review.ledgerCap')}</div>
-      <div className="wz-reviewrow"><span>{tr('review.byActor')}</span><span>{actor.name} · <span className="op-code">{actor.oid}</span></span></div>
+      <div className="wz-reviewrow">
+        <span>{tr('review.byActor')}</span>
+        {/* no session → no identity to preview; the dash is the truth, not a placeholder name */}
+        <span>{actor ? <>{actor.name} · <span className="op-code">{actor.oid}</span></> : '—'}</span>
+      </div>
       <div className="wz-reviewrow"><span>{tr('review.onDate')}</span><span className="op-code">{today}</span></div>
       <div className="wz-reviewrow"><span>{tr('mct.accredited')}</span><span className="op-code">{fmtMoney(accredited)}</span></div>
       <div className="wz-reviewrow"><span>{tr('review.lowest')}</span><span className="op-code">{lowest?.priceUSD != null ? fmtMoney(lowest.priceUSD) : '—'}</span></div>
@@ -145,6 +167,27 @@ export default function TenderReview({ id }: { id: string }) {
       <span className="rv-tier__s">{tr('tier.sentence', { tier: tr(`tier.name.${tier}`), body: decisionBody })}</span>
     </div>
   );
+
+  /**
+   * The AUTHORITY gate (client request 19ب): may THIS session's body sign THIS band? The same
+   * `mayRatifyTier` the reducer and `TendersService.assertTierAuthority` ask, so the disabled
+   * button and the server's 403 can never tell different stories. Named, never silent — the gate
+   * says which body the band belongs to and which body the reader is (wz-gate law).
+   */
+  const mayDecide = actor != null && mayRatifyTier(actor.role, tier);
+  /**
+   * Two refusals, two sentences. A session that HOLDS a body but not this band is told which body
+   * owns the band and which body it is; a reader with no session at all is told the truth about
+   * itself instead of being named as a role it does not hold — the gate never invents a body to
+   * put in the sentence.
+   */
+  const tierGateText = actor
+    ? tr('review.tierGate', {
+      tier: tr(`tier.name.${tier}`),
+      body: tr(`tier.body.${tier}`),
+      role: tr(`roles.names.${roleKey(actor.role)}`),
+    })
+    : tr('review.tierGateNoSession', { tier: tr(`tier.name.${tier}`), body: tr(`tier.body.${tier}`) });
 
   const kpis: { l: string; v: string }[] = [
     { l: tr('mct.accredited'), v: fmtMoney(accredited) },
@@ -177,15 +220,16 @@ export default function TenderReview({ id }: { id: string }) {
             )}
           </div>
         </div>
+        {/* governance acts are attributed records too — held shut without an identity to bind them to */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {life?.status === 'suspended' && (
-            <button className="op-btn-ghost" onClick={() => openGov('resume')}>{tr('review.resumeTender')}</button>
+            <button className="op-btn-ghost" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('resume')}>{tr('review.resumeTender')}</button>
           )}
           {!life && (
-            <button className="op-btn-ghost" onClick={() => openGov('suspend')}>{tr('review.suspendTender')}</button>
+            <button className="op-btn-ghost" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('suspend')}>{tr('review.suspendTender')}</button>
           )}
           {!life && !isRatified && (
-            <button className="op-btn-ghost op-btn-danger" onClick={() => openGov('cancel')}>{tr('review.cancelTender')}</button>
+            <button className="op-btn-ghost op-btn-danger" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('cancel')}>{tr('review.cancelTender')}</button>
           )}
         </div>
       </div>
@@ -269,6 +313,12 @@ export default function TenderReview({ id }: { id: string }) {
           ) : (
             <>
               <p className="hint" style={{ marginTop: 0 }}>{tr('review.decisionHint')}</p>
+              {!mayDecide && (
+                <div className="wz-note wz-note--warn" style={{ marginBottom: 10 }}>
+                  <Icon name="lock" size={15} />
+                  <span>{tierGateText}</span>
+                </div>
+              )}
               {blocked15_3 && (
                 <div className="wz-note wz-note--warn" style={{ marginBottom: 10 }}>
                   <Icon name="alert" size={15} />
@@ -276,9 +326,11 @@ export default function TenderReview({ id }: { id: string }) {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button className="op-btn-primary" onClick={openRatify} disabled={blocked15_3} title={blocked15_3 ? tr('review.block15_3') : undefined}><Icon name="check" size={14} />{tr('review.ratify')}</button>
-                <button className="op-btn-ghost" onClick={openReturn}>{tr('review.return')}</button>
+                <button className="op-btn-primary" onClick={openRatify} disabled={blocked15_3 || !mayDecide} title={!mayDecide ? tierGateText : blocked15_3 ? tr('review.block15_3') : undefined}><Icon name="check" size={14} />{tr('review.ratify')}</button>
+                <button className="op-btn-ghost" onClick={openReturn} disabled={!mayDecide} title={!mayDecide ? tierGateText : undefined}>{tr('review.return')}</button>
               </div>
+              {/* the gate is stated under the controls too, so a disabled button is never bare */}
+              {!mayDecide && <div className="wz-gate" style={{ marginTop: 8 }}>{tr('review.tierGateNote')}</div>}
             </>
           )}
         </div>

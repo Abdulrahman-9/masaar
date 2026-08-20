@@ -25,12 +25,38 @@ const byId = (id: string): Capability => {
  * Re-extract from apps/api/src/**\/*.controller.ts and bump CAP_REV when a controller changes.
  */
 describe('capability register', () => {
-  it('holds the full endpoint surface: 43 = 36 guarded + 3 open + 4 session', () => {
-    expect(CAPABILITIES).toHaveLength(43);
-    expect(CAPABILITIES.filter((c) => c.guard === 'roles')).toHaveLength(36);
+  it('holds the full endpoint surface: 46 = 39 guarded + 3 open + 4 session', () => {
+    // 43 → 46 on the phase-5 sweep: the three §9 local-content handlers (C8.1/C8.2/C8.6) carry
+    // real @Roles decorators and were never extracted. The count is a claim about the SERVER, so
+    // it may only be corrected by re-reading the controllers — which is what moved it.
+    expect(CAPABILITIES).toHaveLength(46);
+    expect(CAPABILITIES.filter((c) => c.guard === 'roles')).toHaveLength(39);
     expect(CAPABILITIES.filter((c) => c.guard === 'open')).toHaveLength(3);
     expect(CAPABILITIES.filter((c) => c.guard === 'session')).toHaveLength(4);
-    expect(COUNTED).toHaveLength(39);
+    expect(COUNTED).toHaveLength(42);
+  });
+
+  /**
+   * The sweep itself, as an assertion rather than as a claim in a comment: every route the
+   * register names must be distinct, and the three rows the sweep recovered must be present with
+   * the decorator list they really carry (`@Roles(...OPERATOR_ROLES)` — the publish list).
+   */
+  it('names the three §9 local-content handlers with their real decorator list', () => {
+    const lc = ['setLocalContentClause', 'setStateResponse', 'setBidderMaterials'].map(byId);
+    for (const c of lc) {
+      expect(c.guard).toBe('roles');
+      expect(c.roles).toEqual(['OPERATOR_ADMIN', 'OPERATOR_USER', 'SUPER_ADMIN']);
+      expect(c.scoped).toBe(true);   // loadScopedActive
+      expect(c.stateGated).toBe(true);
+      expect(c.domain).toBe('tenders');
+    }
+    // the publish row is the list they were copied from — if publish ever moves, so must these
+    expect(lc.map((c) => c.roles)).toEqual(lc.map(() => byId('publishAnnouncement').roles));
+  });
+
+  it('gives every row its own route+method pair — a duplicate would mean a mis-extraction', () => {
+    const keys = CAPABILITIES.map((c) => `${c.method} ${c.route}`);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('gives SUPER_ADMIN every role-guarded capability', () => {
@@ -46,15 +72,18 @@ describe('capability register', () => {
   it('partitions the counted universe across seven domains', () => {
     const counts: Record<string, number> = {};
     for (const c of COUNTED) counts[c.domain] = (counts[c.domain] ?? 0) + 1;
-    expect(counts).toEqual({ tenders: 17, mct: 4, contracts: 5, vendors: 6, users: 3, audit: 1, holidays: 3 });
+    expect(counts).toEqual({ tenders: 20, mct: 4, contracts: 5, vendors: 6, users: 3, audit: 1, holidays: 3 });
   });
 
   it('has unique ids and a clause that is either empty or numeric', () => {
-    expect(new Set(CAPABILITIES.map((c) => c.id)).size).toBe(43);
+    expect(new Set(CAPABILITIES.map((c) => c.id)).size).toBe(46);
+    // section-first, always: «§9 C8.1» is written `9-C8.1`, never `C8.1`
     for (const c of CAPABILITIES) expect(c.clause).toMatch(/^$|^\d/);
   });
 
-  it('counts 23 of 43 capabilities with no numbered clause', () => {
+  it('counts 23 of 46 capabilities with no numbered clause', () => {
+    // unchanged by the sweep: all three recovered rows cite a §9 clause, so the unnumbered
+    // set is exactly the one it was — the denominator moved, the gap did not widen
     expect(CAPABILITIES.filter((c) => !c.clause)).toHaveLength(23);
   });
 
@@ -134,11 +163,17 @@ const user = (id: string, role: ApiRole, disabled = false): UserAccount => ({
 describe('orphan-role detection', () => {
   it('counts governance roles with no enabled holder', () => {
     const users = [user('a', 'SUPER_ADMIN'), user('b', 'MDOC_ADMIN')];
-    expect(orphanRoleCount(users)).toBe(2); // EVALUATION + AUDITOR have nobody
+    // JMC_APPROVER + EVALUATION + AUDITOR have nobody. The count moved from 2 to 3 on 2026-08-20
+    // when the joint committee joined GOVERNANCE_ROLES — deliberately: an empty JMC stops every
+    // ط2 award, which is the sharpest orphan the platform can have.
+    expect(orphanRoleCount(users)).toBe(3);
   });
 
   it('warns before a change strands a role', () => {
-    const users = [user('a', 'SUPER_ADMIN'), user('b', 'MDOC_ADMIN'), user('c', 'EVALUATION'), user('d', 'AUDITOR')];
+    const users = [
+      user('a', 'SUPER_ADMIN'), user('b', 'MDOC_ADMIN'), user('j', 'JMC_APPROVER'),
+      user('c', 'EVALUATION'), user('d', 'AUDITOR'),
+    ];
     expect(orphanRoleCount(users)).toBe(0);
     // disabling the only evaluation member strands EVALUATION
     expect(rolesOrphanedBy(users, 'c', { role: 'EVALUATION', disabled: true })).toEqual(['EVALUATION']);
@@ -162,9 +197,11 @@ describe('demo sign-in identities', () => {
     }
   });
 
-  it('only offers API sign-in for the two roles the server LoginDto accepts', () => {
+  it('only offers API sign-in for the three roles the server LoginDto accepts', () => {
+    // JMC_APPROVER joined LoginDto with the role itself (19ب): the ط2 gate is enforced against a
+    // SESSION, so a seat nobody can hold would be a decorator no request could ever satisfy.
     expect(DEMO_IDENTITIES.filter((i) => isApiLoginable(i.role)).map((i) => i.role).sort())
-      .toEqual(['MDOC_ADMIN', 'OPERATOR_ADMIN']);
+      .toEqual(['JMC_APPROVER', 'MDOC_ADMIN', 'OPERATOR_ADMIN']);
     expect(isApiLoginable('SUPER_ADMIN')).toBe(false);
   });
 });
@@ -203,9 +240,9 @@ describe('retired role vocabulary (ROC_ADMIN → MDOC_ADMIN)', () => {
     // …and a name the register never had reads AS unknown rather than as an operator
     expect(roleKey('COMMITTEE_CHAIR')).toBe('unknown');
     expect(roleTone('COMMITTEE_CHAIR')).toBe('unknown');
-    // every live role still has its own key and tone
-    expect(API_ROLES.map(roleKey)).toEqual(['superAdmin', 'mdocAdmin', 'evaluation', 'auditor', 'operatorAdmin', 'operatorUser']);
-    expect(new Set(API_ROLES.map(roleTone)).size).toBe(5); // the two operator roles share one tone
+    // every live role still has its own key and tone, in ladder order (JMC third — 19ب)
+    expect(API_ROLES.map(roleKey)).toEqual(['superAdmin', 'mdocAdmin', 'jmcApprover', 'evaluation', 'auditor', 'operatorAdmin', 'operatorUser']);
+    expect(new Set(API_ROLES.map(roleTone)).size).toBe(6); // the two operator roles share one tone
   });
 
   it('leaves no retired identifier in the live register', () => {

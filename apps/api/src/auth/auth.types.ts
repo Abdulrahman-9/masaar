@@ -3,11 +3,15 @@
  * until 2026-08-20 (client decision ق2) — the parent company is «شركة نفط الوسط» /
  * Midland Oil Company. The enum value was renamed in place, so no live row carries the
  * retired name; only historical AuditLog TEXT still cites it, and that is never rewritten.
+ *
+ * `JMC_APPROVER` joined on the same day (client request 19ب): the ق1 tier model already made
+ * اللجنة المشتركة the approving body of the ط2 band, and until now no role could hold that seat.
+ * It is an ADDITION, not a rename — no existing account changed role.
  */
-export type Role = 'SUPER_ADMIN' | 'MDOC_ADMIN' | 'EVALUATION' | 'AUDITOR' | 'OPERATOR_ADMIN' | 'OPERATOR_USER';
+export type Role = 'SUPER_ADMIN' | 'MDOC_ADMIN' | 'JMC_APPROVER' | 'EVALUATION' | 'AUDITOR' | 'OPERATOR_ADMIN' | 'OPERATOR_USER';
 
-/** The universe as data — the one list `normalizeRole` validates a token's claim against. */
-export const ROLES: readonly Role[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+/** The universe as data, in ladder order — the one list `normalizeRole` validates a token's claim against. */
+export const ROLES: readonly Role[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
 
 /**
  * Retired role identifiers → their current name.

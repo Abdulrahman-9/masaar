@@ -260,7 +260,10 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-role { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
 .acc-role--super      { background: var(--brand-navy-50); color: var(--brand-navy-800); }
 .acc-role--mdoc       { background: var(--status-progress-bg); color: var(--status-progress); }
-.acc-role--evaluation { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+/* the joint committee wears the amber the tier pill already gives its band (.ad-tier--jmc) —
+   one body, one colour, on the pill, on the card and in the matrix column */
+.acc-role--jmc        { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.acc-role--evaluation { background: var(--status-blocked-bg); color: var(--status-blocked); }
 .acc-role--auditor    { background: var(--bg-muted); color: var(--ink-2); }
 .acc-role--operator   { background: var(--status-done-bg); color: var(--status-done); }
 /* a role name no longer in the register (only reachable from a historical audit row) —
@@ -321,9 +324,118 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-holders { font-family: var(--font-mono); direction: ltr; font-weight: var(--fw-bold); font-size: 12px; }
 .acc-holders--none { color: var(--status-delayed); }
 
-.acc-rolecards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.acc-rolecard__layer { font-size: 12.5px; color: var(--ink-2); line-height: 1.75; }
-.acc-rolecard__holders { display: flex; flex-wrap: wrap; gap: 5px; margin-block-start: 10px; }
+/* ============================================================
+   «الوصول والأدوار» — the ONE merged section (client requests 20 + 21).
+   Three tabs of one subject; role cards that answer the three financial
+   questions in large type. Namespaced acc-*; tokens only; logical props.
+   ============================================================ */
+
+/* ---- the section head row each tab carries (sub-line + its own actions) ---- */
+.acc-tabhead { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-block: var(--space-4) var(--space-2); }
+.acc-tabhead__s { font-size: var(--t-body-sm); color: var(--ink-3); line-height: var(--lh-normal); }
+.acc-tabhead__a { display: flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+
+/* ---- the three big switches. Deliberately not `.file-tab`: those are a hairline
+       underline for sub-views of one record; this is a section-level choice the client
+       asked to be able to SEE, so each is a full card with its own label and subtitle. ---- */
+.acc-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--space-2); margin-block-start: var(--space-4); }
+.acc-tab {
+  display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: 2px var(--space-3); padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-2); border-radius: var(--r-md);
+  background: var(--bg-card); color: var(--ink-2); font: inherit; text-align: start; cursor: pointer;
+  transition: background 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.acc-tab > svg { grid-row: 1 / span 2; color: var(--ink-3); }
+.acc-tab__l { font-size: var(--t-h4); font-weight: var(--fw-semibold); color: var(--ink-1); }
+.acc-tab__s { font-size: var(--t-micro); color: var(--ink-3); line-height: var(--lh-snug); }
+.acc-tab:hover { background: var(--bg-muted); border-color: var(--border-3); }
+.acc-tab--on { border-color: var(--brand-navy-600); box-shadow: inset 0 0 0 1px var(--brand-navy-600); background: var(--brand-navy-50); }
+.acc-tab--on > svg, .acc-tab--on .acc-tab__l { color: var(--brand-navy-800); }
+.acc-tab:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* ---- «من يوافق على ماذا» — the triad, with the live ceilings and a worked example ---- */
+.acc-triad { margin-block-start: var(--space-4); }
+.acc-triad__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); padding: var(--space-4) var(--space-5) var(--space-2); }
+.acc-triad__body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--r-md); background: var(--bg-inset); }
+.acc-triad__body--jmc { background: var(--brand-amber-50); }
+.acc-triad__body--mdoc { background: var(--brand-navy-50); }
+.acc-triad__head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.acc-triad__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-micro); color: var(--ink-2); margin-inline-start: auto; white-space: nowrap; }
+.acc-triad__who { font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--ink-1); line-height: var(--lh-snug); }
+.acc-triad__what { margin: 0; font-size: var(--t-body-sm); color: var(--ink-2); line-height: var(--lh-loose); }
+.acc-triad__ex { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); font-size: var(--t-body-sm); font-weight: var(--fw-medium); color: var(--ink-1); line-height: var(--lh-normal); }
+.acc-triad__ex > svg { flex-shrink: 0; color: var(--ink-3); }
+/* a tender code and a money figure are single tokens — they wrap AROUND, never through */
+.acc-triad__ex .acc-mono { white-space: nowrap; flex-shrink: 0; }
+.acc-triad__ex--none { color: var(--ink-3); font-weight: var(--fw-regular); }
+.acc-triad__foot { padding: 0 var(--space-5) var(--space-4); font-size: var(--t-micro); color: var(--ink-3); line-height: var(--lh-loose); }
+
+/* ---- the role cards ---- */
+.acc-rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-4); align-items: start; }
+.acc-rc {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+}
+.acc-rc__head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-3); }
+.acc-rc__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 40px; block-size: 40px; border-radius: var(--r-md); background: var(--bg-muted); color: var(--ink-2); }
+.acc-rc--super .acc-rc__icon { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+.acc-rc--mdoc  .acc-rc__icon { background: var(--status-progress-bg); color: var(--status-progress); }
+.acc-rc--jmc   .acc-rc__icon { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.acc-rc--evaluation .acc-rc__icon { background: var(--status-blocked-bg); color: var(--status-blocked); }
+.acc-rc--operator   .acc-rc__icon { background: var(--status-done-bg); color: var(--status-done); }
+.acc-rc__id { min-inline-size: 0; }
+.acc-rc__name { margin: 0; font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--ink-1); line-height: var(--lh-snug); }
+.acc-rc__code { display: block; font-size: var(--t-micro); color: var(--ink-4); }
+.acc-rc__holders { font-family: var(--font-mono); direction: ltr; font-size: var(--t-h2); font-weight: var(--fw-bold); color: var(--ink-1); }
+.acc-rc__who { margin: 0; font-size: var(--t-body-sm); color: var(--ink-2); line-height: var(--lh-loose); }
+
+/* the three financial facts — large type is the whole point of request 21. The first column is
+   the widest because it is the one that carries a grouped money figure. */
+.acc-rc__facts { display: grid; grid-template-columns: 1.35fr 1fr 0.85fr; gap: var(--space-3) var(--space-2); margin: 0; padding: var(--space-3); border-radius: var(--r-md); background: var(--bg-inset); }
+.acc-rc__fact { display: flex; flex-direction: column; gap: var(--space-1); min-inline-size: 0; }
+.acc-rc__fact dt { font-size: var(--t-micro); color: var(--ink-3); }
+.acc-rc__fact dd { margin: 0; }
+.acc-rc__v { font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--ink-1); line-height: var(--lh-snug); overflow-wrap: break-word; }
+/* money stays one unbroken LTR island: «$10,000,000», never «10,000,000$» or a mid-figure break */
+.acc-rc__money { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; white-space: nowrap; font-size: var(--t-body); }
+.acc-rc__v--strong { font-size: var(--t-h4); color: var(--brand-navy-800); }
+.acc-rc__v--none { color: var(--ink-3); font-weight: var(--fw-regular); }
+.acc-rc__stats { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--t-caption); color: var(--ink-2); }
+/* holders are LINKS to their files — a hairline ring and a hover tint make that legible, since
+   the shared avatar tint alone is nearly invisible on a white card */
+.acc-rc__people { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.acc-rc__people .acc-avatar { box-shadow: inset 0 0 0 1px var(--border-2); text-decoration: none; transition: background 150ms ease-out; }
+.acc-rc__people .acc-avatar:hover { background: var(--brand-navy-100); }
+.acc-rc__people .acc-avatar:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.acc-rc__orphan { padding: var(--space-2) var(--space-3); border-radius: var(--r-sm); background: var(--status-delayed-bg); color: var(--status-delayed); font-size: var(--t-caption); }
+
+.acc-rc__more {
+  display: inline-flex; align-items: center; gap: var(--space-2); align-self: flex-start;
+  padding: 0; border: 0; background: none; color: var(--brand-navy-700);
+  font: inherit; font-size: var(--t-body-sm); font-weight: var(--fw-medium); cursor: pointer;
+}
+.acc-rc__more:hover { color: var(--brand-navy-800); text-decoration: underline; }
+.acc-rc__more:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; border-radius: var(--r-xs); }
+/* «حاملو الدور» — the card's way to the ACCOUNTS register, filtered to this role. A link, not a
+   button: it navigates, and grant/revoke/disable stay on the account file where the guards live. */
+.acc-rc__holderlink {
+  display: inline-flex; align-items: center; gap: var(--space-2); align-self: flex-start;
+  color: var(--brand-navy-700); font-size: var(--t-body-sm); font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+.acc-rc__holderlink:hover { color: var(--brand-navy-800); text-decoration: underline; }
+.acc-rc__holderlink:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; border-radius: var(--r-xs); }
+/* same disclosure gesture as .reg-explain__caret — mirrored under RTL, 90° when open */
+.acc-rc__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out); }
+html[dir='rtl'] .acc-rc__caret { transform: scaleX(-1); }
+.acc-rc__more[aria-expanded='true'] .acc-rc__caret,
+html[dir='rtl'] .acc-rc__more[aria-expanded='true'] .acc-rc__caret { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .acc-rc__caret { transition-duration: 0.01ms; } }
+.acc-rc__caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.acc-rc__caps li { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--t-caption); color: var(--ink-2); padding-block-end: var(--space-2); border-block-end: 1px solid var(--border-1); }
+.acc-rc__caps li:last-child { border-block-end: none; padding-block-end: 0; }
 
 /* TARGET FILE: apps/web/src/admin/admin.css -- Tender-review award-decision ceremony (TenderReview.tsx). The "record to be written" preview inside the ratify/return modals. Rows reuse the existing .wz-reviewrow label/value grid (operator.css). Tokens + logical props only. */
 .rv-ledger { margin-block-start: 14px; padding: 2px 14px 6px; border: 1px solid var(--border-1); border-radius: var(--r-md); background: var(--bg-inset); }

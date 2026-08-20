@@ -25,6 +25,15 @@ import { TendersService } from './tenders.service.js';
 
 const OPERATOR_ROLES = ['OPERATOR_ADMIN', 'OPERATOR_USER', 'SUPER_ADMIN'] as const;
 
+/**
+ * The three roles that may occupy the ratification seat at all (client request 19ب). WHICH of them
+ * may decide THIS tender is a second question, and it is not a decorator's to answer: the ق1
+ * ladder decides it per value, so `TendersService` refuses (and audits) a body whose authority does
+ * not reach the tender's band. Two gates, deliberately — the guard says «may you sit here», the
+ * service says «is this yours to sign».
+ */
+const RATIFY_ROLES = ['MDOC_ADMIN', 'SUPER_ADMIN', 'JMC_APPROVER'] as const;
+
 @Controller('tenders')
 export class TendersController {
   constructor(private readonly tenders: TendersService) {}
@@ -63,16 +72,16 @@ export class TendersController {
     return this.tenders.completeStage(user, id, dto);
   }
 
-  // award decisions — MDOC only (ratify above-FA awards / governance)
+  // award decisions — the three ratifying bodies; the ق1 band decides which of them signs THIS one
   @Post(':id/ratify')
-  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
+  @Roles(...RATIFY_ROLES)
   ratify(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() _dto: RatifyDto) {
     // _dto only whitelists the optional actor hint; identity comes from `user` (the JWT).
     return this.tenders.ratify(user, id);
   }
 
   @Post(':id/return')
-  @Roles('MDOC_ADMIN', 'SUPER_ADMIN')
+  @Roles(...RATIFY_ROLES)
   returnWithNotes(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReturnDto) {
     return this.tenders.returnWithNotes(user, id, dto.notes);
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtCount } from '../operator/derive';
-import { isOperatorRole, loadSession, type ApiRole } from '../session';
+import { API_ROLES, isOperatorRole, loadSession, type ApiRole } from '../session';
 import {
   govReasonValid, isLastEnabledSuper, scopeConsistent, useStore,
   type Actor, type UserAccount,
@@ -10,7 +10,12 @@ import { useAdminUi } from './AdminShell';
 import { capsForRole, domainsFor, impactfulCount, roleKey, rolesOrphanedBy } from './access';
 import { Modal } from './Modal';
 
-const ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+/**
+ * The role pickers offer the WHOLE universe, as data. A hand-kept copy is how a role becomes
+ * unassignable: JMC_APPROVER existed in the server enum, the guard and the register, and would
+ * still have been missing from the one dropdown that creates accounts for it.
+ */
+const ROLES: readonly ApiRole[] = API_ROLES;
 
 /** The acting super admin, bound by immutable oid — never by display name. */
 export function useActor(): Actor | null {

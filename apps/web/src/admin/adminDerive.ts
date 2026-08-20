@@ -105,3 +105,27 @@ export function ratifiedInMonth(rows: ApprovalRow[], todayIso: string): Approval
   const month = todayIso.slice(0, 7);
   return rows.filter((r) => r.tender.ratification?.status === 'ratified' && r.tender.ratification.on.slice(0, 7) === month);
 }
+
+/* ---------------- the triad explainer (client request 21) ---------------- */
+
+/**
+ * One WORKED EXAMPLE per approving body: a real seeded request that actually lands in that band,
+ * so «طلب $7.8M → قرار اللجنة المشتركة» is a sentence about this platform's own data rather than
+ * a textbook figure. The number the reader sees is the number the ladder judged.
+ *
+ * GUARDED, by design: a band with no live request yields `undefined`, and the card falls back to
+ * the band's range alone. Inventing a plausible tender to fill an empty band would be exactly the
+ * fabrication the section's law forbids — «ولا يُسجَّل ما لا يقع».
+ *
+ * When several requests fit, the LARGEST is chosen: the example nearest the ceiling is the one
+ * that teaches where the band ends, and it is deterministic (ties break on the tender code, so
+ * the sentence does not move between renders or between two readers).
+ */
+export function tierExample(state: State, tier: ApprovalTier): Tender | undefined {
+  const inBand = state.tenders.filter((t) => tenderApprovalTier(state, t) === tier);
+  if (inBand.length === 0) return undefined;
+  return inBand.reduce((best, t) =>
+    t.estimatedValueUSD > best.estimatedValueUSD
+      || (t.estimatedValueUSD === best.estimatedValueUSD && t.code < best.code)
+      ? t : best);
+}

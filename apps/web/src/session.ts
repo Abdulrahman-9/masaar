@@ -7,11 +7,23 @@
  * which silently funnelled any third role into the operator branch.
  */
 
-/** The server's 6-role universe (mirrors apps/api/src/auth/auth.types.ts). */
-export type ApiRole = 'SUPER_ADMIN' | 'MDOC_ADMIN' | 'EVALUATION' | 'AUDITOR' | 'OPERATOR_ADMIN' | 'OPERATOR_USER';
+/**
+ * The server's role universe (mirrors apps/api/src/auth/auth.types.ts — same seven identifiers,
+ * same order). `JMC_APPROVER` was added 2026-08-20 (client request 19ب): the ق1 ladder already
+ * named اللجنة المشتركة as the ط2 approving body, and this is the seat that holds it.
+ */
+export type ApiRole =
+  | 'SUPER_ADMIN' | 'MDOC_ADMIN' | 'JMC_APPROVER' | 'EVALUATION' | 'AUDITOR'
+  | 'OPERATOR_ADMIN' | 'OPERATOR_USER';
 
-/** The universe as data, in display order — the one list `normalizeRole` validates against. */
-export const API_ROLES: readonly ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+/**
+ * The universe as data, in LADDER order — the one list `normalizeRole` validates against.
+ * The order is the governance hierarchy (platform → parent company → joint committee → committees
+ * → audit → operator), which is what every role column, chip row and card grid renders in.
+ */
+export const API_ROLES: readonly ApiRole[] = [
+  'SUPER_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER',
+];
 
 /**
  * Retired role identifiers → their current name. `ROC_ADMIN` became `MDOC_ADMIN` on
@@ -35,7 +47,7 @@ export function normalizeRole(role: string): ApiRole | null {
 export const isOperatorRole = (r: ApiRole): boolean => r === 'OPERATOR_ADMIN' || r === 'OPERATOR_USER';
 
 /** The only roles the server will mint a session for (auth LoginDto `@IsIn`). */
-export const API_LOGINABLE_ROLES = ['OPERATOR_ADMIN', 'MDOC_ADMIN'] as const;
+export const API_LOGINABLE_ROLES = ['OPERATOR_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER'] as const;
 export type ApiLoginableRole = (typeof API_LOGINABLE_ROLES)[number];
 export const isApiLoginable = (r: ApiRole): r is ApiLoginableRole =>
   (API_LOGINABLE_ROLES as readonly ApiRole[]).includes(r);
@@ -64,6 +76,9 @@ export interface DemoIdentity {
 export const DEMO_IDENTITIES: DemoIdentity[] = [
   { role: 'OPERATOR_ADMIN', oid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', company: 'شركة نفط الواحة الصينية', companyId: 'op-alwaha' },
   { role: 'MDOC_ADMIN', oid: 'oid-roc-01', name: 'د. سارة الجبوري' },
+  // the ط2 seat (request 19ب) — without a way to hold it, the joint committee's gate could be
+  // described on screen but never exercised, which is the one thing this section may not do
+  { role: 'JMC_APPROVER', oid: 'oid-jmc-01', name: 'م. رافد الدليمي' },
   { role: 'SUPER_ADMIN', oid: 'oid-super-01', name: 'م. مصطفى الكرخي' },
 ];
 

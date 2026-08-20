@@ -229,7 +229,8 @@ export default function UserProfile({ id }: { id: string }) {
                 ))}
                 {withheld.length > 6 && (
                   <div className="ad-empty-inline">
-                    <a href="#/admin/roles">{t('access.withheldMore', { n: fmtCount(withheld.length - 6, lang) })}</a>
+                    {/* the full endpoint × role grid — the reference tab, not the role cards */}
+                    <a href="#/admin/users?tab=matrix">{t('access.withheldMore', { n: fmtCount(withheld.length - 6, lang) })}</a>
                   </div>
                 )}
               </>

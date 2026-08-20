@@ -1,5 +1,7 @@
 import { METHODS, type LocalContentScope } from '@masaar/scpp-rules';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ACCESS_TABS } from '../admin/access';
+import { API_ROLES } from '../session';
 import type { ContractStageKey } from '../store';
 
 /**
@@ -55,7 +57,17 @@ export function useHashParams(): URLSearchParams {
  */
 export type HashParamName =
   | 'op' | 'tier' | 'status' | 'prog' | 'pending' | 'stage' | 'field'
-  | 'method' | 'scope' | 'vmin' | 'vmax' | 'from' | 'to' | 'arch';
+  | 'method' | 'scope' | 'vmin' | 'vmax' | 'from' | 'to' | 'arch'
+  // PHASE 5 (client request 20): `tab` is the address contract of a section that holds several
+  // views of ONE subject («الوصول والأدوار»). It goes through the same door as every other
+  // parameter — a closed vocabulary, validated on read — so a stale or hand-typed tab lands on
+  // the section's default view rather than on a blank one.
+  | 'tab'
+  // `role` narrows the ACCOUNTS register to one role's holders. It exists because the role cards
+  // ask «who holds this today» and the answer is a list of people, which lives on the register —
+  // so the card links there rather than growing a second, thinner copy of it. The chip row that
+  // already sets this filter now writes the address too, so the two can never disagree.
+  | 'role';
 
 /** The four completion buckets, cut once (§3-د) — the histogram and the registry share them. */
 export const PROGRESS_BUCKETS = ['0-25', '25-50', '50-75', '75-100'] as const;
@@ -93,6 +105,13 @@ export type ArchiveView = (typeof ARCHIVE_VIEWS)[number];
 
 const FIXED: Partial<Record<HashParamName, readonly string[]>> = {
   tier: ['OPERATOR', 'JMC', 'MDOC'],
+  // the section owns its own tab vocabulary (admin/access.ts ACCESS_TABS) — imported rather than
+  // restated, so adding a view cannot leave the address contract one name behind
+  tab: ACCESS_TABS,
+  // the role universe itself, plus the register's one synthetic bucket. `API_ROLES` is imported
+  // for the same reason `ACCESS_TABS` is: an eighth role must not be linkable from a card and
+  // silently unfilterable at the register.
+  role: [...API_ROLES, 'disabled'],
   status: ['open', 'progress', 'risk', 'delayed', 'done'],
   prog: PROGRESS_BUCKETS,
   pending: ['1'],

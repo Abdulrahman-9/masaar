@@ -26,7 +26,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     if (!/^\d{6}$/.test(code) || busy) return;
     setError('');
     if (isApiMode) {
-      // the server's LoginDto only accepts OPERATOR_ADMIN | MDOC_ADMIN — narrows `role`
+      // the server's LoginDto accepts only API_LOGINABLE_ROLES — this narrows `role` to them
       if (!isApiLoginable(role)) {
         setError(t('login.notApiLoginable'));
         return;

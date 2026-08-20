@@ -3,6 +3,7 @@ import { calendarDaysBetween } from '@masaar/working-days';
 import { KpiTile, PathBadge, VerdictStrip } from '@masaar/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import AccessSection from './admin/AccessSection';
 import AdminShell, { type AdminView } from './admin/AdminShell';
 import AdminTenders from './admin/AdminTenders';
 import Approvals from './admin/Approvals';
@@ -17,11 +18,9 @@ import Fields from './admin/Fields';
 import Operators from './admin/Operators';
 import PathsGuide from './admin/PathsGuide';
 import Reports from './admin/Reports';
-import RolesMatrix from './admin/RolesMatrix';
 import Schedule from './admin/Schedule';
 import TenderReview from './admin/TenderReview';
 import UserProfile from './admin/UserProfile';
-import Users from './admin/Users';
 import Vendors from './admin/Vendors';
 import { apiLogout } from './api/endpoints';
 import { isApiMode } from './config';
@@ -277,9 +276,12 @@ function renderAdmin(hash: string, onLogout: () => void) {
   const usr = /^#\/admin\/users\/(.+)$/.exec(hash);
   if (usr) return <AdminShell view="users" onLogout={onLogout}><UserProfile id={usr[1]!} /></AdminShell>;
 
-  // tolerate a trailing ?query (e.g. #/admin/fields?op=op-alwaha)
+  // tolerate a trailing ?query (e.g. #/admin/fields?op=op-alwaha, #/admin/users?tab=roles)
   const m = /^#\/admin\/(\w+)(?:\?.*)?$/.exec(hash);
   const sub = m?.[1] ?? 'room';
+  // `?tab=` is carried through by the section itself; a bare `#/admin/roles` is preserved for the
+  // one thing it was ever asked, and answered by the tab that now holds it (client request 20).
+  if (sub === 'roles') return <Redirect to="#/admin/users?tab=roles" />;
   // The MCT screen is retired (client ق3: hidden entirely) and the approval chain took its place.
   // A bookmark to it is REDIRECTED, not 404'd or silently re-rendered: the same portfolio question
   // now has a different, better answer, and the address bar must end up saying so.
@@ -289,8 +291,7 @@ function renderAdmin(hash: string, onLogout: () => void) {
   if (sub === 'entities') return <AdminShell view="entities" onLogout={onLogout}><Vendors /></AdminShell>;
   if (sub === 'contracts') return <AdminShell view="contracts" onLogout={onLogout}><Contracts /></AdminShell>;
   // 'system' stays alive as an alias so existing bookmarks don't fall through to the room
-  if (sub === 'users' || sub === 'system') return <AdminShell view="users" onLogout={onLogout}><Users /></AdminShell>;
-  if (sub === 'roles') return <AdminShell view="roles" onLogout={onLogout}><RolesMatrix /></AdminShell>;
+  if (sub === 'users' || sub === 'system') return <AdminShell view="users" onLogout={onLogout}><AccessSection /></AdminShell>;
   if (sub === 'operators') return <AdminShell view="operators" onLogout={onLogout}><Operators /></AdminShell>;
   if (sub === 'fields') return <AdminShell view="fields" onLogout={onLogout}><Fields /></AdminShell>;
   // request 10 — the TIME-compliance registry the follow-up room's ratio tile now opens

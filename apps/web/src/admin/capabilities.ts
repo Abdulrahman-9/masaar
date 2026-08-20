@@ -33,7 +33,13 @@ export interface Capability {
   scoped: boolean;
   /** loadScopedActive: refused (400) on a cancelled or suspended tender */
   stateGated: boolean;
-  /** SCPP clause cited in the handler's comments; empty when the code cites none */
+  /**
+   * SCPP clause cited in the handler's comments; empty when the code cites none.
+   *
+   * Rendered SECTION-FIRST so the value always opens with the section number (pinned by
+   * capabilities.test.ts): a handler commented «§9 C8.1» is written `9-C8.1`, the same shape
+   * `8.1-e` already uses for a lettered sub-clause. The section is what a reader looks up.
+   */
   clause: string;
   guard: Guard;
   label: { ar: string; en: string };
@@ -47,9 +53,23 @@ export interface Capability {
   specGrants?: ApiRole[];
 }
 
-// re-verified against every *.controller.ts on 2026-08-20 after the ROC→MDOC role rename:
-// the surface is unchanged (43 rows, same guards) — only the identifier each @Roles names.
-export const CAP_REV = 'gt-2026-08-20';
+// re-extracted from EVERY *.controller.ts on 2026-08-20 (phase-5 verification sweep), and the
+// count MOVED: 43 → 46. The three added rows are not new endpoints — they are three §9 local-content
+// handlers that have been on `TendersController` since the §9 wave and were simply never extracted:
+// `setLocalContentClause` (C8.1), `setStateResponse` (C8.2) and `setBidderMaterials` (C8.6). Each
+// carries a real `@Roles(...)` decorator, so each was already an ENFORCED restriction the matrix
+// silently omitted — a register that under-reports the guarded surface is worse than no register,
+// because it reads as an audit of the whole thing.
+//
+// This is a correction of THIS FILE, not a change in the server: no decorator moved, no role gained
+// or lost anything. What changed is that the screen now shows all 46 of the handlers the guard
+// actually protects instead of 43 of them.
+//
+// The 2026-08-20b sweep (the JMC_APPROVER addition, client request 19ب) remains true and is
+// unaffected: `ratifyAward` and `returnWithNotes` carry JMC_APPROVER from `RATIFY_ROLES`, and the
+// joint committee still reaches exactly those two guarded capabilities plus the three undecorated
+// reads — none of the three rows added here admits it.
+export const CAP_REV = 'gt-2026-08-20c';
 export const CAP_EXTRACTED_ON = '2026-08-20';
 
 /** The seven domains that enter the counted universe, in display order. */
@@ -58,7 +78,15 @@ export const COUNTED_DOMAINS: CapDomain[] = ['tenders', 'mct', 'contracts', 'ven
 const OPERATOR_ROLES: ApiRole[] = ['OPERATOR_ADMIN', 'OPERATOR_USER', 'SUPER_ADMIN'];
 const GOV: ApiRole[] = ['MDOC_ADMIN', 'SUPER_ADMIN'];
 const VENDOR_READ: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR'];
-const ALL_SIX: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER'];
+/**
+ * `RATIFY_ROLES` in tenders.controller.ts — the ONLY two rows the joint committee reaches. The
+ * decorator admits the seat; the ق1 band decides which of the three may sign a given tender, and
+ * that second gate lives in TendersService (it is not a role grant, so it is not a column here).
+ */
+const RATIFY: ApiRole[] = ['MDOC_ADMIN', 'SUPER_ADMIN', 'JMC_APPROVER'];
+const ALL_ROLES: ApiRole[] = [
+  'SUPER_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER', 'EVALUATION', 'AUDITOR', 'OPERATOR_ADMIN', 'OPERATOR_USER',
+];
 
 /** Shorthand: every field is explicit at the call site except the derived `mutating`. */
 const cap = (c: Omit<Capability, 'mutating'>): Capability => ({
@@ -67,7 +95,7 @@ const cap = (c: Omit<Capability, 'mutating'>): Capability => ({
 });
 
 export const CAPABILITIES: Capability[] = [
-  /* ---------------- tenders (17: 15 guarded + 2 open) ---------------- */
+  /* ---------------- tenders (20: 18 guarded + 2 open) ---------------- */
   cap({
     id: 'listTenders', domain: 'tenders', method: 'GET', route: '/api/tenders',
     roles: [], scoped: true, stateGated: false, clause: '12.4.2', guard: 'open',
@@ -100,12 +128,12 @@ export const CAPABILITIES: Capability[] = [
   }),
   cap({
     id: 'ratifyAward', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/ratify',
-    roles: GOV, scoped: true, stateGated: true, clause: '6.9.3', guard: 'roles',
+    roles: RATIFY, scoped: true, stateGated: true, clause: '6.9.3', guard: 'roles',
     label: { ar: 'مصادقة الإحالة', en: 'Ratify the award' },
   }),
   cap({
     id: 'returnWithNotes', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/return',
-    roles: GOV, scoped: true, stateGated: true, clause: '', guard: 'roles',
+    roles: RATIFY, scoped: true, stateGated: true, clause: '', guard: 'roles',
     label: { ar: 'إعادة المعاملة مع الملاحظات', en: 'Return with notes' },
   }),
   cap({
@@ -133,6 +161,29 @@ export const CAPABILITIES: Capability[] = [
     roles: ['OPERATOR_ADMIN', 'OPERATOR_USER', 'EVALUATION', 'SUPER_ADMIN'], scoped: true, stateGated: true, clause: '', guard: 'roles',
     label: { ar: 'إدخال نتائج التقييم الفني', en: 'Enter technical evaluation results' },
   }),
+  /**
+   * The three §9 local-content handlers (tenders.controller.ts:124/131/138). Every one is
+   * `@Roles(...OPERATOR_ROLES)` — the SAME list as publish, and deliberately so on the controller's
+   * own reasoning: the C8.1 attestation IS the gate publication passes, so whoever may publish is
+   * exactly whoever may state that the documents carry the clause. All three funnel through
+   * `loadScopedActive`, hence scoped + stateGated.
+   */
+  cap({
+    id: 'setLocalContentClause', domain: 'tenders', method: 'PATCH', route: '/api/tenders/:id/local-content-clause',
+    roles: OPERATOR_ROLES, scoped: true, stateGated: true, clause: '9-C8.1', guard: 'roles',
+    label: { ar: 'إقرار إلحاق بند المشاركة المحلية بالوثائق', en: 'Attest the local-content clause is affixed' },
+  }),
+  cap({
+    id: 'setStateResponse', domain: 'tenders', method: 'POST', route: '/api/tenders/:id/state-response',
+    roles: OPERATOR_ROLES, scoped: true, stateGated: true, clause: '9-C8.2', guard: 'roles',
+    label: { ar: 'تثبيت ردّ شركة حكومية بمسوّغ موثّق', en: 'Record a state company’s documented response' },
+  }),
+  cap({
+    id: 'setBidderMaterials', domain: 'tenders', method: 'PATCH', route: '/api/tenders/:id/bidders/:bidderId/materials',
+    roles: OPERATOR_ROLES, scoped: true, stateGated: true, clause: '9-C8.6', guard: 'roles',
+    label: { ar: 'إدخال إقرارات منشأ المواد لمقدّم العطاء', en: 'Enter a bidder’s material-origin declarations' },
+  }),
+
   cap({
     id: 'toggleStageDocument', domain: 'tenders', method: 'PATCH', route: '/api/tenders/:id/document',
     roles: OPERATOR_ROLES, scoped: true, stateGated: true, clause: '', guard: 'roles',
@@ -287,12 +338,12 @@ export const CAPABILITIES: Capability[] = [
   }),
   cap({
     id: 'authLogout', domain: 'system', method: 'POST', route: '/api/auth/logout',
-    roles: ALL_SIX, scoped: false, stateGated: false, clause: '', guard: 'session',
+    roles: ALL_ROLES, scoped: false, stateGated: false, clause: '', guard: 'session',
     label: { ar: 'إنهاء الجلسة', en: 'Sign out' },
   }),
   cap({
     id: 'authMe', domain: 'system', method: 'GET', route: '/api/auth/me',
-    roles: ALL_SIX, scoped: false, stateGated: false, clause: '', guard: 'session',
+    roles: ALL_ROLES, scoped: false, stateGated: false, clause: '', guard: 'session',
     label: { ar: 'بيانات الجلسة الحالية', en: 'Current session info' },
   }),
   cap({

@@ -1,3 +1,4 @@
+import { mayRatifyTier, type ApprovalTiers } from '@masaar/scpp-rules';
 import { API_ROLES, isOperatorRole, normalizeRole, type ApiRole } from '../session';
 import type { AuditEntry, UserAccount } from '../store';
 import { COUNTED, type Capability, type CapDomain } from './capabilities';
@@ -85,8 +86,12 @@ export function holdersOfRole(role: ApiRole, users: UserAccount[]): UserAccount[
 /**
  * Governance roles with no enabled holder. Every call against such a role is refused 403 and
  * audited ROLE_REFUSED — an operational defect, not an empty set.
+ *
+ * `JMC_APPROVER` belongs here for the sharpest reason of the five: it is the ONLY body whose
+ * signature clears the ط2 band, so an empty joint committee does not merely idle a role — it
+ * stops every 5–10M award in the platform. The KPI must be able to say that.
  */
-export const GOVERNANCE_ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'EVALUATION', 'AUDITOR'];
+export const GOVERNANCE_ROLES: ApiRole[] = ['SUPER_ADMIN', 'MDOC_ADMIN', 'JMC_APPROVER', 'EVALUATION', 'AUDITOR'];
 
 export function orphanRoles(users: UserAccount[]): ApiRole[] {
   return GOVERNANCE_ROLES.filter((r) => holdersOfRole(r, users).length === 0);
@@ -119,6 +124,7 @@ export function roleKey(role: ApiRole | string): string {
   switch (normalizeRole(role)) {
     case 'SUPER_ADMIN': return 'superAdmin';
     case 'MDOC_ADMIN': return 'mdocAdmin';
+    case 'JMC_APPROVER': return 'jmcApprover';
     case 'EVALUATION': return 'evaluation';
     case 'AUDITOR': return 'auditor';
     case 'OPERATOR_ADMIN': return 'operatorAdmin';
@@ -132,11 +138,63 @@ export function roleTone(role: ApiRole | string): string {
   switch (normalizeRole(role)) {
     case 'SUPER_ADMIN': return 'super';
     case 'MDOC_ADMIN': return 'mdoc';
+    // the joint committee already owns the amber band on the tier pill (.ad-tier--jmc) —
+    // one body, one colour, wherever it is named
+    case 'JMC_APPROVER': return 'jmc';
     case 'EVALUATION': return 'evaluation';
     case 'AUDITOR': return 'auditor';
     case 'OPERATOR_ADMIN': case 'OPERATOR_USER': return 'operator';
     default: return 'unknown';
   }
+}
+
+/**
+ * Icon for a role card (Icon.tsx registry names only). The glyph carries the BODY, not the
+ * seniority: the platform is a lock, the two approving bodies are check/shield-shaped acts,
+ * the committees read and the operator is a company.
+ */
+export function roleIcon(role: ApiRole): string {
+  switch (role) {
+    case 'SUPER_ADMIN': return 'lock';
+    case 'MDOC_ADMIN': return 'shield';
+    case 'JMC_APPROVER': return 'check';
+    case 'EVALUATION': return 'sliders';
+    case 'AUDITOR': return 'eye';
+    default: return 'building';
+  }
+}
+
+/* ---------------- the three financial facts (client request 21) ---------------- */
+
+/**
+ * What every reader actually asks of a role, in the client's own three questions:
+ * «يوافق حتى؟» (the top of the band its signature clears), «يشهد؟» (does it decide awards at
+ * all), «نطاقه؟» (the whole platform, or one company).
+ *
+ * DERIVED, never authored: `approves` reads the SAME ladder the engine judges a value against and
+ * the SAME rank table the ratify gate enforces, so a card can never promise an authority the
+ * service would refuse. `null` means «no approval authority» — not «unlimited».
+ */
+export interface RoleFinancialFacts {
+  /** the top of the band this role may clear, in USD — null when it clears none */
+  approvesUpToUSD: number | null;
+  /** true when the band it clears has no ceiling (the parent company and above) */
+  approvesUnlimited: boolean;
+  /** does it hold the ratify/return seat (`ratifyAward` on its @Roles list)? */
+  decides: boolean;
+  /** company-scoped by `operatorScopeWhere`, or platform-wide */
+  scope: 'company' | 'platform';
+}
+
+export function roleFinancialFacts(role: ApiRole, tiers: ApprovalTiers): RoleFinancialFacts {
+  const scope: RoleFinancialFacts['scope'] = isOperatorRole(role) ? 'company' : 'platform';
+  // the seat itself is the register's answer, not a hand-kept list
+  const decides = COUNTED.some((c) => c.id === 'ratifyAward' && c.roles.includes(role));
+  if (!decides) return { approvesUpToUSD: null, approvesUnlimited: false, decides, scope };
+  // the highest band this role's rank still clears — asked of the ladder, tier by tier
+  if (mayRatifyTier(role, 'MDOC')) return { approvesUpToUSD: null, approvesUnlimited: true, decides, scope };
+  if (mayRatifyTier(role, 'JMC')) return { approvesUpToUSD: tiers.jmcMaxUSD, approvesUnlimited: false, decides, scope };
+  return { approvesUpToUSD: tiers.operatorMaxUSD, approvesUnlimited: false, decides, scope };
 }
 
 /**
@@ -147,6 +205,14 @@ export function roleTone(role: ApiRole | string): string {
 export function matchUser(email: string) {
   return (a: AuditEntry) => a.target === email || a.target.startsWith(email + ':');
 }
+
+/**
+ * The three views of «الوصول والأدوار» (request 20), in the order the question is asked. Exported
+ * as the ONE list the section renders, the address whitelist validates (`useHashParams`) and the
+ * tests pin — a fourth tab cannot appear in one place and be missing from another.
+ */
+export const ACCESS_TABS = ['accounts', 'roles', 'matrix'] as const;
+export type AccessTab = (typeof ACCESS_TABS)[number];
 
 /** Audit actions this section writes — used to filter the access trail out of the global log. */
 export const ACCESS_ACTIONS = new Set([
