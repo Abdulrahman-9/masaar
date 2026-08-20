@@ -621,7 +621,10 @@
     "wk_sec3": "SCPP deadline compliance",
     "wk_ann21": "Public announcements ≥ 21 days",
     "wk_mct14": "Cost-accreditation meetings within 14 WD",
-    "wk_footer": "Periodic oversight report issued by the Masaar system — for administrative and audit use"
+    "wk_footer": "Periodic oversight report issued by the Masaar system — for administrative and audit use",
+    "maskDim": "Publication mode",
+    "scopeTender": "Tender {{code}}",
+    "wk_scope": "{{n}} tenders — the whole {{org}} portfolio"
   },
   "adnav": {
     "badge": "Admin",
@@ -647,7 +650,8 @@
     "roles": "Roles & permissions",
     "operators": "Operators",
     "fields": "Fields",
-    "holidays": "Public holidays"
+    "holidays": "Public holidays",
+    "schedule": "Time compliance"
   },
   "adroom": {
     "title": "Follow-up Room",
@@ -671,7 +675,8 @@
     "colLate": "Late",
     "colContracts": "Contracts",
     "colContractValue": "Contract value",
-    "windowAllTime": "All-time"
+    "windowAllTime": "All-time",
+    "openSchedule": "Open time compliance"
   },
   "adtenders": {
     "colRatify": "Ratification"
@@ -752,7 +757,9 @@
     "toastRestore": "Entity «{{name}}» was returned to circulation — recorded in the audit log",
     "noDelete": "Entities are never deleted (client decision ق7): an entity is bound to its bids, contracts and governance trail, and erasing it would cut a live audit chain (8.1-e). Archiving is the lawful withdrawal, and restoring reverses it.",
     "localOnly": "API mode: /api/vendors knows suspension, bans and scores only — it has no create route and no archive flag. Both actions apply in this browser only.",
-    "localOnlyFile": "API mode: suspension, lifting, bans and scores reach the server; archive and restore have no /api/vendors endpoint — they apply in this browser only."
+    "localOnlyFile": "API mode: suspension, lifting, bans and scores reach the server; archive and restore have no /api/vendors endpoint — they apply in this browser only.",
+    "chipLive": "In service",
+    "chipArchAll": "All (in service and withdrawn)"
   },
   "new": {
     "minParticipants": "Minimum participants"
@@ -1020,7 +1027,6 @@
     "hint": "Capability registry, MoO list membership, eligibility flags (10.4) and refusal-to-sign bans (14.3).",
     "name": "Vendor",
     "scores": "Capabilities",
-    "moo": "MoO list",
     "eligibility": "Eligibility",
     "tech": "Tech",
     "fin": "Fin",
@@ -1029,7 +1035,14 @@
     "mooNo": "Not listed",
     "eligible": "Eligible",
     "suspended": "Suspended",
-    "until": "until"
+    "until": "until",
+    "stateChip": "The five state companies (Article 25)",
+    "stateTag": "State — Article 25",
+    "stateDef": "The five Iraqi state companies named by Article 25. They alone are what the 20% participation requirement reads (§9 C8.1/C8.2). Seeded law — never created or removed from this screen.",
+    "mooChip": "Ministry suppliers list",
+    "mooDef": "The Ministry of Oil suppliers register — state and private firms alike. Only C8.7 reads it: membership is an accepted alternative to the approved-origin rule for an imported critical material (C8.6). It is not the Article 25 list.",
+    "mooOnList": "On the ministry suppliers list",
+    "mooOffList": "Not on the ministry suppliers list"
   },
   "compliance": {
     "nomTitle": "MDOC committee nominations (12.2)",
@@ -1093,8 +1106,28 @@
     "mct14": "Cost-accreditation meetings within 14 WD",
     "leaderboard": "Tenders ranked by compliance",
     "compliance": "Compliance",
-    "expiring": "Guarantees expiring within 60 days",
-    "noneExpiring": "No guarantees expiring soon"
+    "scopePortfolio": "The whole portfolio — no date window",
+    "scopeVendors": "Every registered entity",
+    "vendorTitle": "Vendor report — specialization and financial capacity",
+    "vendorCsv": "Export vendor report (CSV)",
+    "vendorCaveat": "Derived from the scopes it has competed in — pending the official classification. The store holds no specialization field, so the classification below is an inference from the participation and award record, not a list issued by the ministry.",
+    "vendorExplainTitle": "How was this table derived?",
+    "vendorExplainScope": "Specialization: how many tenders the entity actually bid on, spread across the four §9 work scopes. «Primary scope» is the most frequent one; a tie prints «undetermined» rather than inventing a preference.",
+    "vendorExplainBands": "The financial-capacity bands ARE the approval ladder ({{op}} operator authority · {{jmc}} joint-committee ceiling) applied to the total value of contracts awarded to the entity. A governed ladder was chosen over statistical quantiles because a quantile band moves when the data moves: an entity slides from one band to another without any fact about it changing.",
+    "vendorExplainName": "An entity is bound to its contracts by vendor id where one exists, otherwise by contractor name (the same 12.4.2 rule that binds a bidder to its registry entry). A contract carrying neither is attributed to nobody.",
+    "vendorEmpty": "No entities registered yet — no participation or awards to derive a classification from.",
+    "bandsLabel": "Financial-capacity band distribution",
+    "band": {
+      "none": "No contracts awarded",
+      "OPERATOR": "Within operator authority",
+      "JMC": "Within the joint-committee ceiling",
+      "MDOC": "Above the joint-committee ceiling"
+    },
+    "colBids": "Bids",
+    "colPrimary": "Primary scope (derived)",
+    "colWonValue": "Awarded contract value",
+    "colBand": "Financial-capacity band (derived)",
+    "primaryNone": "Undetermined"
   },
   "review": {
     "back": "→ Overview",
@@ -1373,7 +1406,11 @@
       "allStatus": "All statuses",
       "emptyStore": "No tenders yet — start your first one with the «New purchase request» button above.",
       "noMatch": "No tenders match the current search or filters.",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "allTiers": "All tiers",
+      "allScopes": "All scopes",
+      "rangeValue": "Estimated value (USD)",
+      "rangeDate": "Created on"
     },
     "atenders": {
       "sub": "{{n}} tenders across the portfolio — review each award and ratify it or return it with notes.",
@@ -1390,8 +1427,11 @@
       "openReview": "Open review",
       "kpiDone": "Completed",
       "chipOpen": "Open (not yet completed)",
-      "chipOp": "Company: {{name}}",
-      "chipPending": "Awaiting ratification only"
+      "chipPending": "Awaiting ratification only",
+      "allTiers": "All tiers",
+      "allScopes": "All scopes",
+      "rangeValue": "Estimated value (USD)",
+      "rangeDate": "Created on"
     },
     "contracts": {
       "title": "Post-award contract registry",
@@ -1424,8 +1464,10 @@
       "emptyGoTenders": "Go to the tenders registry",
       "noMatch": "No contracts match the current search or filters.",
       "clearFilters": "Clear filters",
-      "chipProg": "Completion: {{range}}%",
-      "chipStage": "Stage: {{stage}}"
+      "allProg": "All completion bands",
+      "allStages": "All stages",
+      "rangeValue": "Contract value (USD)",
+      "rangeDate": "Signed on"
     },
     "vendors": {
       "all": "All",
@@ -1457,6 +1499,45 @@
     },
     "filter": {
       "remove": "Remove filter: {{label}}"
+    },
+    "stamp": {
+      "words": {
+        "filters": "Active filters",
+        "none": "No filters",
+        "rows": "Rows",
+        "generated": "Generated",
+        "scope": "Scope"
+      },
+      "dim": {
+        "q": "Search",
+        "op": "Company",
+        "field": "Field",
+        "method": "Method",
+        "tier": "Approval tier",
+        "scope": "Work scope",
+        "status": "Status",
+        "class": "Classification",
+        "arch": "Archive",
+        "prog": "Completion",
+        "stage": "Stage",
+        "health": "Caps",
+        "role": "Role",
+        "userScope": "Account scope",
+        "bucket": "Bucket",
+        "valueFrom": "Value from",
+        "valueTo": "Value to",
+        "dateFrom": "Created from",
+        "dateTo": "Created to",
+        "signedFrom": "Signed from",
+        "signedTo": "Signed to"
+      }
+    },
+    "range": {
+      "from": "From",
+      "to": "To",
+      "inverted": "Range inverted",
+      "invertedBody": "The range is inverted: the lower bound is above the upper one, so no row can fall inside it. Correct one end — this does not mean the registry is empty.",
+      "invalid": "Invalid value — not applied"
     }
   },
   "bidderadd": {
@@ -1672,6 +1753,73 @@
     },
     "ladder": {
       "title": "Tenders in flight by approval tier"
+    }
+  },
+  "mlist": {
+    "title": "How does the «ministry list» differ from the five state companies?",
+    "stateBody": "The five Iraqi state companies named by Article 25. They alone are what the 20% participation requirement reads: the documents offer them participation, and their acceptance — or a documented refusal — is what settles the local-content status. Seeded law; no company is added to it from the interface.",
+    "mooBody": "The Ministry of Oil suppliers register, holding state and private firms alike. Only the critical-materials rule reads it: a supplier’s membership is an accepted alternative to the approved-origin requirement for an imported material.",
+    "overlap": "The two lists overlap and neither contains the other: {{state}} Article 25 state companies, {{moo}} entities on the suppliers list, {{both}} on both.",
+    "pending": "The single earlier label «ministry list» stood for both — separated here pending the client’s final definition (decision ق5)."
+  },
+  "sched": {
+    "title": "Time compliance",
+    "sub": "Planned against actual — every tender on its current stage, every contract on its progress",
+    "exportTenders": "Export tenders table (CSV)",
+    "exportContracts": "Export contracts table (CSV)",
+    "toastExportTenders": "Tenders table exported to a local file with its current filters",
+    "toastExportContracts": "Contracts table exported to a local file with its current filters",
+    "searchPh": "Search by code or title",
+    "allStatus": "All statuses",
+    "clearFilters": "Clear all filters",
+    "noMatch": "No tender matches the search or the current filters.",
+    "noMatchContracts": "No contract matches the search or the current filters.",
+    "emptyTenders": "No tenders in the registry yet — there is no schedule to measure.",
+    "emptyContracts": "No contracts yet — a contract file is created once an award is ratified.",
+    "explainTitle": "What exactly does this table measure?",
+    "explainTender": "A tender row measures its current stage only: planned date against actual, and the gap in WORKING days (not calendar days) under the recorded public-holiday calendar. Positive is late, negative is ahead.",
+    "explainContract": "A contract row measures a different unit: the share of stages closed against the share whose planned date has passed — a gap in percentage POINTS, not in days. The two units are never added together.",
+    "explainAllTime": "The «Schedule adherence — since inception» tile is the figure shown in the follow-up room, from the same derivation: a ratio over EVERY closed stage that carried a plan, across the whole portfolio, unaffected by the filters on this screen. The four tiles beside it count the FILTERED rows of the table below, each request on its current stage only. Two different windows; neither is subtracted from the other.",
+    "explainStatusScope": "The «status» filter applies to tenders alone: its vocabulary (at risk / late / complete / in progress) is tender-status vocabulary, and neither the contracts table nor its stamp reads it — a contract's verdict is measured in percentage points, not in those words.",
+    "explainUnplanned": "A stage with no planned date cannot be judged: it reads «unplanned» and is excluded from the average deviation — «no plan» is not «no deviation».",
+    "explainCompleted": "A completed tender has no current stage, so its row reads the last stage it actually closed, and says so.",
+    "explainNotSection9": "This screen is about time alone. «Compliance & committees» is a different screen answering local content (§9 / Article 25) and committee nominations (12.2).",
+    "kpiAllTime": "Schedule adherence — since inception",
+    "kpiAllTimeWin": "Since inception · whole portfolio",
+    "kpiAllTimeHint": "The same figure as the follow-up room — unaffected by this screen's filters",
+    "kpiOnTime": "On schedule",
+    "kpiLate": "Late",
+    "kpiAvg": "Average deviation (WD)",
+    "kpiAvgHint": "Computed from {{n}} planned stages",
+    "kpiContracts": "Contracts behind planned progress",
+    "tenderTable": "Tenders — current stage against its plan",
+    "contractTable": "Contracts — progress against plan",
+    "contractNote": "The gap here is in percentage points between closed stages and stages already due; a contract is attributed to a company through its originating tender, so a contract without one is unaffected by the company filter.",
+    "contractStatusNote": "The status filter applies to tenders — neither this table nor its stamp reads it, so the contract rows below have not been narrowed by it.",
+    "scopeTenders": "{{n}} tenders",
+    "scopeContracts": "{{n}} contracts",
+    "colStage": "Stage measured",
+    "colPlanned": "Planned",
+    "colActual": "Actual",
+    "colDev": "Deviation (WD)",
+    "colStatus": "Schedule verdict",
+    "colPlannedDelivery": "Planned delivery",
+    "colProgress": "Done / planned",
+    "colVariance": "Variance (pp)",
+    "lastClosed": "Last closed stage",
+    "stillOpen": "Not closed yet",
+    "noStages": "No stages recorded for this tender",
+    "status": {
+      "onTime": "On schedule",
+      "late": "Late",
+      "ahead": "Ahead",
+      "unplanned": "Unplanned"
+    },
+    "statusHint": {
+      "onTime": "Closed exactly on its planned date — zero deviation",
+      "late": "Past its planned date — deviation is positive, in working days",
+      "ahead": "Closed before its planned date — deviation is negative",
+      "unplanned": "No planned date on record — nothing to judge, and excluded from the average"
     }
   }
 }

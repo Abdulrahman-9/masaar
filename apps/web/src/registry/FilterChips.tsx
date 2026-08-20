@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { fmtCount } from '../operator/derive';
 import { Icon } from '../operator/Icon';
+import { formatActiveFilters, type FilterLabels } from './report';
 import './registry.css';
 
 /**
@@ -30,6 +31,38 @@ export interface FilterChipsProps {
   chips: FilterChip[];
   onSelect: (key: string) => void;
   lang: 'ar' | 'en';
+}
+
+/**
+ * Every ACTIVE dimension as a standing, removable chip (client request 7).
+ *
+ * It is driven by the SAME `labels` object that produces the export stamp, and that is the whole
+ * point: the chip a reader dismisses and the sentence the CSV carries are generated from one
+ * declaration, so a registry can never print a filter it does not show — nor show one it does not
+ * print. Nine dimensions make «why is this list short?» genuinely hard to answer from the controls
+ * alone; this row answers it and widens in one click.
+ *
+ * Dimensions absent from `params` produce no chip. `remove` is given the parameter NAME, so a
+ * screen can route it to the address (`writeHashParam`) or to local state without this layer
+ * knowing which.
+ */
+export function activeFilterChips(
+  params: URLSearchParams,
+  labels: FilterLabels,
+  lang: 'ar' | 'en',
+  remove: (name: string) => void,
+): FilterChip[] {
+  const chips: FilterChip[] = [];
+  for (const [name, spec] of Object.entries(labels)) {
+    const one = new URLSearchParams();
+    const raw = params.get(name);
+    if (raw == null || raw === '') continue;
+    one.set(name, raw);
+    const label = formatActiveFilters(one, lang, { [name]: spec });
+    if (!label) continue;
+    chips.push({ key: `act-${name}`, label, active: true, onRemove: () => remove(name) });
+  }
+  return chips;
 }
 
 export function FilterChips({ chips, onSelect, lang }: FilterChipsProps) {

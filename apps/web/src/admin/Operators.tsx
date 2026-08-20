@@ -6,18 +6,19 @@ import { fmtCount, fmtMoney } from '../operator/derive';
 import { orgName } from '../orgIdentity';
 import { loadSession } from '../session';
 import {
-  aboveOwnFA, useStore,
+  aboveOwnFA, todayIso, useStore,
   type OperatorOrg,
 } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
+import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
 import OperatorFieldsWizard from './OperatorFieldsWizard';
@@ -50,6 +51,8 @@ export default function Operators() {
   const { toast } = useAdminUi();
   const session = loadSession();
   const isSuper = session?.role === 'SUPER_ADMIN';
+  const today = todayIso();
+  const words = useStampWords();
 
   const [dialog, setDialog] = useState<null | { kind: 'add' }>(null);
   const [q, setQ] = useState('');
@@ -156,8 +159,30 @@ export default function Operators() {
     { key: 'tenders', label: 'tenders', value: (r) => r.tenders },
     { key: 'tendersAboveFa', label: 'tendersAboveFa', value: (r) => r.aboveFa },
   ];
+  /**
+   * The three narrowings this registry carries, declared once (م5). It exported without a stamp,
+   * so a file holding ONE company — the `?op=` deep link the follow-up room's company table
+   * writes — was byte-indistinguishable from a file holding all of them.
+   */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    op: { label: t('reg.stamp.dim.op'), value: (v) => (opRecord && opRecord.id === v ? nameOf(opRecord) : v) },
+    bucket: {
+      label: t('reg.stamp.dim.bucket'),
+      value: (v) => (v === 'costCycle' ? t('reg.operators.chipCostCycle') : t('reg.operators.chipNoAccounts')),
+    },
+  };
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (opParam) p.set('op', opParam);
+    if (chipFilter) p.set('bucket', chipFilter);
+    return p;
+  }, [q, qn, opParam, chipFilter]);
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+
   const doExport = () => {
-    exportCsv('masaar-operators-registry', csvColumns, sorted);
+    exportCsv('masaar-operators-registry', csvColumns, sorted, stamp);
     // local file export only — the server audit log will never contain this row
     toast(t('reg.operators.toastExport'));
   };
@@ -209,6 +234,9 @@ export default function Operators() {
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.operators.searchPh')} style={{ width: 280 }} />
         <FilterChips chips={filterChips} onSelect={onChip} lang={lang} />
       </div>
+
+      {/* WYSIWYG: the exact sentence the CSV will carry, readable before the file is written */}
+      <div className="reg-stamp">{stamp}</div>
 
       {state.operators.length === 0 ? (
         <EmptyState

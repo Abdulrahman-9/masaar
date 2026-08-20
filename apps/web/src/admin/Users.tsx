@@ -4,15 +4,16 @@ import { isApiMode } from '../config';
 import { fmtCount } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { isOperatorRole, loadSession, type ApiRole } from '../session';
-import { enabledSuperAdmins, scopeConsistent, useStore, type UserAccount } from '../store';
+import { enabledSuperAdmins, scopeConsistent, todayIso, useStore, type UserAccount } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
 import { impactfulCount, matchUser, orphanRoleCount, readCount, roleKey, roleTone } from './access';
 import { AddAccountModal } from './UserActions';
@@ -32,6 +33,8 @@ export default function Users() {
   const { state } = useStore();
   const { toast } = useAdminUi();
   const session = loadSession();
+  const today = todayIso();
+  const words = useStampWords();
 
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
@@ -88,8 +91,41 @@ export default function Users() {
     { key: 'disabled', label: 'disabled', value: (u) => String(u.disabled) },
   ];
 
+  /**
+   * The three narrowings this registry carries, declared once (م5). It exported without a stamp:
+   * an access register filtered to one role, in one company, downloaded as a file indistinguishable
+   * from the whole directory — the one document where «who else has this?» is the entire question.
+   *
+   * `__conflict` is a real narrowing even though it is not a company, so it is named as one rather
+   * than printed as a raw sentinel.
+   */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    role: {
+      label: t('reg.stamp.dim.role'),
+      value: (v) => (v === 'disabled' ? t('access.disabledFilter') : t(`roles.names.${roleKey(v as ApiRole)}`)),
+    },
+    scope: {
+      label: t('reg.stamp.dim.userScope'),
+      value: (v) => {
+        if (v === '__central') return t('access.scopeCentral');
+        if (v === '__conflict') return t('access.scopeConflict');
+        const o = state.operators.find((x) => x.id === v);
+        return o ? (lang === 'ar' ? o.name : o.nameEn ?? o.name) : v;
+      },
+    },
+  };
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (roleFilter) p.set('role', roleFilter);
+    if (scope) p.set('scope', scope);
+    return p;
+  }, [q, qn, roleFilter, scope]);
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+
   const doExport = () => {
-    exportCsv('masaar-access-registry', csvColumns, sorted);
+    exportCsv('masaar-access-registry', csvColumns, sorted, stamp);
     // local file export only — the server audit log will never contain this row
     toast(t('access.toastExport'));
   };
@@ -169,6 +205,9 @@ export default function Users() {
           {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
         </select>
       </div>
+
+      {/* WYSIWYG: the exact sentence the CSV will carry, readable before the file is written */}
+      <div className="reg-stamp">{stamp}</div>
 
       {users.length === 0 ? (
         <EmptyState

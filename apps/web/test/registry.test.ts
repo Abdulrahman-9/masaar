@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { buildCsv, type ReportColumn } from '../src/registry/report';
@@ -47,6 +50,96 @@ describe('buildCsv', () => {
       { key: 'b', label: 'b', value: (r) => String(r.b) },
     ];
     expect(buildCsv(cols, [{ n: 1000, b: true }])).toBe('"n","b"\n"1000","true"');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  every export call site carries a stamp — a check over SOURCE       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Three registries shipped exports with no stamp (`Approvals`, `Users`, `Operators`): a file of
+ * filtered rows carrying no sentence about the filter that produced it, which is indistinguishable
+ * from a file of the whole portfolio once it leaves the browser.
+ *
+ * `exportCsv`'s fourth parameter is now REQUIRED, so the compiler already refuses an omission —
+ * but a `stamp?: string` typed back in some future refactor would reopen the hole silently and
+ * every existing test would stay green. This check reads the SOURCE instead: it finds every call
+ * to the two writers, counts the top-level arguments, and fails on any call that stops at three.
+ * It is deliberately independent of the type signature, because the signature is the thing that
+ * could regress.
+ *
+ * `RolesMatrix.tsx` defines its own local `exportCsv` over the static capability matrix and does
+ * not import the registry writer; only real call sites of `../registry/report` are enumerated,
+ * and the enumeration itself is asserted non-empty so a rename cannot make this pass vacuously.
+ */
+function srcFiles(): string[] {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src');
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p, out);
+      else if (/\.tsx?$/.test(e.name)) out.push(p);
+    }
+    return out;
+  };
+  return walk(root);
+}
+
+/** The argument list of `fn(` at `from`, split on TOP-LEVEL commas — nested calls stay whole. */
+function argsAt(text: string, from: number): string[] {
+  let depth = 0;
+  let cur = '';
+  const args: string[] = [];
+  for (let i = from; i < text.length; i += 1) {
+    const c = text[i]!;
+    if (c === '(' || c === '[' || c === '{') depth += 1;
+    else if (c === ')' || c === ']' || c === '}') {
+      depth -= 1;
+      if (depth === 0) { args.push(cur); return args.map((a) => a.trim()).filter((a) => a !== ''); }
+    }
+    if (depth === 1 && c === ',') { args.push(cur); cur = ''; continue; }
+    if (depth >= 1) cur += c;
+  }
+  return [];
+}
+
+describe('the stamp travels with every CSV this product writes', () => {
+  const WRITERS: Record<string, number> = { exportCsv: 4, buildCsv: 3 };
+
+  const sites = srcFiles()
+    .map((f) => ({ f, text: readFileSync(f, 'utf8') }))
+    // only files that take the writers FROM the registry — a same-named local helper is not this
+    .filter(({ text }) => /import \{[^}]*\b(exportCsv|buildCsv)\b[^}]*\} from '.*registry\/report'/.test(text))
+    .flatMap(({ f, text }) => {
+      const out: { file: string; fn: string; args: string[] }[] = [];
+      for (const fn of Object.keys(WRITERS)) {
+        const re = new RegExp(`(?<![\\w.])${fn}\\s*(?:<[^;()]*>)?\\s*\\(`, 'g');
+        for (let m = re.exec(text); m; m = re.exec(text)) {
+          const open = text.indexOf('(', m.index + fn.length);
+          out.push({ file: f.replace(/\\/g, '/').split('/src/')[1]!, fn, args: argsAt(text, open) });
+        }
+      }
+      return out;
+    });
+
+  it('found the call sites at all — a rename must fail this file, not skip it', () => {
+    expect(sites.filter((s) => s.fn === 'exportCsv').length).toBeGreaterThanOrEqual(5);
+    expect(sites.filter((s) => s.fn === 'buildCsv').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('passes a stamp argument at EVERY one of them', () => {
+    const short = sites
+      .filter((s) => s.args.length < WRITERS[s.fn]!)
+      .map((s) => `${s.file}: ${s.fn}(${s.args.length} args) — no stamp`);
+    expect(short).toEqual([]);
+  });
+
+  it('never passes an empty stamp, which would be a clause that says nothing', () => {
+    const blank = sites
+      .filter((s) => /^(''|""|``|undefined|null)$/.test(s.args[WRITERS[s.fn]! - 1] ?? ''))
+      .map((s) => `${s.file}: ${s.fn} — blank stamp`);
+    expect(blank).toEqual([]);
   });
 });
 

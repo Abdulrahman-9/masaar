@@ -81,6 +81,20 @@
 .rp-bad { color: var(--status-delayed); font-weight: var(--fw-semibold); }
 
 .rp-note { margin-top: 8px; border: 1px dashed rgba(11, 19, 32, 0.3); background: var(--bg-page); border-radius: 4px; padding: 7px 12px; font-size: 10.5px; color: var(--ink-2); break-inside: avoid; }
+
+/* The stamped scope/filter/row-count line every printed page carries (request 7 + methodology م5).
+   A rule above and below rather than a filled band: on paper a tint costs toner and reads as a
+   highlight, and this sentence is provenance, not emphasis. It must never break across pages —
+   half a stamp is a document that names half its scope. */
+.rp-stamp {
+  margin-top: 10px;
+  padding-block: 6px;
+  border-block: 1px solid rgba(11, 19, 32, 0.2);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  break-inside: avoid;
+}
 .rp-conclusion { margin-top: 8px; border: 1px solid rgba(31, 122, 77, 0.45); background: var(--status-done-bg); border-radius: 4px; padding: 8px 12px; font-size: 11.5px; color: #14532D; break-inside: avoid; }
 .rp-conclusion--warn { border-color: rgba(178, 53, 53, 0.4); background: var(--status-delayed-bg); color: var(--status-delayed); }
 .rp-list { margin: 0; padding-inline-start: 20px; font-size: 12px; line-height: 2; color: var(--ink-2); }

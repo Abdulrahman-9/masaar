@@ -7,13 +7,14 @@ import { Icon } from '../operator/Icon';
 import { EmptyState } from '../registry/EmptyState';
 import { FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
 import { SectionExplainer } from '../registry/SectionExplainer';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
+import { useStampWords } from '../registry/useStampWords';
 import { currentStage, todayIso, useStore } from '../store';
 import { approvalChain, awaitingTier, ratifiedInMonth, type ApprovalRow } from './adminDerive';
 import { useAdminUi } from './AdminShell';
@@ -43,6 +44,7 @@ export default function Approvals() {
   const { toast } = useAdminUi();
   const today = todayIso();
   const tiers = state.approvalTiers;
+  const words = useStampWords();
 
   const [q, setQ] = useState('');
   /**
@@ -131,6 +133,32 @@ export default function Approvals() {
     ? [{ key: 'pending', label: t('approvals.chipPending'), count: rows.length, active: true, onRemove: () => writeHashParam('pending', null) }]
     : [];
 
+  /**
+   * The five narrowings this registry carries, declared ONCE so the exported file describes the
+   * same view the screen shows (م5). It shipped without a stamp: a chain filtered to one tier, one
+   * company and the pending gate exported as a bare table that could not be told from the whole
+   * chain. `pending` prints its value alone («بانتظار المصادقة فقط»), the reading a flag takes in
+   * Arabic — a label-less `FilterLabel` is exactly that case.
+   */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    tier: { label: t('reg.stamp.dim.tier'), value: (v) => t(`tier.pill.${v}`) },
+    pending: { label: '', value: () => t('approvals.chipPending') },
+    op: { label: t('reg.stamp.dim.op'), value: (v) => operatorName(v) ?? v },
+    field: { label: t('reg.stamp.dim.field'), value: (v) => fieldName(v) ?? v },
+  };
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (tierFilter) p.set('tier', tierFilter);
+    if (pendingOnly) p.set('pending', '1');
+    if (operatorId) p.set('op', operatorId);
+    if (fieldId) p.set('field', fieldId);
+    return p;
+    // `labels` closes over `lang` for its renderers; the PARAMS depend only on the filters
+  }, [q, qn, tierFilter, pendingOnly, operatorId, fieldId]);
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+
   const csvColumns: ReportColumn<ApprovalRow>[] = [
     { key: 'code', label: 'code', value: (r) => r.tender.code },
     { key: 'title', label: 'title', value: (r) => r.tender.title[lang] },
@@ -142,7 +170,7 @@ export default function Approvals() {
     { key: 'decision', label: 'decision', value: (r) => r.decision },
   ];
   const doExport = () => {
-    exportCsv('masaar-approval-chain', csvColumns, sorted);
+    exportCsv('masaar-approval-chain', csvColumns, sorted, stamp);
     toast(t('approvals.toastExport'));
   };
 
@@ -209,6 +237,9 @@ export default function Approvals() {
           </select>
         )}
       </div>
+
+      {/* WYSIWYG: the exact sentence the CSV will carry, readable before the file is written */}
+      <div className="reg-stamp">{stamp}</div>
 
       {chain.length === 0 ? (
         <EmptyState mode="empty">{t('approvals.emptyStore', { max: fmtMoney(tiers.operatorMaxUSD) })}</EmptyState>

@@ -7,6 +7,7 @@ import { saveSession } from '../src/session';
 import i18n from '../src/i18n';
 import { Sparkline } from '../src/charts/Sparkline';
 import { complianceSeries } from '../src/admin/dashboardDerive';
+import { allTimeSchedulePct } from '../src/admin/scheduleDerive';
 import { seedState, todayIso, type State } from '../src/store';
 
 const KEY = 'masaar-operator-v11';
@@ -72,30 +73,53 @@ describe('#/admin — the follow-up room replaces the list with counts that open
     const tiles = [...room().querySelectorAll('.ad-kpi')];
     expect(tiles).toHaveLength(7);
     const links = tiles.filter((el) => el.tagName === 'A');
-    // six of the seven count rows and open the registry holding them; none hides its affordance
-    // behind a hover, and every one of them really carries a destination
-    expect(links).toHaveLength(6);
+    // PHASE 4: all seven now carry a destination — six count rows and open the registry holding
+    // them, and the seventh (the compliance ratio) opens its decomposition, `#/admin/schedule`.
+    // None hides its affordance behind a hover, and every one really carries a destination.
+    expect(links).toHaveLength(7);
     expect(links.every((el) => el.getAttribute('href'))).toBe(true);
-    expect(links.every((el) => el.querySelector('.ad-kpi__go')?.textContent?.includes('افتح السجل مصفّى'))).toBe(true);
+    const counting = links.filter((el) => el.getAttribute('href') !== '#/admin/schedule');
+    expect(counting).toHaveLength(6);
+    expect(counting.every((el) => el.querySelector('.ad-kpi__go')?.textContent?.includes('افتح السجل مصفّى'))).toBe(true);
   });
 
   /**
-   * The one tile that counts NO rows. «الالتزام بالجداول» is a ratio over every stage ever
-   * closed — there is no registry that can hold «92%» — and the screen it used to point at
-   * (`#/admin/compliance`) answers §9 local content and §12.2 nominations, a different subject
-   * entirely. An affordance promising a filtered registry there was a placebo twice over.
+   * PHASE 4 — the planned CLOSURE of the phase-3 finding.
+   *
+   * «الالتزام بالجداول» is a ratio over every stage ever closed: there is no registry that can
+   * hold «92%», so in phase 3 the tile was deliberately inert and said so. It was never pointed
+   * at `#/admin/compliance`, which answers §9 local content and §12.2 nominations — a different
+   * subject entirely, and an affordance promising a filtered registry there was a placebo twice
+   * over. Client request 10 built the registry that was actually missing, so the tile links again:
+   * to `#/admin/schedule`, the DECOMPOSITION of that very percentage, unfiltered by construction.
+   * Its affordance therefore reads «افتح الامتثال الزمني» — a tile must never promise a narrowing
+   * it does not carry — and it still names the window it measures.
    */
-  it('leaves the compliance ratio a plain tile — no anchor, no affordance, and its window named', () => {
+  it('opens the compliance ratio onto its decomposition, naming the window and NOT promising a filter', () => {
     at('#/admin');
     const label = screen.getByText('الالتزام بالجداول');
-    expect(label.closest('a')).toBeNull();
-    const tile = label.closest('.ad-kpi') as HTMLElement;
-    expect(tile.tagName).toBe('DIV');
-    expect(tile.querySelector('.ad-kpi__go')).toBeNull();
-    // what replaces the affordance: the window the percentage measures
+    const tile = label.closest('a') as HTMLAnchorElement;
+    expect(tile).toBeTruthy();
+    expect(tile.getAttribute('href')).toBe('#/admin/schedule');
+    // the window the percentage measures is still stated — a destination did not replace it
     expect(tile.querySelector('.ad-kpi__win')?.textContent).toBe('منذ البداية');
-    // and no tile anywhere still points at the legacy §9 screen
+    // and the affordance does NOT claim a filtered registry, because the destination is unfiltered
+    const go = tile.querySelector('.ad-kpi__go')?.textContent ?? '';
+    expect(go).toContain('افتح الامتثال الزمني');
+    expect(go).not.toContain('افتح السجل مصفّى');
+    // no tile anywhere points at the legacy §9 screen — the two subjects stay separate
     expect(room().querySelector('a[href="#/admin/compliance"]')).toBeNull();
+
+    /*
+     * PHASE-4 FIX — «decomposition» has to be arithmetic, not a hyperlink.
+     *
+     * The destination used to compute its own compliance figure over its own population, so the
+     * tile linked to a number that did not decompose this one. Both surfaces now call
+     * `allTimeSchedulePct`, and this asserts the tile prints THAT — the cross-screen half is
+     * pinned in phase4Screens.test.tsx, which compares the two rendered figures directly.
+     */
+    expect(tile.querySelector('.ad-kpi__v')?.textContent)
+      .toBe(`${allTimeSchedulePct(seedState())}%`);
   });
 
   it('puts the month-by-month strip directly after the tile row, so the trend sits beside the ratio', () => {
@@ -204,8 +228,11 @@ describe('the per-company bars (request 1)', () => {
     expect(screen.getByText('AH-DRL-0212')).toBeTruthy();
     expect(screen.queryByText('BD-MNT-0098')).toBeNull();
 
-    const chip = screen.getByText(/الشركة: شركة نفط الواحة الصينية/);
-    fireEvent.click(within(chip.closest('.reg-chip') as HTMLElement).getByRole('button'));
+    // PHASE 4: the narrowing is printed TWICE on purpose — once as the dismissable chip, once in
+    // the export stamp that the CSV and the printed page will carry. Select the chip explicitly.
+    const chip = document.querySelector('.reg-chip') as HTMLElement;
+    expect(chip.textContent).toContain('الشركة: شركة نفط الواحة الصينية');
+    fireEvent.click(within(chip).getByRole('button'));
     act(() => { window.dispatchEvent(new Event('hashchange')); });
     // dismissing widens the registry AND rewrites the address, so the two never drift apart
     expect(window.location.hash).toBe('#/admin/tenders');
@@ -267,7 +294,12 @@ describe('the company detail (request 2)', () => {
     expect(link.getAttribute('href')).toBe('#/admin/operators?op=op-geojade');
 
     follow('#/admin/operators?op=op-geojade');
-    expect(screen.getByText(/الشركة: جيو-جاد الصينية/)).toBeTruthy();
+    // PHASE-4 FIX: it now appears TWICE — the standing chip that widens the registry, and the
+    // export stamp that will travel into the CSV. This registry used to export with no stamp at
+    // all, so a one-company file was byte-identical to the whole directory.
+    expect(screen.getAllByText(/الشركة: جيو-جاد الصينية/).length).toBe(2);
+    expect((document.querySelector('.reg-stamp') as HTMLElement).textContent)
+      .toContain('الشركة: جيو-جاد الصينية');
     expect(screen.queryByText('شركة نفط الواحة الصينية')).toBeNull();
   });
 
@@ -295,8 +327,11 @@ describe('the contracts registry (request 12c)', () => {
     expect(screen.getByText('AH-CON-0188')).toBeTruthy();
     expect(screen.queryByText('EB-CON-0176')).toBeNull();
     // the chip prints the range the bucket actually HOLDS — the key '25-50' is a half-open
-    // machine name, and «25–50%» beside a «0–25%» column claims 25% for both
-    expect(screen.getByText(/نسبة الإنجاز: 25–49%/)).toBeTruthy();
+    // machine name, and «25–50%» beside a «0–25%» column claims 25% for both. PHASE 4: it appears
+    // twice, in the chip and in the export stamp, which is exactly the WYSIWYG promise.
+    expect(screen.getAllByText(/نسبة الإنجاز: 25–49%/).length).toBe(2);
+    expect((document.querySelector('.reg-stamp') as HTMLElement).textContent)
+      .toContain('نسبة الإنجاز: 25–49%');
   });
 
   it('honours the `?stage=` deep link the «عقود في مرحلة التنفيذ» tile carries', () => {
@@ -329,7 +364,8 @@ describe('#/admin/tenders — the counted queues open exactly what they counted'
     at('#/admin/tenders?status=open');
     for (const code of ['AH-DRL-0212', 'BD-MNT-0098', 'MN-EPC-0305', 'B7-FAC-0331'])
       expect(screen.getByText(code)).toBeTruthy();
-    expect(screen.getByText(/مفتوحة \(لم تُنجَز بعد\)/)).toBeTruthy();
+    // the chip AND the export stamp both name it (phase 4) — the file will say what the screen says
+    expect(screen.getAllByText(/مفتوحة \(لم تُنجَز بعد\)/).length).toBe(2);
   });
 
   it('`?pending=1` lists only the request awaiting ratification', () => {

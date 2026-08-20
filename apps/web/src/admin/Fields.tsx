@@ -1,5 +1,5 @@
 import { contractFinancialAuthority, serviceContractEffective } from '@masaar/scpp-rules';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiMode } from '../config';
 import { fmtCount, fmtMoney } from '../operator/derive';
@@ -8,14 +8,16 @@ import { Icon } from '../operator/Icon';
 import { DevBadge } from '../operator/DevBadge';
 import { activeTendersOfField, fieldArchivable, govReasonValid, todayIso, useStore, aboveOwnFA, type Field, type ServiceContract } from '../store';
 import { EmptyState } from '../registry/EmptyState';
-import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { activeFilterChips, FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
+import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
-import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
+import { useFilterParams, type ArchiveView } from '../registry/useHashParams';
+import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
 import { roleKey } from './access';
 import { Modal } from './Modal';
@@ -32,9 +34,6 @@ interface FieldRow {
   active: number;
 }
 
-/** 'live' = the working registry (default), 'archived' = withdrawn records, '' = both. */
-type ArchiveFilter = 'live' | 'archived' | '';
-
 /**
  * The oil fields (spec §1) and their Service Contracts — the source of every field's Financial
  * Authority (§7.1). This is where FA is actually edited (per contract), and where a new operator
@@ -47,21 +46,24 @@ export default function Fields() {
   const { toast } = useAdminUi();
   const session = loadSession();
   const isSuper = session?.role === 'SUPER_ADMIN';
+  const today = todayIso();
+  const words = useStampWords();
 
   const [q, setQ] = useState('');
   /**
    * The `?op=` deep link. THE FIX (§5-ج): this used to be `useState(opParam())` — read once at
    * mount — so following a link that changed only the query string left the table exactly where
-   * it was. The hook makes it state that re-syncs on every `hashchange`, and the select writes
-   * the hash back, so the address bar and the screen are the same fact and the URL stays
+   * it was. `useFilterParams` makes it state that re-syncs on every `hashchange`, and the select
+   * writes the hash back, so the address bar and the screen are the same fact and the URL stays
    * shareable. An id the store does not know filters nothing rather than emptying the registry.
+   *
+   * Request 7 put the ARCHIVE side (ق7) in the address beside it. An absent `?arch=` means `live`
+   * — the working registry — which is a real narrowing, so the stamp names it even when the
+   * address is silent: an all-live export and an all-archived export otherwise look identical.
    */
-  const params = useHashParams();
-  const opParam = hashParam(params, 'op', state.operators.map((o) => o.id));
-  const [opFilter, setOpFilter] = useState(opParam);
-  useEffect(() => { setOpFilter(opParam); }, [opParam]);
-  const setOp = (id: string) => { setOpFilter(id); writeHashParam('op', id || null); };
-  const [arch, setArch] = useState<ArchiveFilter>('live');
+  const f = useFilterParams();
+  const opFilter = f.get('op', state.operators.map((o) => o.id));
+  const arch = (f.get('arch') || 'live') as ArchiveView;
   const [dialog, setDialog] = useState<
     | null
     | { kind: 'add' }
@@ -95,6 +97,7 @@ export default function Fields() {
   const filtered = useMemo(() => allRows.filter((r) => {
     if (arch === 'live' && r.f.archived) return false;
     if (arch === 'archived' && !r.f.archived) return false;
+    // 'all' widens: both sides of the archive, the archived rows visibly muted
     if (opFilter && r.f.operatorId !== opFilter) return false;
     if (qn && !(r.f.name.toLowerCase().includes(qn) || (r.f.nameEn ?? '').toLowerCase().includes(qn) || r.f.code.toLowerCase().includes(qn))) return false;
     return true;
@@ -104,8 +107,23 @@ export default function Fields() {
   const chips: FilterChip[] = [
     { key: 'live', label: t('fields.chipLive'), count: allRows.length - archivedCount, active: arch === 'live' },
     { key: 'archived', label: t('fields.chipArchived'), count: archivedCount, active: arch === 'archived', title: t('fields.archivedNote') },
-    { key: '', label: t('fields.chipAll'), count: allRows.length, active: arch === '' },
+    { key: 'all', label: t('fields.chipAll'), count: allRows.length, active: arch === 'all' },
   ];
+
+  /** ONE declaration of every narrowing — the chips and the export/print stamp read the same map. */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    op: { label: t('reg.stamp.dim.op'), value: (id) => opName(id) },
+    arch: { label: t('reg.stamp.dim.arch'), value: (v) => t(`fields.chip${v === 'live' ? 'Live' : v === 'archived' ? 'Archived' : 'All'}`) },
+  };
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (opFilter) p.set('op', opFilter);
+    // always stamped: `live` is the DEFAULT view and still a real narrowing of the registry
+    p.set('arch', arch);
+    return p;
+  }, [q, qn, opFilter, arch]);
 
   const compare = useMemo(() => ({
     name: arCompare<FieldRow>((r) => (lang === 'ar' ? r.f.name : r.f.nameEn ?? r.f.name)),
@@ -129,10 +147,21 @@ export default function Fields() {
    * WYSIWYG export (design principle 4): the rows are the sorted+filtered rows on screen, so the
    * FILE has to say which scope it holds. The archive chip is the one filter a reader cannot infer
    * from the rows themselves — an all-live export and an all-archived export both look like «the
-   * registry» — so the default filename carries it: masaar-fields-live / -archived / -all.
+   * registry» — so the filename carries it (masaar-fields-live / -archived / -all) AND the stamp
+   * on the file's first line spells out every narrowing in words, with the row count and the date.
    */
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+  const activeChips = activeFilterChips(stampParams, labels, lang, (name) => {
+    if (name === 'q') setQ('');
+    else if (name === 'arch') f.set('arch', 'all');
+    else f.set('op', '');
+  });
+  // «أزل كل المرشّحات» widens to BOTH sides of the archive: the default `live` view is itself a
+  // narrowing, and a registry whose fields are all archived would otherwise still read as empty.
+  const clearFilters = () => { setQ(''); f.clear({ arch: 'all' }); };
+
   const doExport = () => {
-    exportCsv(`masaar-fields-${arch === '' ? 'all' : arch}`, csvColumns, sorted);
+    exportCsv(`masaar-fields-${arch}`, csvColumns, sorted, stamp);
     toast(t('fields.toastExport'));
   };
 
@@ -166,19 +195,31 @@ export default function Fields() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('fields.searchPh')} style={{ width: 280 }} />
-        <select className="acc-scope-select" value={opFilter} onChange={(e) => setOp(e.target.value)} aria-label={t('fields.allOperators')}>
-          <option value="">{t('fields.allOperators')}</option>
-          {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
-        </select>
-        <FilterChips chips={chips} onSelect={(key) => setArch(key as ArchiveFilter)} lang={lang} />
+        <SelectFilter
+          allLabel={t('fields.allOperators')}
+          value={opFilter}
+          hideWhenEmpty
+          onChange={(v) => f.set('op', v)}
+          options={state.operators.map((o) => ({ value: o.id, label: lang === 'ar' ? o.name : o.nameEn ?? o.name }))}
+        />
+        <FilterChips chips={chips} onSelect={(key) => f.set('arch', key)} lang={lang} />
       </div>
+
+      {activeChips.length > 0 && (
+        <div className="acc-filters" style={{ marginBlock: '0 10px' }}>
+          <FilterChips chips={activeChips} onSelect={() => {}} lang={lang} />
+          <button className="op-btn-ghost" onClick={clearFilters}>{t('fields.clearFilters')}</button>
+        </div>
+      )}
+
+      <div className="reg-stamp">{stamp}</div>
 
       {state.fields.length === 0 ? (
         <EmptyState mode="empty">{t('fields.empty')}</EmptyState>
       ) : filtered.length === 0 ? (
         // the archive chip is a filter like any other: «أزل كل المرشّحات» must clear it too,
         // or a registry whose fields are all archived reads as an empty registry
-        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={() => { setQ(''); setOp(''); setArch(''); }}>{t('fields.clearFilters')}</button>}>
+        <EmptyState mode="noMatch" action={<button className="op-btn-ghost" onClick={clearFilters}>{t('fields.clearFilters')}</button>}>
           {t('fields.noMatch')}
         </EmptyState>
       ) : (

@@ -5,6 +5,8 @@ import { resolveSessionOrg } from '../orgIdentity';
 import { aboveOwnFA, calendarOf, currentStage, todayIso, useStore } from '../store';
 import { fmtCount, tenderDeviationWd } from '../operator/derive';
 import { Icon } from '../operator/Icon';
+import { reportStamp } from '../registry/report';
+import { useStampWords } from '../registry/useStampWords';
 import './report.css';
 
 export default function WeeklyDeviationReport() {
@@ -16,6 +18,7 @@ export default function WeeklyDeviationReport() {
   // a portfolio-wide report: the company is the SESSION's operating company (the scope the
   // rows were drawn from), resolved from the registries — never a literal
   const org = resolveSessionOrg(state, lang);
+  const words = useStampWords();
 
   const open = state.tenders.filter((x) => currentStage(x));
   const lateRows = state.tenders
@@ -40,6 +43,18 @@ export default function WeeklyDeviationReport() {
     { l: t('report.wk_kpiCompliance'), v: `${fmtCount(Math.round(compliance), lang)}%` },
     { l: t('report.wk_kpiMct'), v: fmtCount(inMct.length, lang) },
   ];
+
+  /**
+   * The stamp (request 7 + methodology م5). This report takes NO filters — it is the whole
+   * portfolio, all-time — so the sentence says exactly that rather than being omitted: a printed
+   * page that names no scope leaves a reader unable to tell «nothing was excluded» from «nobody
+   * said». The row count is the late table's, which is the only table the report tabulates.
+   */
+  const stamp = reportStamp({
+    params: new URLSearchParams(), labels: {}, lang,
+    rows: lateRows.length, today, words,
+    scope: t('report.wk_scope', { n: fmtCount(state.tenders.length, lang), org: org.name ?? '—' }),
+  });
 
   return (
     <div className="rp-screen">
@@ -70,6 +85,9 @@ export default function WeeklyDeviationReport() {
               </tbody>
             </table>
           </div>
+
+          {/* WYSIWYG law: the printed page carries the same stamped sentence every CSV does */}
+          <div className="rp-stamp">{stamp}</div>
 
           {/* 1 summary KPIs */}
           <div className="rp-sec rp-sec--avoid">

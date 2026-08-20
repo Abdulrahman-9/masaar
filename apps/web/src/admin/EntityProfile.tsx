@@ -96,7 +96,13 @@ export default function EntityProfile({ id }: { id: string }) {
         <div className="file-head__main">
           <div className="file-head__tags">
             <span dir="auto" style={{ fontSize: 24, fontWeight: 700 }}>{vendor.name}</span>
-            <StatusPill status={vendor.mooListed ? 'done' : 'planned'}>{vendor.mooListed ? t('vendors.mooYes') : t('vendors.mooNo')}</StatusPill>
+            {/* ق5 — the two ministry registers, told apart on the face of the file: the
+                Article-25 mark (a legal fact about the company, §9 participation) beside the
+                suppliers-list membership (C8.7 — an accepted origin route for imported materials) */}
+            {vendor.isStateCompany && <span className="ent-state" title={t('vendors.stateDef')}>{t('vendors.stateTag')}</span>}
+            <StatusPill status={vendor.mooListed ? 'done' : 'planned'} title={t('vendors.mooDef')}>
+              {vendor.mooListed ? t('vendors.mooOnList') : t('vendors.mooOffList')}
+            </StatusPill>
             <StatusPill status={STATUS_PILL[status]}>{t(`entity.status_${status}`)}</StatusPill>
             {vendor.archived && <span className="arch-pill">{t('entity.archived')}</span>}
             {status === 'banned' && vendor.banUntil && <span className="op-scpp">14.3 · {t('vendors.until')} {vendor.banUntil}</span>}

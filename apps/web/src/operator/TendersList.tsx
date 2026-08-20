@@ -3,18 +3,25 @@ import { KpiTile, StatusPill } from '@masaar/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadSession } from '../session';
-import { calendarOf, currentStage, fieldsOfOperator, liveFields, todayIso, useStore, type Tender } from '../store';
+import { calendarOf, currentStage, fieldsOfOperator, liveFields, tenderApprovalTier, todayIso, useStore, type Tender } from '../store';
 import { EmptyState } from '../registry/EmptyState';
-import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { dateRangeInverted, inDateRange, inValueRange, rangeInverted } from '../registry/filters';
+import { activeFilterChips, FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
+import { RangeFilter } from '../registry/RangeFilter';
+import { reportStamp, type FilterLabels } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
+import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { SCOPE_KEYS, useFilterParams } from '../registry/useHashParams';
+import { useStampWords } from '../registry/useStampWords';
 import { DevChip } from './DevChip';
 import {
   deriveTasks,
   fmtCount,
+  fmtMoney,
   progressPct,
   tenderDeviationWd,
   tenderStatus,
@@ -46,10 +53,28 @@ export default function TendersList() {
   const today = todayIso();
   const cal = calendarOf(state);
 
+  const words = useStampWords();
   const [q, setQ] = useState('');
-  const [method, setMethod] = useState(0);
-  const [fieldId, setFieldId] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+
+  /**
+   * The SAME declared filter set the admin registry carries (client request 7), scoped to this
+   * portal: no `?op=` — an operator's portal is its own company by definition — and the field
+   * select offers only this company's live fields. Everything else (path, tier, scope, value
+   * window, creation-date window, status) is the identical vocabulary on the identical URL
+   * contract, so an operator and an admin discussing «المناقصات فوق 5 مليون في الحفر» are looking
+   * at the same filter, and a link pasted between them means the same thing on both screens.
+   */
+  const f = useFilterParams();
+  const methodFilter = f.get('method');
+  const tierFilter = f.get('tier');
+  const scopeFilter = f.get('scope');
+  const statusFilter = f.get('status') as StatusFilter;
+  const vmin = f.get('vmin');
+  const vmax = f.get('vmax');
+  const dFrom = f.get('from');
+  const dTo = f.get('to');
+  const valueBad = rangeInverted(vmin, vmax);
+  const dateBad = dateRangeInverted(dFrom, dTo);
 
   // the field filter is scoped to the signed-in company, exactly like the request wizard
   // (RequestWizard: loadSession()?.companyId → the operator's own fields). Unscoped it listed
@@ -59,6 +84,7 @@ export default function TendersList() {
   // (AdminTenders / Approvals / Fields) deliberately keep listing them — they are the record of
   // record, and a historical tender must stay findable by the field it was raised on.
   const myFields = liveFields(fieldsOfOperator(state, loadSession()?.companyId));
+  const fieldFilter = f.get('field', myFields.map((x) => x.id));
 
   // One derived task per open tender (its current stage) → its urgency group.
   // Reused, never re-derived, so the KPI counts stay honest to deriveTasks.
@@ -69,16 +95,25 @@ export default function TendersList() {
   }, [state, today]);
 
   const qn = q.trim().toLowerCase();
-  const rows = useMemo(
+  // every dimension EXCEPT the status chips — the chip counts read off this set, so a chip never
+  // promises rows the value window, the scope or the search has already removed
+  const searched = useMemo(
     () =>
       state.tenders.filter((x) => {
         if (qn && !(`${x.title[lang]} ${x.code}`.toLowerCase().includes(qn))) return false;
-        if (method !== 0 && x.methodId !== method) return false;
-        if (fieldId && x.fieldId !== fieldId) return false;
-        if (statusFilter && tenderStatus(x, today, cal) !== statusFilter) return false;
+        if (methodFilter && x.methodId !== Number(methodFilter)) return false;
+        if (fieldFilter && x.fieldId !== fieldFilter) return false;
+        if (tierFilter && tenderApprovalTier(state, x) !== tierFilter) return false;
+        if (scopeFilter && (x.scope ?? 'OTHER') !== scopeFilter) return false;
+        if (!inValueRange(x.estimatedValueUSD, vmin, vmax)) return false;
+        if (!inDateRange(x.createdOn, dFrom, dTo)) return false;
         return true;
       }),
-    [state.tenders, qn, method, fieldId, statusFilter, lang, today],
+    [state, qn, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, lang],
+  );
+  const rows = useMemo(
+    () => (statusFilter ? searched.filter((x) => tenderStatus(x, today, cal) === statusFilter) : searched),
+    [searched, statusFilter, today],
   );
 
   // KPIs read from the filtered set — what the screen shows is what they count.
@@ -96,19 +131,56 @@ export default function TendersList() {
   const { sorted, sortKey, dir, toggle } = useTableSort(rows, compare);
   const { pageRows, page, setPage, pageSize, setPageSize, total, start, end } = usePagination(sorted, 10);
 
-  // Chip counts span every tender (one dimension of the filter), like the access registry.
-  const statusCount = (s: OpStatus) => state.tenders.filter((x) => tenderStatus(x, today, cal) === s).length;
+  // Chip counts read the set the OTHER dimensions already narrowed, so a chip never promises rows
+  // the value window or the scope has removed (request 7: «counts update»).
+  const statusCount = (s: OpStatus) => searched.filter((x) => tenderStatus(x, today, cal) === s).length;
   const filterChips: FilterChip[] = [
-    { key: '', label: t('reg.tlist.allStatus'), count: state.tenders.length, active: statusFilter === '' },
+    { key: '', label: t('reg.tlist.allStatus'), count: searched.length, active: statusFilter === '' },
     ...STATUSES.map((s) => ({ key: s, label: t(`status.${s}`), count: statusCount(s), active: statusFilter === s })),
   ];
 
-  const clearFilters = () => {
-    setQ('');
-    setMethod(0);
-    setFieldId('');
-    setStatusFilter('');
+  const fieldName = (id: string) => {
+    const x = myFields.find((y) => y.id === id);
+    return x ? (lang === 'ar' ? x.name : x.nameEn ?? x.name) : id;
   };
+  const methodName = (id: string) => {
+    const m = METHODS.find((x) => String(x.id) === id);
+    return m ? `${String(m.id).padStart(2, '0')} — ${m[lang]}` : id;
+  };
+
+  /** ONE declaration of every narrowing — the removable chips and the print stamp read the same map. */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    field: { label: t('reg.stamp.dim.field'), value: fieldName },
+    method: { label: t('reg.stamp.dim.method'), value: methodName },
+    tier: { label: t('reg.stamp.dim.tier'), value: (v) => t(`tier.pill.${v}`) },
+    scope: { label: t('reg.stamp.dim.scope'), value: (v) => t(`compliance.scope.${v}`) },
+    status: { label: t('reg.stamp.dim.status'), value: (v) => t(`status.${v}`) },
+    vmin: { label: t('reg.stamp.dim.valueFrom'), value: (v) => fmtMoney(Number(v)) },
+    vmax: { label: t('reg.stamp.dim.valueTo'), value: (v) => fmtMoney(Number(v)) },
+    from: { label: t('reg.stamp.dim.dateFrom') },
+    to: { label: t('reg.stamp.dim.dateTo') },
+  };
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (fieldFilter) p.set('field', fieldFilter);
+    if (methodFilter) p.set('method', methodFilter);
+    if (tierFilter) p.set('tier', tierFilter);
+    if (scopeFilter) p.set('scope', scopeFilter);
+    if (statusFilter) p.set('status', statusFilter);
+    if (vmin) p.set('vmin', vmin);
+    if (vmax) p.set('vmax', vmax);
+    if (dFrom) p.set('from', dFrom);
+    if (dTo) p.set('to', dTo);
+    return p;
+  }, [q, qn, fieldFilter, methodFilter, tierFilter, scopeFilter, statusFilter, vmin, vmax, dFrom, dTo]);
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+  const activeChips = activeFilterChips(stampParams, labels, lang, (name) => {
+    if (name === 'q') setQ(''); else f.set(name as 'method', '');
+  });
+
+  const clearFilters = () => { setQ(''); f.clear(); };
 
   return (
     <div className="op-page op-page--tenders">
@@ -139,42 +211,64 @@ export default function TendersList() {
           placeholder={t('reg.tlist.searchPh')}
           style={{ width: 280, marginInlineStart: 0 }}
         />
-        <FilterChips chips={filterChips} onSelect={(key) => setStatusFilter(key as StatusFilter)} lang={lang} />
-        {/* the two dimension filters travel together to the row's end, and wrap as one pair
+        <FilterChips chips={filterChips} onSelect={(key) => f.set('status', key)} lang={lang} />
+        {/* the dimension filters travel together to the row's end, and wrap as one group
             rather than leaving a single orphaned select on a line of its own */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginInlineStart: 'auto' }}>
-          <select
-            className="reg-select"
-            value={method}
-            aria-label={t('reg.tlist.allMethods')}
-            onChange={(e) => setMethod(Number(e.target.value))}
-          >
-            <option value={0}>{t('reg.tlist.allMethods')}</option>
-            {METHODS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {`${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})`}
-              </option>
-            ))}
-          </select>
+          <SelectFilter
+            allLabel={t('reg.tlist.allMethods')}
+            value={methodFilter}
+            onChange={(v) => f.set('method', v)}
+            options={METHODS.map((m) => ({ value: String(m.id), label: `${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})` }))}
+          />
           {/* filter by oil field (request 8) — THIS company's fields only, and rendered only when
               there are any: none in API mode (no /fields route) and none for a session that names
               no company. Either way the control is absent rather than offering a choice the
               account has no scope over. */}
-          {myFields.length > 0 && (
-            <select
-              className="reg-select"
-              value={fieldId}
-              aria-label={t('reg.tlist.allFields')}
-              onChange={(e) => setFieldId(e.target.value)}
-            >
-              <option value="">{t('reg.tlist.allFields')}</option>
-              {myFields.map((f) => (
-                <option key={f.id} value={f.id}>{lang === 'ar' ? f.name : f.nameEn ?? f.name}</option>
-              ))}
-            </select>
-          )}
+          <SelectFilter
+            allLabel={t('reg.tlist.allFields')}
+            value={fieldFilter}
+            hideWhenEmpty
+            onChange={(v) => f.set('field', v)}
+            options={myFields.map((x) => ({ value: x.id, label: lang === 'ar' ? x.name : x.nameEn ?? x.name }))}
+          />
+          <SelectFilter
+            allLabel={t('reg.tlist.allTiers')}
+            value={tierFilter}
+            onChange={(v) => f.set('tier', v)}
+            options={(['OPERATOR', 'JMC', 'MDOC'] as const).map((x) => ({ value: x, label: t(`tier.pill.${x}`) }))}
+          />
+          <SelectFilter
+            allLabel={t('reg.tlist.allScopes')}
+            value={scopeFilter}
+            onChange={(v) => f.set('scope', v)}
+            options={SCOPE_KEYS.map((s) => ({ value: s, label: t(`compliance.scope.${s}`) }))}
+          />
         </div>
       </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBlockEnd: 12 }}>
+        <RangeFilter
+          id="tl-val" kind="money" label={t('reg.tlist.rangeValue')}
+          min={vmin} max={vmax} inverted={valueBad}
+          onMin={(v) => f.set('vmin', v)} onMax={(v) => f.set('vmax', v)}
+        />
+        <RangeFilter
+          id="tl-date" kind="date" label={t('reg.tlist.rangeDate')}
+          min={dFrom} max={dTo} inverted={dateBad}
+          onMin={(v) => f.set('from', v)} onMax={(v) => f.set('to', v)}
+        />
+      </div>
+
+      {activeChips.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBlockEnd: 10 }}>
+          <FilterChips chips={activeChips} onSelect={() => {}} lang={lang} />
+          <button className="op-btn-ghost" onClick={clearFilters}>{t('reg.tlist.clearFilters')}</button>
+        </div>
+      )}
+
+      {/* WYSIWYG: the same sentence the printed portfolio report carries, verifiable before printing */}
+      <div className="reg-stamp">{stamp}</div>
 
       {state.tenders.length === 0 ? (
         <EmptyState mode="empty">{t('reg.tlist.emptyStore')}</EmptyState>
@@ -187,7 +281,7 @@ export default function TendersList() {
             </button>
           }
         >
-          {t('reg.tlist.noMatch')}
+          {valueBad || dateBad ? t('reg.range.invertedBody') : t('reg.tlist.noMatch')}
         </EmptyState>
       ) : (
         <>

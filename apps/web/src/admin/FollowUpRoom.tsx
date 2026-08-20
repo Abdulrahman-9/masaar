@@ -1,4 +1,3 @@
-import { scheduleCompliancePct } from '@masaar/scpp-rules';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CompanyBars } from '../charts/CompanyBars';
@@ -14,6 +13,7 @@ import { approvalChain, awaitingTier, decisionQueue } from './adminDerive';
 import {
   companyStats, complianceSeries, completionBuckets, contractsAtStage, SCOPES, tierCountsOf,
 } from './dashboardDerive';
+import { allTimeSchedulePct } from './scheduleDerive';
 import { TierPill } from './TierPill';
 
 export default function FollowUpRoom() {
@@ -33,9 +33,9 @@ export default function FollowUpRoom() {
   const chain = approvalChain(state);
   const awaitingJmc = awaitingTier(chain, 'JMC').length;
   const awaitingMdoc = awaitingTier(chain, 'MDOC').length;
-  const compliance = Math.round(
-    scheduleCompliancePct(state.tenders.flatMap((x) => x.stages.filter((s) => s.plannedTo).map((s) => ({ plannedEnd: s.plannedTo!, actualEnd: s.actualTo })))),
-  );
+  // THE SAME call `#/admin/schedule` makes for its header KPI — one predicate, two surfaces, so
+  // the tile's «open its decomposition» is a checkable claim rather than a hopeful one
+  const compliance = allTimeSchedulePct(state);
   // «مراحل متأخرة» — the same predicate `tenderStatus` uses for 'delayed', which is exactly what
   // `#/admin/tenders?status=delayed` lists. The removed «مراحل متجاوزة للمخطط» panel counted this
   // and then made the reader scroll a list; the tile counts it and opens the registry that holds it.
@@ -52,12 +52,21 @@ export default function FollowUpRoom() {
    * the «افتح السجل مصفّى» line is printed in the RESTING state, not revealed on hover: an
    * affordance that only exists under a pointer does not exist for a touch or keyboard reader.
    *
-   * «الالتزام بالجداول» is the one tile with NO destination, and that is the honest answer rather
-   * than a missing feature. It is a ratio over every stage ever closed — a percentage has no
-   * registry of rows to open, and the screen it used to point at (`#/admin/compliance`) answers a
-   * different question entirely: §9 local content and §12.2 MDOC nominations, not schedule. It
-   * therefore renders as a plain tile with no affordance line, and states the WINDOW it measures
-   * instead; the month-by-month strip immediately below decomposes the same measurement over time.
+   * «الالتزام بالجداول» — PHASE 4 CLOSURE of the phase-3 finding. It was the one tile with no
+   * destination, and that was the honest answer at the time: a ratio over every stage ever closed
+   * has no registry of rows, and the screen it used to point at (`#/admin/compliance`) answers §9
+   * local content and §12.2 nominations — a different subject entirely. Client request 10 built
+   * the registry that was missing (`#/admin/schedule`: planned against actual, request by request
+   * and contract by contract), so the tile links again — to the DECOMPOSITION, not to a filtered
+   * list, and it keeps naming the window it measures. Its affordance therefore reads «افتح
+   * الامتثال الزمني», not «افتح السجل مصفّى»: the destination is unfiltered by construction, and
+   * a tile must never promise a narrowing it does not carry.
+   *
+   * PHASE-4 FIX: «decomposition» was still only a word. This tile and that screen each computed
+   * their own compliance figure over a different population in a different window, so the link
+   * pointed at a number that did not decompose this one. `allTimeSchedulePct` is now the ONE
+   * derivation both surfaces call, and `#/admin/schedule` prints it in its header beside its own
+   * filtered windows — the same number in both places, pinned by test.
    *
    * No trend delta is emitted on any tile — the store keeps no earlier snapshot to compare
    * against, and the no-fabrication rule forbids inventing one: a «—» or a «0%» in a trend slot
@@ -67,12 +76,15 @@ export default function FollowUpRoom() {
    * the band: `?tier=JMC` alone opens the whole band including the requests already decided, which
    * is a larger set than the number printed on the tile.
    */
-  const kpis: { l: string; v: number | string; dot: string; href?: string; window?: string }[] = [
+  const kpis: { l: string; v: number | string; dot: string; href?: string; go?: string; window?: string }[] = [
     { l: t('admin.kpiOpen'), v: open.length, dot: 'var(--status-progress)', href: '#/admin/tenders?status=open' },
     { l: t('admin.kpiRatify'), v: decisions.length, dot: 'var(--status-risk)', href: '#/admin/tenders?pending=1' },
     { l: t('adroom.kpiLate'), v: late, dot: 'var(--status-delayed)', href: '#/admin/tenders?status=delayed' },
     { l: t('adroom.kpiExecuting'), v: inExecution, dot: 'var(--status-done)', href: '#/admin/contracts?stage=execute' },
-    { l: t('admin.kpiCompliance'), v: `${compliance}%`, dot: 'var(--status-done)', window: t('adroom.windowAllTime') },
+    {
+      l: t('admin.kpiCompliance'), v: `${compliance}%`, dot: 'var(--status-done)',
+      href: '#/admin/schedule', go: t('adroom.openSchedule'), window: t('adroom.windowAllTime'),
+    },
     { l: t('admin.kpiAwaitJmc'), v: awaitingJmc, dot: 'var(--tier-jmc)', href: '#/admin/approvals?tier=JMC&pending=1' },
     { l: t('admin.kpiAwaitMdoc'), v: awaitingMdoc, dot: 'var(--tier-mdoc)', href: '#/admin/approvals?tier=MDOC&pending=1' },
   ];
@@ -108,15 +120,14 @@ export default function FollowUpRoom() {
               <span className="ad-kpi__row">
                 <span className="ad-kpi__v">{typeof k.v === 'number' ? fmtCount(k.v, lang) : k.v}</span>
               </span>
-              {k.href ? (
+              {/* the window a figure covers is printed whenever it is not simply «the rows below» —
+                  the ratio tile carries BOTH: what it measures, and where its decomposition lives */}
+              {k.window && <span className="ad-kpi__win">{k.window}</span>}
+              {k.href && (
                 <span className="ad-kpi__go">
-                  {t('adroom.openFiltered')}
+                  {k.go ?? t('adroom.openFiltered')}
                   <Icon name="chevronStart" size={12} strokeWidth={2} className="op-chev-fwd" />
                 </span>
-              ) : (
-                // the same slot in the tile anatomy, saying what the figure covers instead of
-                // promising a registry it cannot open
-                <span className="ad-kpi__win">{k.window}</span>
               )}
             </>
           );

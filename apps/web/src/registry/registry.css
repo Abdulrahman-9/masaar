@@ -69,6 +69,76 @@
 }
 .reg-select:hover { background: var(--bg-muted); }
 
+/* ---- RangeFilter — one dimension, two ends (phase 4, request 7) ----
+   Framed as ONE group so it reads as a range, not as two loose inputs: the dimension label sits
+   on the inline-start edge and the two captioned ends follow it. Logical properties only, so the
+   «من» end is always the reading-start end under both directions. */
+.reg-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding-inline: 10px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+}
+.reg-range__l { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.reg-range__end { display: inline-flex; align-items: center; gap: 4px; }
+.reg-range__cap { font-size: 11px; color: var(--ink-3); }
+.reg-range__in {
+  font: inherit;
+  font-size: 12px;
+  height: 24px;
+  padding-inline: 6px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-sm);
+  background: var(--bg-page);
+  color: var(--ink-1);
+}
+/* money ends are machine-format data — an LTR island in the mono face, like every other figure */
+.reg-range__in--num { font-family: var(--font-mono); direction: ltr; text-align: end; inline-size: 104px; }
+.reg-range__in:focus-visible { outline: 2px solid var(--brand-navy-700); outline-offset: 1px; }
+/* crossed ends: the group SAYS so — «لا صفوف مطابقة» and «المدى مقلوب» are different sentences */
+.reg-range--bad { border-color: var(--status-delayed); }
+.reg-range__warn { font-size: 11.5px; color: var(--status-delayed); white-space: nowrap; }
+/* a draft the URL contract would refuse: the end says so beside itself rather than being wiped.
+   `.wz-gate` carries the refusal voice; only the inline metrics belong to this control. */
+.reg-range__bad { font-size: 11.5px; color: var(--status-delayed); white-space: nowrap; }
+
+/* ---- ق5 — the Article-25 mark ----
+   Navy, because membership of the five government companies is a legal FACT about the company, not
+   a status that can change with behaviour: the closed semantic status vocabulary
+   (planned/progress/done/risk/delayed/blocked) would have mis-read it as one. Lives on the registry
+   layer because BOTH portals show it — the entity registry and the operator's bidder picker. */
+.ent-state {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding-inline: 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  background: var(--brand-navy-50);
+  color: var(--brand-navy-800);
+  border: 1px solid var(--brand-navy-100);
+}
+
+/* ---- the export/print stamp (phase 4, request 7 + methodology م5) ----
+   A quiet monospace-free band under the head: it repeats, on screen, the exact sentence the CSV
+   and the printed page carry, so a reader can verify the claim before exporting. */
+.reg-stamp {
+  font-size: 12px;
+  line-height: var(--lh-loose);
+  color: var(--ink-3);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  padding: 7px 12px;
+  margin-block-start: 10px;
+}
+
 /* ---- SectionExplainer — the collapsed «ما هذا القسم؟» strip ----
    A quiet paper band, not a card: it explains the screen it sits under and must never
    compete with the registry itself. Closed by default; the caret is the only motion. */

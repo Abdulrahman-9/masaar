@@ -1,6 +1,7 @@
 import { isLateBidByDate, vendorEligible } from '@masaar/scpp-rules';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MinistryListsExplainer } from '../admin/MinistryLists';
 import { Modal } from '../admin/Modal';
 import { SearchBox } from '../registry/SearchBox';
 import { bidClosingAt, calendarOf, currentStage, todayIso, useStore, type Tender, type VendorState } from '../store';
@@ -176,6 +177,11 @@ export default function BidderAddDialog({ tender, onClose }: { tender: Tender; o
         className="bidderadd-search"
       />
 
+      {/* ق5 — the picker shows BOTH ministry registers on its rows (the Article-25 five, and the
+          suppliers list), so the disclosure that tells them apart travels with it. Collapsed:
+          the registry is the subject, the definitions are one click away. */}
+      <MinistryListsExplainer />
+
       <div className="bidderadd-list" aria-label={t('bidderadd.registryLabel')}>
         {vendors.length === 0 && <div className="bidderadd-empty">{t('bidderadd.noMatch')}</div>}
         {vendors.map((v) => {
@@ -200,6 +206,11 @@ export default function BidderAddDialog({ tender, onClose }: { tender: Tender; o
               <Icon name="building" size={15} />
               <span className="bidderadd-row__name" dir="auto">
                 {v.name}
+                {/* ق5 — the Article-25 five are marked ON THE NAME: whether this bidder counts
+                    toward §9 participation is a property of the company, not of its capability */}
+                {v.isStateCompany && (
+                  <span className="ent-state" style={{ marginInlineStart: 8 }} title={t('vendors.stateDef')}>{t('vendors.stateTag')}</span>
+                )}
               </span>
               {disabled ? (
                 <span className="bidderadd-row__note">
@@ -209,7 +220,7 @@ export default function BidderAddDialog({ tender, onClose }: { tender: Tender; o
               ) : on ? (
                 <Icon name="check" size={15} strokeWidth={2} />
               ) : v.mooListed ? (
-                <span className="bidderadd-row__moo">{t('bidderadd.moo')}</span>
+                <span className="bidderadd-row__moo" title={t('vendors.mooDef')}>{t('bidderadd.moo')}</span>
               ) : null}
             </button>
           );

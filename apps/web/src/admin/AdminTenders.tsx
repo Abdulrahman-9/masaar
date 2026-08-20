@@ -1,21 +1,25 @@
 import { METHODS, stageByKey } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DevChip } from '../operator/DevChip';
-import { fmtCount, tenderDeviationWd, tenderStatus, type OpStatus } from '../operator/derive';
+import { fmtCount, fmtMoney, tenderDeviationWd, tenderStatus, type OpStatus } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { PathChip } from '../operator/PathChip';
 import { EmptyState } from '../registry/EmptyState';
-import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { inDateRange, inValueRange, rangeInverted, dateRangeInverted } from '../registry/filters';
+import { activeFilterChips, FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { RangeFilter } from '../registry/RangeFilter';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
+import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
-import { hashParam, useHashParams, writeHashParam } from '../registry/useHashParams';
-import { calendarOf, currentStage, todayIso, useStore, type Tender } from '../store';
+import { SCOPE_KEYS, useFilterParams } from '../registry/useHashParams';
+import { calendarOf, currentStage, tenderApprovalTier, todayIso, useStore, type Tender } from '../store';
+import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
 import { pendingRatification } from './adminDerive';
 
@@ -37,42 +41,49 @@ export default function AdminTenders() {
   const { toast } = useAdminUi();
   const today = todayIso();
   const cal = calendarOf(state);
+  const words = useStampWords();
 
   const [q, setQ] = useState('');
-  const [method, setMethod] = useState(0);
-  const [fieldId, setFieldId] = useState('');
 
   /**
-   * The URL contract (§5-ج). Every clickable statistic in the follow-up room — a KPI tile, a
-   * company bar — lands here, and it lands on a registry that is often the screen the reader is
-   * already looking at. Reading these once at mount (the defect this wave fixes) would leave the
-   * table unchanged; `useHashParams` re-reads them on every `hashchange`.
+   * The URL contract (§5-ج), now carrying the whole toolbar (client request 7). Every clickable
+   * statistic in the follow-up room lands here — often on the screen the reader is already looking
+   * at — and every control on this screen writes back, so the address, the table, the counts, the
+   * chips and the export stamp are one fact. Reading these once at mount (the defect phase 3 fixed)
+   * would leave the table unchanged; `useFilterParams` re-reads them on every `hashchange`.
    */
-  const params = useHashParams();
-  const opParam = hashParam(params, 'op', state.operators.map((o) => o.id));
-  const statusParam = hashParam(params, 'status') as StatusFilter;
-  const pendingParam = hashParam(params, 'pending') === '1';
+  const f = useFilterParams();
+  const opFilter = f.get('op', state.operators.map((o) => o.id));
+  const fieldFilter = f.get('field', state.fields.map((x) => x.id));
+  const methodFilter = f.get('method');
+  const tierFilter = f.get('tier');
+  const scopeFilter = f.get('scope');
+  const statusFilter = f.get('status') as StatusFilter;
+  const pendingParam = f.get('pending') === '1';
+  const vmin = f.get('vmin');
+  const vmax = f.get('vmax');
+  const dFrom = f.get('from');
+  const dTo = f.get('to');
 
-  const [opFilter, setOpFilter] = useState(opParam);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(statusParam);
-  useEffect(() => { setOpFilter(opParam); }, [opParam]);
-  useEffect(() => { setStatusFilter(statusParam); }, [statusParam]);
-  const setOp = (id: string) => { setOpFilter(id); writeHashParam('op', id || null); };
-  // choosing a status by hand supersedes the one the link brought, so the hash follows the choice
-  const setStatus = (v: StatusFilter) => { setStatusFilter(v); writeHashParam('status', v || null); };
+  const valueBad = rangeInverted(vmin, vmax);
+  const dateBad = dateRangeInverted(dFrom, dTo);
 
   const qn = q.trim().toLowerCase();
 
-  // Company + method + field + free-text search + the pending gate, before the status chip
-  // narrows further — the chip counts read off this set.
+  // Every dimension EXCEPT the status chips, so the chip counts read off this set — a chip never
+  // promises rows the value window or the search has already removed.
   const searched = useMemo(() => state.tenders.filter((tn) => {
     if (opFilter && tn.operatorId !== opFilter) return false;
-    if (method !== 0 && tn.methodId !== method) return false;
-    if (fieldId && tn.fieldId !== fieldId) return false;
+    if (methodFilter && tn.methodId !== Number(methodFilter)) return false;
+    if (fieldFilter && tn.fieldId !== fieldFilter) return false;
+    if (tierFilter && tenderApprovalTier(state, tn) !== tierFilter) return false;
+    if (scopeFilter && (tn.scope ?? 'OTHER') !== scopeFilter) return false;
+    if (!inValueRange(tn.estimatedValueUSD, vmin, vmax)) return false;
+    if (!inDateRange(tn.createdOn, dFrom, dTo)) return false;
     if (pendingParam && !pendingRatification(tn)) return false;
     if (qn && !(`${tn.code} ${tn.title.ar} ${tn.title.en}`.toLowerCase().includes(qn))) return false;
     return true;
-  }), [state.tenders, opFilter, method, fieldId, pendingParam, qn]);
+  }), [state, opFilter, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, pendingParam, qn]);
 
   const rows = useMemo(
     () => (statusFilter
@@ -86,6 +97,7 @@ export default function AdminTenders() {
   // Tri-state sort — title is Arabic-collated; deviation sorts by signed working days.
   const compare = useMemo(() => ({
     tender: arCompare<Tender>((tn) => tn.title[lang]),
+    value: (a: Tender, b: Tender) => a.estimatedValueUSD - b.estimatedValueUSD,
     deviation: (a: Tender, b: Tender) => tenderDeviationWd(a, today, cal) - tenderDeviationWd(b, today, cal),
   }), [lang, today]);
   const { sorted, sortKey, dir, toggle } = useTableSort(rows, compare);
@@ -106,13 +118,56 @@ export default function AdminTenders() {
     const o = state.operators.find((x) => x.id === id);
     return o ? (lang === 'ar' ? o.name : o.nameEn ?? o.name) : id;
   };
+  const fieldName = (id: string) => {
+    const x = state.fields.find((y) => y.id === id);
+    return x ? (lang === 'ar' ? x.name : x.nameEn ?? x.name) : id;
+  };
+  const methodName = (id: string) => {
+    const m = METHODS.find((x) => String(x.id) === id);
+    return m ? `${String(m.id).padStart(2, '0')} — ${m[lang]}` : id;
+  };
 
   /**
-   * The chips: the four statuses as toggles, plus a STANDING chip for each filter the URL brought
-   * in. The standing chips carry their own dismiss, and dismissing rewrites the hash — so the
-   * reader always sees why the registry is short, can widen it in one click, and the address bar
-   * never describes a screen other than the one on it.
+   * ONE declaration of every narrowing this screen can hold, in reading order. It drives the
+   * removable chips AND the export/print stamp, so the registry cannot show a filter it does not
+   * print, nor print one it does not show (design principle 4).
    */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    op: { label: t('reg.stamp.dim.op'), value: operatorName },
+    field: { label: t('reg.stamp.dim.field'), value: fieldName },
+    method: { label: t('reg.stamp.dim.method'), value: methodName },
+    tier: { label: t('reg.stamp.dim.tier'), value: (v) => t(`tier.pill.${v}`) },
+    scope: { label: t('reg.stamp.dim.scope'), value: (v) => t(`compliance.scope.${v}`) },
+    status: { label: t('reg.stamp.dim.status'), value: (v) => (v === 'open' ? t('reg.atenders.chipOpen') : t(`status.${v}`)) },
+    pending: { label: '', value: () => t('reg.atenders.chipPending') },
+    vmin: { label: t('reg.stamp.dim.valueFrom'), value: (v) => fmtMoney(Number(v)) },
+    vmax: { label: t('reg.stamp.dim.valueTo'), value: (v) => fmtMoney(Number(v)) },
+    from: { label: t('reg.stamp.dim.dateFrom') },
+    to: { label: t('reg.stamp.dim.dateTo') },
+  };
+
+  /** The EFFECTIVE filter state — including the search box, which lives in local state so a
+   *  keystroke does not push a history entry, but which narrows the rows exactly like the rest. */
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (opFilter) p.set('op', opFilter);
+    if (fieldFilter) p.set('field', fieldFilter);
+    if (methodFilter) p.set('method', methodFilter);
+    if (tierFilter) p.set('tier', tierFilter);
+    if (scopeFilter) p.set('scope', scopeFilter);
+    if (statusFilter) p.set('status', statusFilter);
+    if (pendingParam) p.set('pending', '1');
+    if (vmin) p.set('vmin', vmin);
+    if (vmax) p.set('vmax', vmax);
+    if (dFrom) p.set('from', dFrom);
+    if (dTo) p.set('to', dTo);
+    return p;
+  }, [q, qn, opFilter, fieldFilter, methodFilter, tierFilter, scopeFilter, statusFilter, pendingParam, vmin, vmax, dFrom, dTo]);
+
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+
   const statusChips: FilterChip[] = [
     { key: '', label: t('reg.atenders.allStatus'), count: searched.length, active: statusFilter === '' },
     ...STATUS_ORDER.map((s) => ({
@@ -122,23 +177,22 @@ export default function AdminTenders() {
       active: statusFilter === s,
     })),
   ];
-  const linkChips: FilterChip[] = [
-    ...(statusFilter === 'open'
-      ? [{ key: 'st-open', label: t('reg.atenders.chipOpen'), count: rows.length, active: true, onRemove: () => setStatus('') }]
-      : []),
-    ...(opFilter
-      ? [{ key: 'op', label: t('reg.atenders.chipOp', { name: operatorName(opFilter) }), count: rows.length, active: true, onRemove: () => setOp('') }]
-      : []),
-    ...(pendingParam
-      ? [{ key: 'pending', label: t('reg.atenders.chipPending'), count: rows.length, active: true, onRemove: () => writeHashParam('pending', null) }]
-      : []),
-  ];
+  /** Every ACTIVE dimension, each carrying its own dismiss — «q» clears the box, the rest the hash. */
+  const activeChips = activeFilterChips(stampParams, labels, lang, (name) => {
+    if (name === 'q') setQ(''); else f.set(name as 'op', '');
+  });
 
   // One column contract drives the table read-out and the CSV — the export is exactly the sorted, filtered view.
   const csvColumns: ReportColumn<Tender>[] = [
     { key: 'code', label: 'code', value: (tn) => tn.code },
     { key: 'title', label: 'title', value: (tn) => tn.title[lang] },
+    { key: 'operator', label: 'operator', value: (tn) => (tn.operatorId ? operatorName(tn.operatorId) : '') },
+    { key: 'field', label: 'field', value: (tn) => (tn.fieldId ? fieldName(tn.fieldId) : '') },
     { key: 'method', label: 'method', value: (tn) => tn.methodId },
+    { key: 'scope', label: 'scope', value: (tn) => tn.scope ?? 'OTHER' },
+    { key: 'estimatedValueUSD', label: 'estimatedValueUSD', value: (tn) => tn.estimatedValueUSD, format: 'money', total: true },
+    { key: 'tier', label: 'tier', value: (tn) => tenderApprovalTier(state, tn) },
+    { key: 'createdOn', label: 'createdOn', value: (tn) => tn.createdOn, format: 'date' },
     { key: 'stage', label: 'stage', value: (tn) => currentStage(tn)?.key ?? 'completed' },
     { key: 'status', label: 'status', value: (tn) => tenderStatus(tn, today, cal) },
     { key: 'deviationWd', label: 'deviationWd', value: (tn) => tenderDeviationWd(tn, today, cal) },
@@ -146,17 +200,11 @@ export default function AdminTenders() {
   ];
 
   const doExport = () => {
-    exportCsv('masaar-tenders-registry', csvColumns, sorted);
+    exportCsv('masaar-tenders-registry', csvColumns, sorted, stamp);
     toast(t('reg.atenders.toastExport'));
   };
 
-  const clearFilters = () => {
-    setQ(''); setMethod(0); setFieldId(''); setStatusFilter(''); setOpFilter('');
-    // one hash rewrite for the three link-borne filters — «أزل كل المرشّحات» has to clear the
-    // address too, or the next render re-seeds the filters it just cleared
-    const h = window.location.hash;
-    window.location.hash = h.includes('?') ? h.slice(0, h.indexOf('?')) : h;
-  };
+  const clearFilters = () => { setQ(''); f.clear(); };
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -186,51 +234,72 @@ export default function AdminTenders() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.atenders.searchPh')} style={{ width: 280 }} />
-        <FilterChips chips={statusChips} onSelect={(key) => setStatus(key as StatusFilter)} lang={lang} />
-        {linkChips.length > 0 && <FilterChips chips={linkChips} onSelect={() => {}} lang={lang} />}
+        <FilterChips chips={statusChips} onSelect={(key) => f.set('status', key)} lang={lang} />
         {/* filter by operating company — the destination every per-company chart row lands on */}
-        {state.operators.length > 0 && (
-          <select
-            className="op-filter-select"
-            value={opFilter}
-            aria-label={t('fields.allOperators')}
-            onChange={(e) => setOp(e.target.value)}
-          >
-            <option value="">{t('fields.allOperators')}</option>
-            {state.operators.map((o) => <option key={o.id} value={o.id}>{lang === 'ar' ? o.name : o.nameEn ?? o.name}</option>)}
-          </select>
-        )}
-        {/* filter by the named procurement path (§11), not a bare id nobody memorises */}
-        <select
-          className="op-filter-select"
-          value={method}
-          aria-label={t('admin.allMethods')}
-          onChange={(e) => setMethod(Number(e.target.value))}
-        >
-          <option value={0}>{t('admin.allMethods')}</option>
-          {METHODS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {`${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})`}
-            </option>
-          ))}
-        </select>
+        <SelectFilter
+          allLabel={t('fields.allOperators')}
+          value={opFilter}
+          hideWhenEmpty
+          onChange={(v) => f.set('op', v)}
+          options={state.operators.map((o) => ({ value: o.id, label: lang === 'ar' ? o.name : o.nameEn ?? o.name }))}
+        />
         {/* Filter by oil field (client request 8): the portfolio is read field by field, and the
             field registry is empty in API mode — an empty select is a control with nothing to
             choose, so it is simply not rendered. */}
-        {state.fields.length > 0 && (
-          <select
-            className="op-filter-select"
-            value={fieldId}
-            aria-label={t('approvals.allFields')}
-            onChange={(e) => setFieldId(e.target.value)}
-          >
-            <option value="">{t('approvals.allFields')}</option>
-            {state.fields.map((f) => (
-              <option key={f.id} value={f.id}>{lang === 'ar' ? f.name : f.nameEn ?? f.name}</option>
-            ))}
-          </select>
-        )}
+        <SelectFilter
+          allLabel={t('approvals.allFields')}
+          value={fieldFilter}
+          hideWhenEmpty
+          onChange={(v) => f.set('field', v)}
+          options={state.fields.map((x) => ({ value: x.id, label: lang === 'ar' ? x.name : x.nameEn ?? x.name }))}
+        />
+        {/* filter by the named procurement path (§11), not a bare id nobody memorises */}
+        <SelectFilter
+          allLabel={t('admin.allMethods')}
+          value={methodFilter}
+          onChange={(v) => f.set('method', v)}
+          options={METHODS.map((m) => ({ value: String(m.id), label: `${String(m.id).padStart(2, '0')} — ${m[lang]} (§${m.scpp})` }))}
+        />
+        {/* request 7 — the approving body, derived from the value against the GLOBAL ladder (ق1) */}
+        <SelectFilter
+          allLabel={t('reg.atenders.allTiers')}
+          value={tierFilter}
+          onChange={(v) => f.set('tier', v)}
+          options={(['OPERATOR', 'JMC', 'MDOC'] as const).map((x) => ({ value: x, label: t(`tier.pill.${x}`) }))}
+        />
+        {/* request 7 — the §9 work scope; a request with none recorded reads as «أخرى», the same
+            default `CREATE_TENDER` applies, so the four options partition the registry exactly */}
+        <SelectFilter
+          allLabel={t('reg.atenders.allScopes')}
+          value={scopeFilter}
+          onChange={(v) => f.set('scope', v)}
+          options={SCOPE_KEYS.map((s) => ({ value: s, label: t(`compliance.scope.${s}`) }))}
+        />
       </div>
+
+      <div className="acc-filters" style={{ marginBlock: '0 12px' }}>
+        <RangeFilter
+          id="atn-val" kind="money" label={t('reg.atenders.rangeValue')}
+          min={vmin} max={vmax} inverted={valueBad}
+          onMin={(v) => f.set('vmin', v)} onMax={(v) => f.set('vmax', v)}
+        />
+        <RangeFilter
+          id="atn-date" kind="date" label={t('reg.atenders.rangeDate')}
+          min={dFrom} max={dTo} inverted={dateBad}
+          onMin={(v) => f.set('from', v)} onMax={(v) => f.set('to', v)}
+        />
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="acc-filters" style={{ marginBlock: '0 10px' }}>
+          <FilterChips chips={activeChips} onSelect={() => {}} lang={lang} />
+          <button className="op-btn-ghost" onClick={clearFilters}>{t('reg.atenders.clearFilters')}</button>
+        </div>
+      )}
+
+      {/* WYSIWYG (design principle 4): the exact sentence the CSV and the printed page will carry,
+          shown before either is produced — the reader can check the claim, not take it on trust. */}
+      <div className="reg-stamp">{stamp}</div>
 
       {state.tenders.length === 0 ? (
         <EmptyState mode="empty">{t('reg.atenders.emptyStore')}</EmptyState>
@@ -239,7 +308,7 @@ export default function AdminTenders() {
           mode="noMatch"
           action={<button className="op-btn-ghost" onClick={clearFilters}>{t('reg.atenders.clearFilters')}</button>}
         >
-          {t('reg.atenders.noMatch')}
+          {valueBad || dateBad ? t('reg.range.invertedBody') : t('reg.atenders.noMatch')}
         </EmptyState>
       ) : (
         <>
@@ -249,6 +318,7 @@ export default function AdminTenders() {
                 <tr>
                   <SortableTh label={t('tenders.colTender')} sortKey="tender" active={sortKey} dir={dir} onToggle={toggle} />
                   <th>{t('tenders.colPath')}</th>
+                  <SortableTh label={t('approvals.colValue')} sortKey="value" active={sortKey} dir={dir} onToggle={toggle} className="op-end" style={{ width: 140 }} />
                   <th>{t('tenders.colStage')}</th>
                   <th>{t('tenders.colStatus')}</th>
                   <SortableTh label={t('tenders.colDeviation')} sortKey="deviation" active={sortKey} dir={dir} onToggle={toggle} className="op-end" />
@@ -267,6 +337,7 @@ export default function AdminTenders() {
                         <div className="op-tbl__code">{tender.code}</div>
                       </td>
                       <td><PathChip id={tender.methodId} lang={lang} /></td>
+                      <td className="op-end mono">{fmtMoney(tender.estimatedValueUSD)}</td>
                       <td>{cur ? stageByKey(cur.key)?.[lang] : t('tenders.completed')}</td>
                       <td><StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill></td>
                       <td className="op-end"><DevChip wd={tenderDeviationWd(tender, today, cal)} /></td>

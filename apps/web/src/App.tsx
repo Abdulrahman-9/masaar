@@ -18,6 +18,7 @@ import Operators from './admin/Operators';
 import PathsGuide from './admin/PathsGuide';
 import Reports from './admin/Reports';
 import RolesMatrix from './admin/RolesMatrix';
+import Schedule from './admin/Schedule';
 import TenderReview from './admin/TenderReview';
 import UserProfile from './admin/UserProfile';
 import Users from './admin/Users';
@@ -292,6 +293,8 @@ function renderAdmin(hash: string, onLogout: () => void) {
   if (sub === 'roles') return <AdminShell view="roles" onLogout={onLogout}><RolesMatrix /></AdminShell>;
   if (sub === 'operators') return <AdminShell view="operators" onLogout={onLogout}><Operators /></AdminShell>;
   if (sub === 'fields') return <AdminShell view="fields" onLogout={onLogout}><Fields /></AdminShell>;
+  // request 10 — the TIME-compliance registry the follow-up room's ratio tile now opens
+  if (sub === 'schedule') return <AdminShell view="schedule" onLogout={onLogout}><Schedule /></AdminShell>;
   if (sub === 'holidays') return <AdminShell view="holidays" onLogout={onLogout}><Holidays /></AdminShell>;
   const LEGACY: Record<string, [AdminView, JSX.Element]> = {
     reports: ['reports', <Reports />],

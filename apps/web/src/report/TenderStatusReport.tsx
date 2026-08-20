@@ -5,6 +5,8 @@ import { operatorName, resolveSessionOrg } from '../orgIdentity';
 import { calendarOf, currentStage, evalStepName, expectedAwardDate, todayIso, useStore } from '../store';
 import { fmtCount, fmtMoney, stageDevWd, stageViewStatus } from '../operator/derive';
 import { Icon } from '../operator/Icon';
+import { reportStamp } from '../registry/report';
+import { useStampWords } from '../registry/useStampWords';
 import './report.css';
 
 type Mask = 'identity' | 'identityPrices' | 'full';
@@ -15,6 +17,7 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
   const { state } = useStore();
   const today = todayIso();
   const cal = calendarOf(state);
+  const words = useStampWords();
   const tender = state.tenders.find((x) => x.id === tenderId);
   // printed on an official document — the company comes from the registries, never a literal.
   // The operator is a property of THIS tender; the session's own company is only the fallback
@@ -49,6 +52,24 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
     return <span className={cls}>{wd > 0 ? t('report.late', { n: fmtCount(wd, lang) }) : t('report.early', { n: fmtCount(-wd, lang) })}</span>;
   };
   const netCls = netDev > 5 ? 'rp-dev--late5' : netDev > 0 ? 'rp-dev--late' : 'rp-dev--early';
+
+  /**
+   * The stamp (request 7 + methodology م5). This document's scope is ONE tender, and its one
+   * governing narrowing is the FAIRNESS MASK (12.4.2) — the setting that decides whether bidder
+   * names and prices are on the printed page at all. That is precisely the fact a reader holding
+   * a printout needs and cannot recover from the page: two prints of the same tender, one masked
+   * and one not, are otherwise indistinguishable documents. It is stamped as a filter because it
+   * is one — it removes information from the rows.
+   */
+  const stamp = reportStamp({
+    params: new URLSearchParams([['mask', mask]]),
+    labels: { mask: { label: t('report.maskDim'), value: (v) => t(`report.mode_${v}`) } },
+    lang,
+    rows: tender.stages.length,
+    today,
+    words,
+    scope: t('report.scopeTender', { code: tender.code }),
+  });
 
   const bidderName = (b: (typeof tender.bidders)[number], i: number) => (mask === 'full' ? b.name : t('report.bidderN', { n: fmtCount(i + 1, lang) }));
   const bidderPrice = (b: (typeof tender.bidders)[number]) => {
@@ -90,6 +111,9 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
               </tbody>
             </table>
           </div>
+
+          {/* WYSIWYG law: the printed page carries the same stamped sentence every CSV does */}
+          <div className="rp-stamp">{stamp}</div>
 
           {/* 1 basic data */}
           <div className="rp-sec rp-sec--avoid">

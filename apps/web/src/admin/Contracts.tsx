@@ -5,26 +5,27 @@ import { useTranslation } from 'react-i18next';
 import { CompletionHistogram } from '../charts/CompletionHistogram';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
-import { hashParam, useHashParams, writeHashParam, type ProgressBucket } from '../registry/useHashParams';
+import { dateRangeInverted, inDateRange, inValueRange, rangeInverted } from '../registry/filters';
+import { PROGRESS_BUCKETS, useFilterParams, type ProgressBucket } from '../registry/useHashParams';
 import { todayIso, useStore, type ContractStageKey, type ContractState } from '../store';
 import { bucketRangeLabel, completionBuckets, progressBucketOf } from './dashboardDerive';
 import { EmptyState } from '../registry/EmptyState';
-import { FilterChips, type FilterChip } from '../registry/FilterChips';
+import { activeFilterChips, FilterChips, type FilterChip } from '../registry/FilterChips';
 import { PaginationBar } from '../registry/PaginationBar';
-import { exportCsv, type ReportColumn } from '../registry/report';
+import { RangeFilter } from '../registry/RangeFilter';
+import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
+import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
+import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
-import { capHealth, contractProgress, currentStageKey, scheduleVariancePct, stageLabel, type CapHealth } from './contractDerive';
+import { CONTRACT_STAGES, capHealth, contractProgress, currentStageKey, scheduleVariancePct, stageLabel, type CapHealth } from './contractDerive';
 
 const CAP_PILL = { ok: 'done', risk: 'risk', breach: 'blocked' } as const;
 /** Best → worst, so the tri-state sort reads ok → risk → breach ascending. */
 const HEALTH_ORDER: CapHealth[] = ['ok', 'risk', 'breach'];
-
-/** '' = every tier, otherwise a single cap-health tier. */
-type TierFilter = '' | CapHealth;
 
 /** Post-award contracts registry — classified by worst cap health + lifecycle stage,
  *  each row opening the 360° contract file. Contracts are born of tender ratification;
@@ -35,37 +36,57 @@ export default function Contracts() {
   const { state } = useStore();
   const { toast } = useAdminUi();
   const today = todayIso();
+  const words = useStampWords();
 
   const [q, setQ] = useState('');
-  const [tier, setTier] = useState<TierFilter>('');
 
   const contracts = state.contracts;
 
   /**
-   * The two link-borne filters (§5-ج): `?prog=` from a histogram column — here or in the
-   * follow-up room — and `?stage=` from the «عقود في مرحلة التنفيذ» tile. Both re-sync on
-   * `hashchange`, which is what makes the histogram ON THIS SCREEN work: clicking a column
-   * changes only the query string, and a mount-only read would leave the table untouched.
+   * The whole toolbar in the address (§5-ج + client request 7). `?prog=` arrives from a histogram
+   * column — here or in the follow-up room — and `?stage=` from the «عقود في مرحلة التنفيذ» tile;
+   * request 7 added the completion bucket as a VISIBLE select over the same parameter (it was
+   * reachable only by clicking a column before), plus the value and signing-date windows. All of
+   * them re-sync on `hashchange`, which is what makes the histogram ON THIS SCREEN work: clicking
+   * a column changes only the query string, and a mount-only read would leave the table untouched.
+   *
+   * Note `health` is this screen's own cap-health chip and is deliberately NOT the ladder's
+   * `?tier=` — a contract has no approval tier, and reusing the name would let a link about
+   * approving bodies quietly re-point at variation-order caps.
    */
-  const params = useHashParams();
-  const progParam = hashParam(params, 'prog') as ProgressBucket | '';
-  const stageParam = hashParam(params, 'stage') as ContractStageKey | '';
+  const f = useFilterParams();
+  const progParam = f.get('prog') as ProgressBucket | '';
+  const stageParam = f.get('stage') as ContractStageKey | '';
+  const vmin = f.get('vmin');
+  const vmax = f.get('vmax');
+  const dFrom = f.get('from');
+  const dTo = f.get('to');
+  const [health, setHealth] = useState<'' | CapHealth>('');
 
-  const rows = useMemo(() => {
-    const qn = q.trim().toLowerCase();
-    return contracts.filter((c) => {
-      if (tier && capHealth(c) !== tier) return false;
-      if (progParam && progressBucketOf(contractProgress(c).pct) !== progParam) return false;
-      if (stageParam && currentStageKey(c) !== stageParam) return false;
-      if (qn && !(
-        c.code.toLowerCase().includes(qn) ||
-        c.contractorName.toLowerCase().includes(qn) ||
-        c.title.ar.includes(q.trim()) ||
-        c.title.en.toLowerCase().includes(qn)
-      )) return false;
-      return true;
-    });
-  }, [contracts, tier, q, progParam, stageParam]);
+  const valueBad = rangeInverted(vmin, vmax);
+  const dateBad = dateRangeInverted(dFrom, dTo);
+
+  const qn = q.trim().toLowerCase();
+  // every dimension EXCEPT the cap-health chips — the chip counts read off this set, so a chip
+  // never promises rows the value window or the search has already removed (request 7)
+  const searched = useMemo(() => contracts.filter((c) => {
+    if (progParam && progressBucketOf(contractProgress(c).pct) !== progParam) return false;
+    if (stageParam && currentStageKey(c) !== stageParam) return false;
+    if (!inValueRange(c.valueUSD, vmin, vmax)) return false;
+    if (!inDateRange(c.signedOn, dFrom, dTo)) return false;
+    if (qn && !(
+      c.code.toLowerCase().includes(qn) ||
+      c.contractorName.toLowerCase().includes(qn) ||
+      c.title.ar.includes(q.trim()) ||
+      c.title.en.toLowerCase().includes(qn)
+    )) return false;
+    return true;
+  }), [contracts, q, qn, progParam, stageParam, vmin, vmax, dFrom, dTo]);
+
+  const rows = useMemo(
+    () => (health ? searched.filter((c) => capHealth(c) === health) : searched),
+    [searched, health],
+  );
 
   // The distribution is drawn over the WHOLE registry, never over the filtered rows: a histogram
   // that redraws itself from its own selection would show one full column and three empty ones,
@@ -94,32 +115,60 @@ export default function Contracts() {
   ];
 
   const filterChips: FilterChip[] = [
-    { key: '', label: t('reg.contracts.chipAll'), count: contracts.length, active: tier === '' },
-    { key: 'ok', label: t('reg.contracts.cap_ok'), count: contracts.filter((c) => capHealth(c) === 'ok').length, active: tier === 'ok' },
-    { key: 'risk', label: t('reg.contracts.cap_risk'), count: contracts.filter((c) => capHealth(c) === 'risk').length, active: tier === 'risk' },
-    { key: 'breach', label: t('reg.contracts.cap_breach'), count: contracts.filter((c) => capHealth(c) === 'breach').length, active: tier === 'breach' },
+    { key: '', label: t('reg.contracts.chipAll'), count: searched.length, active: health === '' },
+    { key: 'ok', label: t('reg.contracts.cap_ok'), count: searched.filter((c) => capHealth(c) === 'ok').length, active: health === 'ok' },
+    { key: 'risk', label: t('reg.contracts.cap_risk'), count: searched.filter((c) => capHealth(c) === 'risk').length, active: health === 'risk' },
+    { key: 'breach', label: t('reg.contracts.cap_breach'), count: searched.filter((c) => capHealth(c) === 'breach').length, active: health === 'breach' },
   ];
-  /** The link-borne filters, each as a standing chip that rewrites the hash when dismissed. */
-  const linkChips: FilterChip[] = [
-    ...(progParam
-      // the chip prints the SAME range the histogram column does (`bucketRangeLabel`) — the key
-      // '25-50' is the machine name of a half-open bucket, not the range a reader should be shown
-      ? [{ key: 'prog', label: t('reg.contracts.chipProg', { range: bucketRangeLabel(progParam) }), count: rows.length, active: true, onRemove: () => writeHashParam('prog', null) }]
-      : []),
-    ...(stageParam
-      ? [{ key: 'stage', label: t('reg.contracts.chipStage', { stage: stageLabel(stageParam, lang) }), count: rows.length, active: true, onRemove: () => writeHashParam('stage', null) }]
-      : []),
-  ];
+
+  /** ONE declaration of every narrowing — it drives the chips and the export/print stamp alike. */
+  const labels: FilterLabels = {
+    q: { label: t('reg.stamp.dim.q') },
+    health: { label: t('reg.stamp.dim.health'), value: (v) => t(`reg.contracts.cap_${v}`) },
+    // the chip prints the SAME range the histogram column does (`bucketRangeLabel`) — the key
+    // '25-50' is the machine name of a half-open bucket, not the range a reader should be shown
+    prog: { label: t('reg.stamp.dim.prog'), value: (v) => `${bucketRangeLabel(v as ProgressBucket)}%` },
+    stage: { label: t('reg.stamp.dim.stage'), value: (v) => stageLabel(v as ContractStageKey, lang) },
+    vmin: { label: t('reg.stamp.dim.valueFrom'), value: (v) => fmtMoney(Number(v)) },
+    vmax: { label: t('reg.stamp.dim.valueTo'), value: (v) => fmtMoney(Number(v)) },
+    from: { label: t('reg.stamp.dim.signedFrom') },
+    to: { label: t('reg.stamp.dim.signedTo') },
+  };
+
+  const stampParams = useMemo(() => {
+    const p = new URLSearchParams();
+    if (qn) p.set('q', q.trim());
+    if (health) p.set('health', health);
+    if (progParam) p.set('prog', progParam);
+    if (stageParam) p.set('stage', stageParam);
+    if (vmin) p.set('vmin', vmin);
+    if (vmax) p.set('vmax', vmax);
+    if (dFrom) p.set('from', dFrom);
+    if (dTo) p.set('to', dTo);
+    return p;
+  }, [q, qn, health, progParam, stageParam, vmin, vmax, dFrom, dTo]);
+
+  const stamp = reportStamp({ params: stampParams, labels, lang, rows: sorted.length, today, words });
+
+  const activeChips = activeFilterChips(stampParams, labels, lang, (name) => {
+    if (name === 'q') setQ('');
+    else if (name === 'health') setHealth('');
+    else f.set(name as 'prog', '');
+  });
+
+  const clearFilters = () => { setQ(''); setHealth(''); f.clear(); };
 
   // One column contract drives the table and the CSV — labels stay machine field names.
   const csvColumns: ReportColumn<ContractState>[] = [
     { key: 'code', label: 'code', value: (c) => c.code },
     { key: 'title', label: 'title', value: (c) => c.title[lang] },
     { key: 'contractor', label: 'contractor', value: (c) => c.contractorName },
+    { key: 'signedOn', label: 'signedOn', value: (c) => c.signedOn, format: 'date' },
     { key: 'valueUSD', label: 'valueUSD', value: (c) => c.valueUSD, format: 'money', total: true },
     { key: 'health', label: 'health', value: (c) => capHealth(c) },
     { key: 'stage', label: 'stage', value: (c) => currentStageKey(c) ?? 'delivered' },
     { key: 'progressPct', label: 'progressPct', value: (c) => contractProgress(c).pct },
+    { key: 'scheduleVariancePct', label: 'scheduleVariancePct', value: (c) => scheduleVariancePct(c, today) },
     { key: 'voTotalUSD', label: 'voTotalUSD', value: (c) => c.voTotalUSD },
     { key: 'extensionDays', label: 'extensionDays', value: (c) => c.extensionDays },
     { key: 'ldTotalUSD', label: 'ldTotalUSD', value: (c) => c.ldTotalUSD },
@@ -127,7 +176,7 @@ export default function Contracts() {
 
   const doExport = () => {
     // exports exactly the filtered+sorted view — a local file only, never audited server-side
-    exportCsv('masaar-contracts-registry', csvColumns, sorted);
+    exportCsv('masaar-contracts-registry', csvColumns, sorted, stamp);
     toast(t('reg.contracts.toastExport'));
   };
 
@@ -172,9 +221,44 @@ export default function Contracts() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.contracts.searchPh')} style={{ width: 300 }} />
-        <FilterChips chips={filterChips} onSelect={(key) => setTier(key as TierFilter)} lang={lang} />
-        {linkChips.length > 0 && <FilterChips chips={linkChips} onSelect={() => {}} lang={lang} />}
+        <FilterChips chips={filterChips} onSelect={(key) => setHealth(key as CapHealth | '')} lang={lang} />
+        {/* request 7 — the completion bucket as a control, not only as a histogram click: the
+            same `?prog=` parameter, so the column and the select are one filter, never two */}
+        <SelectFilter
+          allLabel={t('reg.contracts.allProg')}
+          value={progParam}
+          onChange={(v) => f.set('prog', v)}
+          options={PROGRESS_BUCKETS.map((b) => ({ value: b, label: `${bucketRangeLabel(b)}%` }))}
+        />
+        <SelectFilter
+          allLabel={t('reg.contracts.allStages')}
+          value={stageParam}
+          onChange={(v) => f.set('stage', v)}
+          options={CONTRACT_STAGES.map((s) => ({ value: s.key, label: s[lang] }))}
+        />
       </div>
+
+      <div className="acc-filters" style={{ marginBlock: '0 12px' }}>
+        <RangeFilter
+          id="ctr-val" kind="money" label={t('reg.contracts.rangeValue')}
+          min={vmin} max={vmax} inverted={valueBad}
+          onMin={(v) => f.set('vmin', v)} onMax={(v) => f.set('vmax', v)}
+        />
+        <RangeFilter
+          id="ctr-date" kind="date" label={t('reg.contracts.rangeDate')}
+          min={dFrom} max={dTo} inverted={dateBad}
+          onMin={(v) => f.set('from', v)} onMax={(v) => f.set('to', v)}
+        />
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="acc-filters" style={{ marginBlock: '0 10px' }}>
+          <FilterChips chips={activeChips} onSelect={() => {}} lang={lang} />
+          <button className="op-btn-ghost" onClick={clearFilters}>{t('reg.contracts.clearFilters')}</button>
+        </div>
+      )}
+
+      <div className="reg-stamp">{stamp}</div>
 
       {contracts.length === 0 ? (
         <EmptyState
@@ -186,13 +270,9 @@ export default function Contracts() {
       ) : rows.length === 0 ? (
         <EmptyState
           mode="noMatch"
-          action={<button className="op-btn-ghost" onClick={() => {
-            setQ(''); setTier('');
-            const h = window.location.hash;
-            window.location.hash = h.includes('?') ? h.slice(0, h.indexOf('?')) : h;
-          }}>{t('reg.contracts.clearFilters')}</button>}
+          action={<button className="op-btn-ghost" onClick={clearFilters}>{t('reg.contracts.clearFilters')}</button>}
         >
-          {t('reg.contracts.noMatch')}
+          {valueBad || dateBad ? t('reg.range.invertedBody') : t('reg.contracts.noMatch')}
         </EmptyState>
       ) : (
         <>
@@ -210,7 +290,7 @@ export default function Contracts() {
               </thead>
               <tbody>
                 {pageRows.map((c) => {
-                  const health = capHealth(c);
+                  const cHealth = capHealth(c);
                   const stageKey = currentStageKey(c);
                   const prog = contractProgress(c);
                   const bondSoon = c.guarantees.some((g) => guaranteeExpiringSoon(g.expiresOn, today));
@@ -225,7 +305,7 @@ export default function Contracts() {
                       <td dir="auto">{c.contractorName}</td>
                       <td className="op-end mono">{fmtMoney(c.valueUSD)}</td>
                       <td>
-                        <StatusPill status={CAP_PILL[health]}>{t(`reg.contracts.cap_${health}`)}</StatusPill>
+                        <StatusPill status={CAP_PILL[cHealth]}>{t(`reg.contracts.cap_${cHealth}`)}</StatusPill>
                         {bondSoon && <div className="op-tbl__code" style={{ color: 'var(--status-risk)' }}>{t('reg.contracts.bondSoon')}</div>}
                       </td>
                       <td>

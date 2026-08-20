@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hashParam, useHashParams, writeHashParam } from '../src/registry/useHashParams';
+import { hashParam, isValidParamValue, useHashParams, writeHashParam } from '../src/registry/useHashParams';
 
 /**
  * The URL contract every clickable statistic in this wave lands through (§5-ج).
@@ -145,5 +145,62 @@ describe('writeHashParam — the address never disagrees with the screen', () =>
     window.location.hash = '#/admin/fields?op=op-alwaha';
     writeHashParam('op', '');
     expect(window.location.hash).toBe('#/admin/fields');
+  });
+});
+
+/**
+ * PHASE-4 FIX — the writer validates before it writes.
+ *
+ * `hashParam` has always IGNORED a value it cannot accept, so a tampered link narrows nothing. The
+ * writer had no such guard: it wrote whatever it was handed. `?vmin=notanumber` therefore reached
+ * the address bar, the reader ignored it, and the screen showed an unnarrowed registry under an
+ * address claiming a filter — a link that can be copied and sent, promising a window nobody will
+ * ever see. Read and write now share one vocabulary, so the address can only ever hold narrowings
+ * that exist.
+ */
+describe('writeHashParam validates FIRST — the address never claims a filter the reader will ignore', () => {
+  it('refuses a malformed bound and leaves the address exactly as it was', () => {
+    window.location.hash = '#/admin/tenders?op=op-alwaha';
+    expect(writeHashParam('vmin', 'notanumber')).toBe(false);
+    expect(window.location.hash).toBe('#/admin/tenders?op=op-alwaha');
+  });
+
+  it('refuses a date that the calendar does not contain, not merely one of the wrong shape', () => {
+    window.location.hash = '#/admin/tenders';
+    expect(writeHashParam('from', '2026-02-31')).toBe(false);
+    expect(writeHashParam('from', '2026-13-01')).toBe(false);
+    expect(window.location.hash).toBe('#/admin/tenders');
+    expect(writeHashParam('from', '2026-02-28')).toBe(true);
+    expect(window.location.hash).toBe('#/admin/tenders?from=2026-02-28');
+  });
+
+  it('refuses a value outside a closed vocabulary', () => {
+    window.location.hash = '#/admin/tenders';
+    expect(writeHashParam('tier', 'EVERYONE')).toBe(false);
+    expect(writeHashParam('status', 'exploded')).toBe(false);
+    expect(window.location.hash).toBe('#/admin/tenders');
+  });
+
+  it('does NOT wipe an existing good value when a bad one is offered for the same name', () => {
+    window.location.hash = '#/admin/tenders?vmin=1000000';
+    writeHashParam('vmin', 'oops');
+    // silently clearing the window would be a second lie: the reader asked for neither
+    expect(window.location.hash).toBe('#/admin/tenders?vmin=1000000');
+  });
+
+  it('still allows a REMOVAL through, whatever the current value is', () => {
+    window.location.hash = '#/admin/tenders?vmin=1000000';
+    expect(writeHashParam('vmin', null)).toBe(true);
+    expect(window.location.hash).toBe('#/admin/tenders');
+  });
+
+  it('lets record ids through — their vocabulary is the live store, which the writer cannot see', () => {
+    // the READER still refuses one the store does not know (see the whitelist tests above), so a
+    // bad id narrows nothing; failing the write here would instead break every legitimate `?op=`
+    expect(isValidParamValue('op', 'op-anything')).toBe(true);
+    expect(isValidParamValue('vmin', '5000000')).toBe(true);
+    expect(isValidParamValue('vmin', '5,000,000')).toBe(false);
+    expect(isValidParamValue('arch', 'live')).toBe(true);
+    expect(isValidParamValue('arch', 'LIVE')).toBe(false);
   });
 });

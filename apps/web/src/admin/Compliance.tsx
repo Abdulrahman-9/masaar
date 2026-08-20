@@ -2,6 +2,7 @@ import { APPROVED_ORIGINS, CRITICAL_MATERIALS, rocParticipation } from '@masaar/
 import { StatusPill } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
 import { faFor, tenderLocalContentApplies, tenderLocalContentStatus, todayIso, useStore } from '../store';
+import { MinistryListsExplainer } from './MinistryLists';
 
 /** Committees & compliance: MDOC nominations (12.2) + §9 local content (derived, never hardcoded). */
 export default function Compliance() {
@@ -69,6 +70,10 @@ export default function Compliance() {
       <section className="card">
         <h2>{tr('compliance.lcTitle')}</h2>
         <p className="hint">{tr('compliance.lcHint')}</p>
+        {/* ق5 — THIS section reads the Article-25 five (participation), and the critical-materials
+            section below reads the ministry SUPPLIERS list (C8.7 origin). One label was standing
+            for both; the disclosure states which rule reads which, with live counts. */}
+        <MinistryListsExplainer />
         {(() => {
           // §9 applies only above authority in a drilling / engineering-construction / heavy-materials
           // scope. The status is DERIVED (C2): the 20% is a proposed figure in the documents, never an

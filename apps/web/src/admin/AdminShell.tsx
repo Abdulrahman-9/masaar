@@ -14,7 +14,9 @@ export type AdminView =
   | 'room' | 'tenders' | 'contracts' | 'entities' | 'reports'
   | 'users' | 'roles' | 'operators' | 'fields' | 'holidays'
   // 'approvals' replaces the retired 'mct' view (client ق3) — the engine stays, the screen does not
-  | 'approvals' | 'compliance' | 'paths' | 'audit' | 'review';
+  // 'schedule' (request 10) is the TIME-compliance registry; 'compliance' remains the §9 local
+  // content + §12.2 nominations screen — two subjects that shared one word, never one screen
+  | 'approvals' | 'schedule' | 'compliance' | 'paths' | 'audit' | 'review';
 
 interface AdminUi { toast: (msg: string, opts?: ToastOpts) => void; }
 const AdminUiContext = createContext<AdminUi | null>(null);
@@ -40,6 +42,9 @@ const TOOLS: { view: AdminView; hash: string; icon: string }[] = [
   // 'shield' is the compliance glyph; 'lock' was free
   { view: 'roles', hash: '#/admin/roles', icon: 'lock' },
   { view: 'approvals', hash: '#/admin/approvals', icon: 'check' },
+  // schedule sits directly above §9 compliance: the two answer «هل التزمنا؟» about different
+  // things (time / local content), and the adjacency is what makes the difference readable
+  { view: 'schedule', hash: '#/admin/schedule', icon: 'clock' },
   { view: 'compliance', hash: '#/admin/compliance', icon: 'shield' },
   { view: 'paths', hash: '#/admin/paths', icon: 'chart' },
   { view: 'audit', hash: '#/admin/audit', icon: 'doc' },
