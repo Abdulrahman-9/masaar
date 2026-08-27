@@ -109,7 +109,7 @@ export default function AdminTenders() {
   const done = rows.filter((tn) => tenderStatus(tn, today, cal) === 'done').length;
   const kpis = [
     { l: t('reg.atenders.kpiTotal'), v: rows.length, tone: undefined as string | undefined },
-    { l: t('reg.atenders.kpiPending'), v: pending, tone: pending > 0 ? 'var(--brand-amber-700)' : undefined },
+    { l: t('reg.atenders.kpiPending'), v: pending, tone: pending > 0 ? 'var(--status-risk)' : undefined },
     { l: t('reg.atenders.kpiLate'), v: late, tone: late > 0 ? 'var(--status-delayed)' : undefined },
     { l: t('reg.atenders.kpiDone'), v: done, tone: done > 0 ? 'var(--status-done)' : undefined },
   ];

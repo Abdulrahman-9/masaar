@@ -25,6 +25,9 @@ const PATHS: Record<string, string> = {
   layers: 'M12 3l9 6-9 6-9-6 9-6z M3 14l9 6 9-6',
   sliders: 'M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6',
   building: 'M4 22V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v18 M15 9h4a1 1 0 0 1 1 1v12 M8 7h3 M8 11h3 M8 15h3',
+  // theme toggle (§3-د) — glyphs lifted verbatim from design-v2-ref/dashboard.dc.html
+  moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+  sun: 'M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M4.93 19.07l1.41-1.41 M17.66 6.34l1.41-1.41',
   // toast marks / dismiss
   alert: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01',
   close: 'M18 6L6 18 M6 6l12 12',
@@ -42,6 +45,8 @@ function extra(name: string): JSX.Element | null {
       return <rect x="3" y="3" width="18" height="18" rx="2" />;
     case 'lock':
       return <rect x="3" y="11" width="18" height="11" rx="2" />;
+    case 'sun':
+      return <circle cx="12" cy="12" r="4" />;
     default:
       return null;
   }

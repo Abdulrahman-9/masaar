@@ -127,7 +127,7 @@ export default function Reports() {
       <section className="card">
         <div className="lab-headlike">
           <h2>{tr('reports.briefTitle')}</h2>
-          <a className="btn btn--primary" href="#/admin/reports/update-brief">
+          <a className="op-btn-primary" href="#/admin/reports/update-brief">
             <Icon name="doc" size={14} />{tr('reports.briefOpen')}
           </a>
         </div>
@@ -138,8 +138,8 @@ export default function Reports() {
         <div className="lab-headlike">
           <h2>{tr('reports.title')}</h2>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn" onClick={exportCompliance}>{tr('reports.csv')}</button>
-            <button className="btn" onClick={() => window.print()}>{tr('reports.print')}</button>
+            <button className="op-btn-secondary" onClick={exportCompliance}>{tr('reports.csv')}</button>
+            <button className="op-btn-secondary" onClick={() => window.print()}>{tr('reports.print')}</button>
           </div>
         </div>
         <p className="hint">{tr('reports.hint')}</p>
@@ -197,7 +197,7 @@ export default function Reports() {
         <div className="lab-headlike">
           <h2>{tr('reports.vendorTitle')}</h2>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn" onClick={exportVendors} disabled={profiles.length === 0}>{tr('reports.vendorCsv')}</button>
+            <button className="op-btn-secondary" onClick={exportVendors} disabled={profiles.length === 0}>{tr('reports.vendorCsv')}</button>
           </div>
         </div>
         {/* The caveat is not a footnote: ق6 is an OPEN decision, and the column header would

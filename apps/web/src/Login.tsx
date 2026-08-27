@@ -50,7 +50,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <img src="/logo.svg" alt="Masaar" style={{ height: 36 }} />
+        <img className="logo-adaptive" src="/logo.svg" alt="Masaar" style={{ height: 36 }} />
         <h1>{t('login.title')}</h1>
         <p className="hint">{t('login.hint')}</p>
 
@@ -64,7 +64,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <option value="SUPER_ADMIN">{t('login.roleSuper')}</option>
               </select>
             </div>
-            <button className="btn btn--primary login-sso" onClick={() => setStep('otp')}>
+            <button className="op-btn-primary login-sso" onClick={() => setStep('otp')}>
               {t('login.sso')}
             </button>
             <p className="g-hint" style={{ marginTop: 12 }}>{t('login.ssoNote')}</p>
@@ -85,7 +85,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               />
             </div>
             {error && <p className="g-hint late-num" style={{ marginBottom: 10 }}>{error}</p>}
-            <button className="btn btn--primary login-sso" disabled={!/^\d{6}$/.test(code) || busy} onClick={() => void finish()}>
+            <button className="op-btn-primary login-sso" aria-busy={busy} disabled={!/^\d{6}$/.test(code) || busy} onClick={() => void finish()}>
               {busy ? '…' : t('login.verify')}
             </button>
           </>

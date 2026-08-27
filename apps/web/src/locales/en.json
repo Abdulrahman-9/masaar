@@ -5,6 +5,11 @@
     "switchLang": "عربي",
     "docTitle": "Masaar — Contractor & Tender Management"
   },
+  "theme": {
+    "toggle": "Toggle theme",
+    "toDark": "Switch to dark",
+    "toLight": "Switch to light"
+  },
   "nav": {
     "home": "Home",
     "operator": "Operator portal",
@@ -32,7 +37,6 @@
     "title": "@masaar/ui — one system, three skins, two languages",
     "hint": "Every component below reads its result from the rules engine. Switch skin and language and watch the same components re-dress.",
     "skinLedger": "The Living Ledger",
-    "skinControl": "The Operations Room",
     "skinBlueprint": "The Engineering Blueprint",
     "pills": "The six statuses",
     "pillPlanned": "Planned",
@@ -307,7 +311,7 @@
     "next": "Next",
     "saveDraft": "Save draft",
     "remaining": "Remaining: {{c}}",
-    "amberNote": "Institutional action — the counter starts on execution",
+    "institutionalNote": "Institutional action — the counter starts on execution",
     "continue": "Continue",
     "backPortal": "Operator portal"
   },

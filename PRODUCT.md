@@ -14,7 +14,7 @@ Masaar (مسار) manages the full SCPP procurement lifecycle: tender requests �
 
 ## Brand Personality
 
-Institutional, calm, trustworthy. "State-grade document" not "startup dashboard": deep petroleum navy + sparing amber accent on warm paper neutrals. Authority comes from precision (clause citations, working-day math) rather than decoration.
+Institutional, calm, trustworthy. "Control room for a state process" — not a startup dashboard and no longer a paper file. Deep indigo carries identity from the sidebar gradient outward; cool slate is the ground; colour is spent only where it means something — a status, a deadline, an approval tier. There is no decorative accent: the palette has exactly one brand hue and one closed semantic vocabulary, and anything that is neither is grey. Authority comes from precision (clause citations, working-day math) and from a surface that reads identically at 8am on a projector and at 11pm in a dark room. Both themes are first-class; neither is a "mode" bolted onto the other.
 
 ## Anti-references
 

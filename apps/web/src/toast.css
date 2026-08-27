@@ -1,17 +1,26 @@
 /* ------------------------------------------------------------------ *
  * Toast v2 — shared queue toaster (max 3 visible, FIFO).
- * Success is the .op-toast baseline (navy card + done mark); error and
- * warning swap the mark tone only. Every value flows from @masaar/tokens.
+ * DESIGN-V2-SPEC §4-ز: the solid navy slab is gone. A toast is now a CARD
+ * with a 3px bar on its start edge, so it belongs to the same surface family
+ * as everything else on the screen and follows the theme instead of pinning
+ * itself to one. Every value flows from @masaar/tokens.
+ *
+ * ⚠️ DECLARED EXCEPTION to taste-gate ذ1 («no coloured side bars»): ذ1 protects
+ * components INSIDE the page from carrying their state on an edge. A toast is a
+ * transient layer outside the page flow, it has no room for a pill, and the
+ * reference gives it exactly this bar in two independent places.
  * ------------------------------------------------------------------ */
 
 .tv2-viewport {
   position: fixed;
-  inset-inline: 0;
-  inset-block-end: 24px;
+  /* bottom-START, not centre: the centre of the screen is where the reader is working */
+  inset-block-end: 22px;
+  inset-inline-start: 22px;
+  inset-inline-end: auto;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   pointer-events: none;
 }
@@ -19,19 +28,27 @@
 .tv2-toast {
   pointer-events: auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  inline-size: min(440px, calc(100vw - 32px));
-  padding-block: 12px;
-  padding-inline: 16px;
-  background: var(--brand-navy-800);
-  color: var(--ink-on-dark);
+  min-inline-size: 260px;
+  inline-size: min(440px, calc(100vw - 44px));
+  padding-block: 10px;
+  padding-inline: 14px;
+  background: var(--bg-card);
+  color: var(--text-1);
+  border: 1px solid var(--border-2);
+  border-inline-start: 3px solid var(--tv2-bar);
   border-radius: var(--r-md);
-  /* the semantic name for the same value — everything that floats sits at one height (§1-ج) */
+  /* the semantic name for the same value — everything that floats sits at one height */
   box-shadow: var(--elev-overlay);
-  font-size: 13px;
+  font-size: var(--t-body-sm);
   animation: tv2-in var(--dur-base) var(--ease-out);
 }
+
+/* the kind is carried by ONE variable, so the bar and the mark can never disagree */
+.tv2-toast--success { --tv2-bar: var(--st-approved-base); }
+.tv2-toast--error   { --tv2-bar: var(--st-cancelled-base); }
+.tv2-toast--warning { --tv2-bar: var(--st-pending-base); }
 
 /* An exit is always faster than an entry: appearing asks for attention, leaving must not.
    EXIT_MS in Toasts.tsx tracks this duration — the two are read together. */
@@ -39,20 +56,18 @@
   animation: tv2-out var(--dur-fast) var(--ease-out) forwards;
 }
 
+/* a COLOURED GLYPH, not a filled disc: the filled disc needed an ink that reads on six
+   different saturated fills, and the icon carries the meaning without one */
 .tv2-toast__mark {
   flex-shrink: 0;
   inline-size: 20px;
   block-size: 20px;
-  margin-block-start: 1px;
-  border-radius: var(--r-pill);
-  color: var(--bg-card);
+  background: none;
+  color: var(--tv2-bar);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.tv2-toast--success .tv2-toast__mark { background: var(--status-done); }
-.tv2-toast--error   .tv2-toast__mark { background: var(--status-delayed); }
-.tv2-toast--warning .tv2-toast__mark { background: var(--status-risk); }
 
 .tv2-toast__body {
   display: flex;
@@ -60,11 +75,11 @@
   gap: 2px;
   min-inline-size: 0;
 }
-.tv2-toast__msg { line-height: 1.45; }
+.tv2-toast__msg { line-height: var(--lh-snug); }
 .tv2-toast__desc {
-  color: var(--ink-on-dark-2);
-  font-size: 12px;
-  line-height: 1.4;
+  color: var(--text-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-snug);
   word-break: break-word;
 }
 
@@ -78,11 +93,11 @@
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  color: var(--ink-on-dark-2);
+  color: var(--text-3);
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-out);
 }
-.tv2-toast__x:hover { color: var(--ink-on-dark); }
+.tv2-toast__x:hover, .tv2-toast__x:focus-visible { color: var(--text-1); }
 
 @keyframes tv2-in {
   from { opacity: 0; transform: translateY(8px); }

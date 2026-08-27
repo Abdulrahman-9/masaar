@@ -229,7 +229,7 @@ export default function TenderReview({ id }: { id: string }) {
             <button className="op-btn-ghost" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('suspend')}>{tr('review.suspendTender')}</button>
           )}
           {!life && !isRatified && (
-            <button className="op-btn-ghost op-btn-danger" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('cancel')}>{tr('review.cancelTender')}</button>
+            <button className="op-btn-danger" disabled={!actor} title={actor ? undefined : tr('review.noSessionGate')} onClick={() => openGov('cancel')}>{tr('review.cancelTender')}</button>
           )}
         </div>
       </div>
@@ -400,7 +400,7 @@ export default function TenderReview({ id }: { id: string }) {
               <button className="op-btn-ghost" onClick={closeGov}>{tr('review.dismiss')}</button>
               <span style={{ flex: 1 }} />
               <button
-                className={gov === 'cancel' ? 'op-btn-primary op-btn-danger' : 'op-btn-primary'}
+                className={gov === 'cancel' ? 'op-btn-danger' : 'op-btn-primary'}
                 disabled={!govReasonOk}
                 onClick={confirmGov}
               >

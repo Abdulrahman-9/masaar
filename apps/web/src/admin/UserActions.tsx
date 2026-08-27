@@ -190,7 +190,7 @@ export function ChangeRoleModal({ user, onClose }: { user: UserAccount; onClose:
       footer={<>
         <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
         <span style={{ flex: 1 }} />
-        <button className={demotingSuper || role === 'SUPER_ADMIN' ? 'wz-next wz-next--amber' : 'op-btn-primary'} disabled={!!gate} onClick={submit}>
+        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>
           {t('access.confirm')}
         </button>
       </>}
@@ -346,7 +346,7 @@ export function DisableModal({ user, onClose }: { user: UserAccount; onClose: ()
       footer={<>
         <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
         <span style={{ flex: 1 }} />
-        <button className={disabling ? 'op-btn-primary op-btn-danger' : 'op-btn-primary'} disabled={!!gate} onClick={submit}>
+        <button className={disabling ? 'op-btn-danger' : 'op-btn-primary'} disabled={!!gate} onClick={submit}>
           {t(disabling ? 'access.disableConfirm' : 'access.confirm')}
         </button>
       </>}

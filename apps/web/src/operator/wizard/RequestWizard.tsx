@@ -145,7 +145,7 @@ export default function RequestWizard() {
             <div className="wz-field">
               <label className="wz-field__l">{t('wizreq.value')}</label>
               <input className="wz-in wz-in--mono" inputMode="numeric" value={String(value)} onChange={(e) => setValue(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)} style={{ fontSize: 17, height: 46 }} />
-              <span className="wz-field__l" style={{ fontWeight: 400, color: 'var(--ink-3)' }}>{t('wizreq.current')} <b className="op-code" style={{ color: 'var(--ink-1)' }}>{fmtMoney(value)}</b></span>
+              <span className="wz-field__l" style={{ fontWeight: 400, color: 'var(--text-3)' }}>{t('wizreq.current')} <b className="op-code" style={{ color: 'var(--text-1)' }}>{fmtMoney(value)}</b></span>
             </div>
             <div className="wz-field">
               <label className="wz-field__l">{t('wizreq.basis')}</label>
@@ -164,7 +164,7 @@ export default function RequestWizard() {
               { r: '> $100,000', p: t('wizreq.th2') },
             ].map((th, i) => (
               <div key={i} className="wz-kv" style={{ padding: '9px 12px', borderRadius: 8, border: i === bracket ? '2px solid var(--status-progress)' : '1px solid var(--border-1)', background: i === bracket ? 'var(--status-progress-bg)' : 'var(--bg-card)' }}>
-                <b style={{ fontFamily: 'var(--font-sans)', color: 'var(--ink-1)' }}>{th.r}</b>
+                <b style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-1)' }}>{th.r}</b>
                 <span style={{ fontSize: 11.5 }}>{th.p}</span>
               </div>
             ))}
@@ -193,9 +193,9 @@ export default function RequestWizard() {
                 <span style={{ fontSize: 15, fontWeight: 700 }}>{suggestion.method[lang]}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--status-progress)', background: 'var(--bg-card)', padding: '2px 9px', borderRadius: 999 }}>{t('wizreq.sysSuggest')}</span>
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 4, lineHeight: 1.7 }}>{lang === 'ar' ? suggestion.reasonAr : suggestion.reasonEn}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4, lineHeight: 1.7 }}>{lang === 'ar' ? suggestion.reasonAr : suggestion.reasonEn}</div>
             </div>
-            <button className={override == null ? 'op-btn-nav' : 'op-btn-ghost'} onClick={() => setOverride(null)}>{override == null ? `✓ ${t('wizreq.accepted')}` : t('wizreq.accept')}</button>
+            <button className={override == null ? 'op-btn-primary' : 'op-btn-ghost'} onClick={() => setOverride(null)}>{override == null ? `✓ ${t('wizreq.accepted')}` : t('wizreq.accept')}</button>
           </div>
           <div className="wz-side-box__l">{t('wizreq.orOther')}</div>
           <div className="wz-grid3" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
@@ -209,10 +209,10 @@ export default function RequestWizard() {
           {needJust && (
             <div className="wz-note wz-note--warn" style={{ flexDirection: 'column', gap: 6 }}>
               <label className="wz-field__l" style={{ color: 'var(--status-risk)' }}>{t('wizreq.justLabel')}</label>
-              <textarea className="wz-ta" rows={2} dir="auto" value={just} onChange={(e) => setJust(e.target.value)} placeholder={t('wizreq.justPh')} style={{ background: 'var(--bg-card)', borderColor: 'var(--brand-amber-100)' }} />
+              <textarea className="wz-ta" rows={2} dir="auto" value={just} onChange={(e) => setJust(e.target.value)} placeholder={t('wizreq.justPh')} style={{ background: 'var(--bg-card)', borderColor: 'var(--st-pending-bd)' }} />
             </div>
           )}
-          {minInv > 0 && <span className="wz-side-box__l" style={{ color: 'var(--ink-3)' }}>{t('wizreq.minInv')}: <b className="op-code">{minInv}</b></span>}
+          {minInv > 0 && <span className="wz-side-box__l" style={{ color: 'var(--text-3)' }}>{t('wizreq.minInv')}: <b className="op-code">{minInv}</b></span>}
         </div>
       ),
     },
@@ -230,18 +230,18 @@ export default function RequestWizard() {
                   <tr key={r.key}>
                     <td style={{ fontWeight: 500 }}>{stageByKey(r.key)?.[lang] ?? r.key}</td>
                     <td className="op-code">{r.dur}</td>
-                    <td className="op-code" style={{ color: 'var(--ink-2)' }}>{r.from.slice(5)} → {r.to.slice(5)}</td>
+                    <td className="op-code" style={{ color: 'var(--text-2)' }}>{r.from.slice(5)} → {r.to.slice(5)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink-2)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-2)', flexWrap: 'wrap' }}>
             <span>{t('wizreq.total')}: <b className="op-code">{fmtCount(total, lang)}</b> {t('wizreq.wd')}</span>
             <span className="op-task__mdot" />
             <span>{t('wizreq.awardExp')}: <b className="op-code">{award}</b></span>
             <span className="op-task__mdot" />
-            <span style={{ color: 'var(--ink-3)' }}>{t('wizreq.weekendNote')}</span>
+            <span style={{ color: 'var(--text-3)' }}>{t('wizreq.weekendNote')}</span>
           </div>
           <button className={`wz-check${reviewed ? ' wz-check--on' : ''}`} onClick={() => setReviewed(!reviewed)}>
             <span className="wz-check__m">✓</span>{t('wizreq.reviewedLabel')}

@@ -5,6 +5,7 @@ import { NoticeBell } from '../NoticeBell';
 import { resolveSessionOrg } from '../orgIdentity';
 import { loadSession } from '../session';
 import { calendarOf, todayIso, useRegisterDispatchFail, useStore, type Tender } from '../store';
+import ThemeToggle from '../ThemeToggle';
 import { ToastViewport, useToasts, type ToastOpts } from '../Toasts';
 import { deriveTasks } from './derive';
 import { Icon } from './Icon';
@@ -124,7 +125,7 @@ export default function OperatorShell({
         {/* ---------- Sidebar ---------- */}
         <aside className="op-side">
           <div className="op-side__logo">
-            <img src="/logo.svg" alt={t('app.title')} />
+            <img src="/logo-on-dark.svg" alt={t('app.title')} onError={(e) => { (e.target as HTMLImageElement).src = '/logo.svg'; }} />
           </div>
           <nav className="op-nav" aria-label={t('onav.navLabel')}>
             {PRIMARY.map((n) => {
@@ -229,6 +230,7 @@ export default function OperatorShell({
             </div>
 
             <div className="op-top-actions">
+              <ThemeToggle />
               <button className="op-langbtn" onClick={() => void i18n.changeLanguage(isAr ? 'en' : 'ar')}>
                 {t('app.switchLang')}
               </button>

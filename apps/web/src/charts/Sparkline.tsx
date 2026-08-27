@@ -66,7 +66,7 @@ export function Sparkline({ points, lang }: { points: CompliancePoint[]; lang: '
         <polyline
           points={path}
           fill="none"
-          stroke="var(--ink-2)"
+          stroke="var(--text-2)"
           strokeWidth="1.5"
           strokeLinejoin="round"
           strokeLinecap="round"

@@ -115,7 +115,7 @@ export default function UpdateBrief() {
         </button>
       </div>
 
-      <div className="rp-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="rp-page theme-light" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="rp-hdr">
           <img src="/logo.svg" alt={t('app.title')} />
           <div className="rp-hdr__ref">DOC MSR-UPD-{today.replace(/-/g, '')}<br />PLATFORM · UPDATE BRIEF</div>

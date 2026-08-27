@@ -349,7 +349,7 @@ export default function TendersList() {
                             {t('tenders.preview')}
                           </button>
                           {/* a real link so the file is keyboard-reachable — a bare <tr onClick> is not */}
-                          <a className="op-btn-nav" href={href}>
+                          <a className="op-btn-primary" href={href}>
                             {t('tenders.file')}
                           </a>
                         </div>

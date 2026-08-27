@@ -41,7 +41,7 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
         <div className="wz-grid2">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="wz-side-box" style={{ background: 'var(--bg-page)' }}>
-              <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t('wizco.planned', { stage: def?.[lang] ?? cur.key })}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('wizco.planned', { stage: def?.[lang] ?? cur.key })}</span>
               <span className="op-code" style={{ fontSize: 13, fontWeight: 600 }}>{cur.plannedFrom ?? '—'} → {cur.plannedTo ?? '—'}</span>
             </div>
             {/* native date widgets: values stored as Latin ISO; display digits follow browser locale (documented Track-0 exclusion) */}
@@ -52,9 +52,9 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
             <div className="wz-side-box__l">{t('wizco.devAuto')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {dev == null ? <span className="op-dev op-dev--none">{t('wizco.awaitTo')}</span> : <DevChip wd={dev} />}
-              <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{t('wizco.weekend')}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{t('wizco.weekend')}</span>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.8, borderTop: '1px dashed var(--border-2)', paddingTop: 10 }}>{dev == null ? t('wizco.devHintNull') : needReason ? t('wizco.devHintPos') : t('wizco.devHintNeg')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.8, borderTop: '1px dashed var(--border-2)', paddingTop: 10 }}>{dev == null ? t('wizco.devHintNull') : needReason ? t('wizco.devHintPos') : t('wizco.devHintNeg')}</div>
           </div>
         </div>
       ),
@@ -76,7 +76,7 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
                     same wording and the same «محاكاة» badge as the Documents tab (FileDocs.tsx). */}
                 {!up && (
                   <>
-                    <button className="op-btn-nav" onClick={() => void dispatch({ type: 'TOGGLE_DOC', tenderId, stageKey: cur.key, doc: d })}>
+                    <button className="op-btn-primary" onClick={() => void dispatch({ type: 'TOGGLE_DOC', tenderId, stageKey: cur.key, doc: d })}>
                       <Icon name="check" size={12} />
                       {t('filedocs.markReceived')}
                     </button>
@@ -86,7 +86,7 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
               </div>
             );
           })}
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{t('wizco.docsNote')}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{t('wizco.docsNote')}</div>
         </div>
       ),
     },
@@ -100,7 +100,7 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {dev == null ? <span className="op-dev op-dev--none">{t('dev.none')}</span> : <DevChip wd={dev} />}
-            <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>{t('wizco.againstPlan')} <b className="op-code">{cur.plannedTo ?? '—'}</b></span>
+            <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{t('wizco.againstPlan')} <b className="op-code">{cur.plannedTo ?? '—'}</b></span>
           </div>
           {needReason ? (
             <>

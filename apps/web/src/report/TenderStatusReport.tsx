@@ -92,7 +92,7 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
         <button className="op-btn-primary" onClick={() => window.print()}><Icon name="printer" size={14} />{t('report.print')}</button>
       </div>
 
-      <div className="rp-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="rp-page theme-light" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="rp-hdr">
           <img src="/logo.svg" alt="مسار" />
           <div className="rp-hdr__ref">DOC MSR-RPT-{tender.code.replace(/[^0-9]/g, '').slice(0, 4) || '0000'}<br />TENDER {tender.code}</div>
@@ -126,7 +126,7 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
                 </tr>
                 <tr>
                   <td className="k">{t('report.operator')}</td><td dir="auto">{operator ?? '—'}</td>
-                  <td className="k">{t('report.method')}</td><td>{method?.[lang]} <span className="rp-mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>(§{method?.scpp})</span></td>
+                  <td className="k">{t('report.method')}</td><td>{method?.[lang]} <span className="rp-mono" style={{ fontSize: 10, color: 'var(--text-3)' }}>(§{method?.scpp})</span></td>
                 </tr>
                 <tr>
                   <td className="k">{t('report.estCost')}</td><td className="rp-mono" style={{ textAlign: 'start' }}>USD {tender.estimatedValueUSD.toLocaleString('en-US')}</td>
@@ -166,7 +166,7 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
                   const now = st === 'progress' || st === 'delayed';
                   return (
                     <tr key={s.key} className={now ? 'rp-row--now' : undefined}>
-                      <td className="c rp-mono" style={{ color: 'var(--ink-3)' }}>{String(i + 1).padStart(2, '0')}</td>
+                      <td className="c rp-mono" style={{ color: 'var(--text-3)' }}>{String(i + 1).padStart(2, '0')}</td>
                       <td style={{ fontWeight: now ? 700 : 400 }}>{stageByKey(s.key)?.[lang] ?? s.key}{now && ` — ${t('report.currentStage')}`}</td>
                       <td className="c rp-mono">{s.plannedFrom && s.plannedTo ? `${s.plannedFrom.slice(5)} → ${s.plannedTo.slice(5)}` : '—'}</td>
                       <td className="c rp-mono">{s.actualTo ? `${(s.plannedFrom ?? s.actualTo).slice(5)} → ${s.actualTo.slice(5)}` : now ? `${(s.plannedFrom ?? '').slice(5)} → …` : '—'}</td>
@@ -177,7 +177,7 @@ export default function TenderStatusReport({ tenderId }: { tenderId: string }) {
                 })}
               </tbody>
             </table>
-            <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--ink-3)' }}>{t('report.allDates2026')} {t('report.netDev')} <b className={netCls}>{netDev === 0 ? t('report.onPlan') : netDev > 0 ? t('report.late', { n: fmtCount(netDev, lang) }) : t('report.early', { n: fmtCount(-netDev, lang) })} {t('report.wd')}</b></div>
+            <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--text-3)' }}>{t('report.allDates2026')} {t('report.netDev')} <b className={netCls}>{netDev === 0 ? t('report.onPlan') : netDev > 0 ? t('report.late', { n: fmtCount(netDev, lang) }) : t('report.early', { n: fmtCount(-netDev, lang) })} {t('report.wd')}</b></div>
           </div>
 
           {/* 4 bidders */}

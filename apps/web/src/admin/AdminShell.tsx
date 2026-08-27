@@ -5,6 +5,7 @@ import { fmtCount } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
 import { useRegisterDispatchFail, useStore } from '../store';
+import ThemeToggle from '../ThemeToggle';
 import { ToastViewport, useToasts, type ToastOpts } from '../Toasts';
 import { roleKey } from './access';
 import { approvalChain, awaitingTier, decisionQueue } from './adminDerive';
@@ -283,6 +284,7 @@ export default function AdminShell({ view, onLogout, children }: { view: AdminVi
             </div>
 
             <div className="op-top-actions">
+              <ThemeToggle />
               <button className="op-langbtn" onClick={() => void i18n.changeLanguage(isAr ? 'en' : 'ar')}>{t('app.switchLang')}</button>
               <NoticeBell portal="admin" />
               <div className="op-notif" ref={menuRef}>

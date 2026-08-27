@@ -21,7 +21,7 @@ export interface WizardShellProps {
   code: string;
   steps: WizardStep[];
   finalLabel: string;
-  finalAmber?: boolean;
+  finalInstitutional?: boolean;
   /** dispatched once, when the last step is confirmed */
   onFinish: () => void;
   success: { title: string; desc: string; audit: string };
@@ -31,7 +31,7 @@ export interface WizardShellProps {
   exitHash?: string;
 }
 
-export default function WizardShell({ title, tenderName, code, steps, finalLabel, finalAmber, onFinish, success, doneHash, exitHash }: WizardShellProps) {
+export default function WizardShell({ title, tenderName, code, steps, finalLabel, finalInstitutional, onFinish, success, doneHash, exitHash }: WizardShellProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const [step, setStep] = useState(0);
@@ -144,9 +144,9 @@ export default function WizardShell({ title, tenderName, code, steps, finalLabel
               </button>
               <div className="wz-foot__end">
                 <div className="wz-foot__row">
-                  <button className="wz-draft" onClick={go(exitHash ?? doneHash)}>{t('wizard.saveDraft')}</button>
+                  <button className="op-btn-ghost" onClick={go(exitHash ?? doneHash)}>{t('wizard.saveDraft')}</button>
                   <button
-                    className={`wz-next${isLast && finalAmber ? ' wz-next--amber' : ''}`}
+                    className="op-btn-primary"
                     onClick={next}
                     disabled={!allOk}
                   >
@@ -155,7 +155,7 @@ export default function WizardShell({ title, tenderName, code, steps, finalLabel
                   </button>
                 </div>
                 <span className={`wz-gate${allOk ? ' wz-gate--ok' : ''}`}>
-                  {allOk ? (isLast && finalAmber ? t('wizard.amberNote') : '') : t('wizard.remaining', { c: firstUnmet?.t ?? '' })}
+                  {allOk ? (isLast && finalInstitutional ? t('wizard.institutionalNote') : '') : t('wizard.remaining', { c: firstUnmet?.t ?? '' })}
                 </span>
               </div>
             </div>

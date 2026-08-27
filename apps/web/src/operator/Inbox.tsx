@@ -87,7 +87,7 @@ export default function Inbox() {
                       </span>
                     </span>
                     <span className={`op-task__due op-task__due--${g}`}>{dueLabel(task, lang, t)}</span>
-                    <span className="op-cta">
+                    <span className="op-btn-primary">
                       {t('inbox.openStep')}
                       <Icon name="chevronStart" size={13} strokeWidth={2} className="op-chev-fwd" />
                     </span>

@@ -462,7 +462,7 @@ function EditFaModal({ row, onClose }: { row: FieldRow; onClose: () => void }) {
       footer={<>
         <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
         <span style={{ flex: 1 }} />
-        <button className={delta !== 0 ? 'wz-next wz-next--amber' : 'op-btn-primary'} disabled={!!gate} onClick={submit}>{t('access.confirm')}</button>
+        <button className="op-btn-primary" disabled={!!gate} onClick={submit}>{t('access.confirm')}</button>
       </>}
     >
       <div className="wz-field">

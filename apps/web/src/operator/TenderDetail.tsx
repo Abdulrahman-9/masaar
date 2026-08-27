@@ -125,7 +125,7 @@ export default function TenderDetail({ id }: { id: string }) {
               {t('file.hereRequired', { req: t(`taskAction.${active.key}`) })}{hereDue && <> · <b>{hereDue}</b></>}
             </div>
           </div>
-          <button className="file-here__cta" onClick={() => openWizard(active.key)}>
+          <button className="op-btn-primary" onClick={() => openWizard(active.key)}>
             {t('file.hereCtaLabel')}
             <Icon name="chevronStart" size={13} strokeWidth={2} className="op-chev-fwd" />
           </button>

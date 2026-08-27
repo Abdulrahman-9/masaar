@@ -226,7 +226,7 @@ export default function FollowUpRoom() {
                   </span>
                 </span>
                 <span className="ad-decision__due">{t('adroom.awaiting')}</span>
-                <span className="ad-decision__go">{t('adroom.openDecision')}<Icon name="chevronStart" size={13} strokeWidth={2} className="op-chev-fwd" /></span>
+                <span className="op-btn-primary">{t('adroom.openDecision')}<Icon name="chevronStart" size={13} strokeWidth={2} className="op-chev-fwd" /></span>
               </button>
             ))
           )}

@@ -190,7 +190,7 @@ function RemoveHolidayModal({ date, onClose }: { date: string; onClose: () => vo
       onClose={onClose}
       footer={
         <>
-          <button className="op-btn-primary op-btn-danger" onClick={submit} disabled={!canSubmit}><Icon name="close" size={15} />{t('holidays.remove')}</button>
+          <button className="op-btn-danger" onClick={submit} disabled={!canSubmit}><Icon name="close" size={15} />{t('holidays.remove')}</button>
           <button className="op-btn-ghost" onClick={onClose}>{t('holidays.cancel')}</button>
           <span className={`wz-gate${canSubmit ? ' wz-gate--ok' : ''}`}>{canSubmit ? t('holidays.gateReady') : gate}</span>
         </>

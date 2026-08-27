@@ -58,9 +58,9 @@ export function queueReducer(queue: ToastItem[], action: ToastAction): ToastItem
 
 const DUR_SUCCESS = 4200;
 const DUR_ALERT = 6000;
-// must track `.tv2-toast--out` in toast.css, which is --dur-fast (120ms): an exit is always
+// must track `.tv2-toast--out` in toast.css, which is --dur-fast (150ms): an exit is always
 // quicker than the 200ms entry — a toast leaving should never ask to be watched
-const EXIT_MS = 120;
+const EXIT_MS = 150;
 
 const MARK: Record<ToastKind, string> = { success: 'check', error: 'close', warning: 'alert' };
 

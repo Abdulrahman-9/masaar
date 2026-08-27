@@ -65,7 +65,7 @@ export default function WeeklyDeviationReport() {
         <button className="op-btn-primary" onClick={() => window.print()}><Icon name="printer" size={14} />{t('report.print')}</button>
       </div>
 
-      <div className="rp-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="rp-page theme-light" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="rp-hdr">
           <img src="/logo.svg" alt="مسار" />
           <div className="rp-hdr__ref">DOC MSR-WKR-{today.replace(/-/g, '')}<br />PORTFOLIO · WEEKLY</div>
@@ -118,7 +118,7 @@ export default function WeeklyDeviationReport() {
                 <tbody>
                   {lateRows.map((r) => (
                     <tr key={r.tender.id}>
-                      <td><span dir="auto">{r.tender.title[lang]}</span> <span className="rp-mono" style={{ fontSize: 9.5, color: 'var(--ink-3)' }}>{r.tender.code}</span></td>
+                      <td><span dir="auto">{r.tender.title[lang]}</span> <span className="rp-mono" style={{ fontSize: 9.5, color: 'var(--text-3)' }}>{r.tender.code}</span></td>
                       <td>{r.cur ? stageByKey(r.cur.key)?.[lang] : '—'}</td>
                       <td className="c">{METHODS.find((m) => m.id === r.tender.methodId)?.[lang]}</td>
                       <td className="c"><span className={r.dev > 5 ? 'rp-dev--late5' : 'rp-dev--late'}>{t('report.late', { n: fmtCount(r.dev, lang) })} {t('report.wd')}</span></td>
@@ -139,7 +139,7 @@ export default function WeeklyDeviationReport() {
               ].map((b, i) => (
                 <div key={i} className="rp-bar">
                   <span className="rp-bar__l">{b.l}</span>
-                  <span className="rp-bar__track"><span className="rp-bar__fill" style={{ width: `${b.pct}%`, background: b.pct >= 100 ? 'var(--status-done)' : b.pct >= 80 ? 'var(--brand-navy-700)' : 'var(--status-risk)' }} /></span>
+                  <span className="rp-bar__track"><span className="rp-bar__fill" style={{ width: `${b.pct}%`, background: b.pct >= 100 ? 'var(--status-done)' : b.pct >= 80 ? 'var(--link)' : 'var(--status-risk)' }} /></span>
                   <span className="rp-bar__v">{fmtCount(b.n, lang)}/{fmtCount(b.d, lang)} · {b.pct}%</span>
                 </div>
               ))}

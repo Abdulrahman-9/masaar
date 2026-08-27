@@ -143,7 +143,7 @@ export default function FileTimeline({
 
               <span className="file-tl__action">
                 {activeLike ? (
-                  <span className="file-tl__wiz" onClick={(e) => { e.stopPropagation(); onWizard(s.key); }}>{t('timeline.openWizard')}</span>
+                  <span className="op-btn-primary" onClick={(e) => { e.stopPropagation(); onWizard(s.key); }}>{t('timeline.openWizard')}</span>
                 ) : st === 'done' ? (
                   <span className="file-tl__done"><Icon name="check" size={13} strokeWidth={2} />{t('timeline.done')}</span>
                 ) : (
@@ -181,7 +181,7 @@ export default function FileTimeline({
             <div className="file-sel__note">{t(`timeline.note.${selSt === 'delayed' ? 'progress' : selSt}`)}</div>
             {(selSt === 'progress' || selSt === 'delayed') && (
               <div className="file-sel__cta">
-                <button className="file-here__cta" onClick={() => onWizard(sel.key)}>{t('timeline.openStageWizard')}</button>
+                <button className="op-btn-primary" onClick={() => onWizard(sel.key)}>{t('timeline.openStageWizard')}</button>
                 <span className="file-sel__hint">{t('timeline.ctaHint')}</span>
               </div>
             )}

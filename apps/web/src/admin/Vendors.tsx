@@ -319,7 +319,7 @@ export default function Vendors() {
                           edit surface (scores, suspension, ban, archive), so the row action is
                           labelled for what it lets you do rather than for the page it opens — one
                           real link, keyboard-reachable, no duplicate affordance to the same URL. */}
-                      <a className="op-btn-nav" href={`#/admin/entities/${r.vendor.id}`} title={t('entity.editHint')}>{t('entity.edit')}</a>
+                      <a className="op-btn-primary" href={`#/admin/entities/${r.vendor.id}`} title={t('entity.editHint')}>{t('entity.edit')}</a>
                     </td>
                   </tr>
                 ))}

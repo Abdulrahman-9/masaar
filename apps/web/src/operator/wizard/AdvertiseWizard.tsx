@@ -96,7 +96,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
             <div className="wz-side-box__l">{t('wizad.autoCalc')}</div>
             <div className="wz-kv"><span>{t('wizad.lastDay')}</span><b>{toIso(endD)}</b></div>
             <div className="wz-kv"><span>{t('wizad.openExpected')}</span><b>{toIso(openD)}</b></div>
-            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.7, borderTop: '1px dashed var(--border-2)', paddingTop: 10 }}>{t('wizad.holidayNote')}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.7, borderTop: '1px dashed var(--border-2)', paddingTop: 10 }}>{t('wizad.holidayNote')}</div>
           </div>
         </div>
       ),
@@ -114,7 +114,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       content: isPub ? (
         <div>
           <div className="wz-field">
-            <label className="wz-field__l">{t('wizad.papers')} <span className="op-code" style={{ color: 'var(--ink-3)' }}>({papers.length}/3)</span></label>
+            <label className="wz-field__l">{t('wizad.papers')} <span className="op-code" style={{ color: 'var(--text-3)' }}>({papers.length}/3)</span></label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {PAPERS.map((p) => (
                 <button key={p} className={`wz-chip${papers.includes(p) ? ' wz-chip--on' : ''}`} onClick={() => setPapers((ps) => ps.includes(p) ? ps.filter((x) => x !== p) : [...ps, p])} dir="auto">{p}</button>
@@ -128,7 +128,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
         </div>
       ) : (
         <div className="wz-field">
-          <label className="wz-field__l">{t('wizad.inviteesLabel', { n: invMin })} <span className="op-code" style={{ color: 'var(--ink-3)' }}>({invitees})</span></label>
+          <label className="wz-field__l">{t('wizad.inviteesLabel', { n: invMin })} <span className="op-code" style={{ color: 'var(--text-3)' }}>({invitees})</span></label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button className="wz-chip" style={{ width: 34, height: 34, padding: 0, justifyContent: 'center', borderRadius: 8 }} onClick={() => setInvitees((n) => Math.max(0, n - 1))}>−</button>
             <span className="op-code" style={{ fontSize: 20, fontWeight: 600, minWidth: 44, textAlign: 'center' }}>{invitees}</span>
@@ -146,16 +146,18 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       ],
       content: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ border: '1px solid var(--border-3)', borderRadius: 6, padding: '18px 22px', background: 'var(--bg-card)', boxShadow: 'var(--shadow-2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid var(--brand-navy-800)', paddingBottom: 8 }}>
+          {/* a picture OF a printed notice: `theme-light` keeps it paper in the dark theme too,
+              so the preview goes on looking like the thing it previews */}
+          <div className="theme-light" style={{ border: '1px solid var(--border-2)', borderRadius: 'var(--r-sm)', padding: '18px 22px', background: 'var(--bg-card)', boxShadow: 'var(--shadow-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid var(--primary-900)', paddingBottom: 8 }}>
               <img src="/logo.svg" alt="مسار" style={{ height: 22 }} />
-              <span className="op-code" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{tender.code}</span>
+              <span className="op-code" style={{ fontSize: 10, color: 'var(--text-3)' }}>{tender.code}</span>
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, marginTop: 12 }}>{t('wizad.adTitle', { type: t(`ann.${mode}`), name: tender.title[lang] })}</div>
-            <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--ink-2)', marginTop: 6 }}>{t('wizad.adBody', { end: toIso(endD) })}</div>
+            <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--text-2)', marginTop: 6 }}>{t('wizad.adBody', { end: toIso(endD) })}</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
               {(isPub ? [...papers.map((p) => `صحيفة ${p}`), t('wizad.chOperator'), t('wizad.chCompany')] : [t('wizad.chInvites', { n: invitees })]).map((c, i) => (
-                <span key={i} style={{ fontSize: 11, background: 'var(--bg-muted)', color: 'var(--ink-2)', padding: '2px 9px', borderRadius: 999 }}>{c}</span>
+                <span key={i} style={{ fontSize: 11, background: 'var(--bg-muted)', color: 'var(--text-2)', padding: '2px 9px', borderRadius: 999 }}>{c}</span>
               ))}
             </div>
           </div>
@@ -170,7 +172,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
               >
                 <span className="wz-check__m">✓</span>
                 <span style={{ flex: 1, textAlign: 'start' }}>{t('wizad.lcClauseLabel')}</span>
-                <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{lcAffixed ? t('wizad.lcClauseOn') : t('wizad.lcClauseOff')}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{lcAffixed ? t('wizad.lcClauseOn') : t('wizad.lcClauseOff')}</span>
               </button>
               {!lcAffixed && <span className="wz-gate">{t('wizad.lcGate')}</span>}
             </>
@@ -188,7 +190,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       code={tender.code}
       steps={steps}
       finalLabel={t('wizad.final')}
-      finalAmber
+      finalInstitutional
       doneHash={`#/operator/t/${tenderId}`}
       exitHash={`#/operator/t/${tenderId}`}
       success={{ title: t('wizad.doneTitle'), desc: t('wizad.doneDesc', { end: toIso(endD) }), audit: `${tender.code} · PUBLISHED · ${toIso(toUtcDate(start))}` }}

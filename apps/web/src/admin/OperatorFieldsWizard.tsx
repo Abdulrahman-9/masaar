@@ -527,7 +527,7 @@ export default function OperatorFieldsWizard({ onClose }: { onClose: () => void 
         <button className="op-btn-ghost" onClick={onClose}>{t('access.cancel')}</button>
         <span style={{ flex: 1 }} />
         <span className={`wz-gate${s3ok ? ' wz-gate--ok' : ''}`}>{gate ? t(gate) : t('access.auditNote')}</span>
-        <button className="op-btn-primary" disabled={!!plan.blocked || busy || !actor} onClick={commit}>
+        <button className="op-btn-primary" aria-busy={busy} disabled={!!plan.blocked || busy || !actor} onClick={commit}>
           {busy ? t('opfields.committing') : t('opfields.commit', { n: fmtCount(rows.length, lang) })}
         </button>
       </>}

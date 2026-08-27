@@ -236,7 +236,7 @@ export default function ContractProfile({ id }: { id: string }) {
               </div>
               <div className="ctr-bar">
                 <span className="ctr-bar__l">{t('contracts.plannedProgress')}</span>
-                <span className="ctr-bar__track"><span className="ctr-bar__fill" style={{ width: `${plannedPct}%`, background: 'var(--brand-navy-700)' }} /></span>
+                <span className="ctr-bar__track"><span className="ctr-bar__fill" style={{ width: `${plannedPct}%`, background: 'var(--chart-neutral)' }} /></span>
                 <span className="ctr-bar__v">{plannedPct}%</span>
               </div>
               <div className="ctr-bar">
@@ -347,7 +347,7 @@ export default function ContractProfile({ id }: { id: string }) {
                   <div className="ad-late__body">
                     <div className="ad-late__t">{t(`contracts.ev_${e.kind}`)}{e.kind === 'stage' ? ` — ${stageLabel(e.detail as never, lang)}` : ` — ${e.detail}`}</div>
                   </div>
-                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--ink-4)' }}>{e.on}</span>
+                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{e.on}</span>
                 </div>
               ))
             )}
@@ -366,7 +366,7 @@ export default function ContractProfile({ id }: { id: string }) {
           {drawer === 'guar' && (
             <div className="wz-field" style={{ marginBottom: 12 }}>
               <label className="wz-field__l">{t('contracts.gkind')}</label>
-              <div className="wz-in" style={{ background: 'var(--bg-page)', color: 'var(--ink-2)' }}>{t('contracts.kind.performance')}</div>
+              <div className="wz-in" style={{ background: 'var(--bg-page)', color: 'var(--text-2)' }}>{t('contracts.kind.performance')}</div>
             </div>
           )}
           <div style={{ display: 'flex', gap: 10 }}>

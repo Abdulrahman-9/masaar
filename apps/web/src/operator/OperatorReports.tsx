@@ -34,14 +34,14 @@ export default function OperatorReports() {
 
       {cards.map((c, i) => (
         <div key={i} className="op-report-card" style={{ marginTop: i ? 14 : 0 }}>
-          <div className="op-report-thumb" aria-hidden="true">
+          <div className="op-report-thumb theme-light" aria-hidden="true">
             <div className="op-report-thumb__hd">
-              <span style={{ width: 24, height: 8, background: 'var(--brand-navy-800)', borderRadius: 1 }} />
-              <span style={{ width: 30, height: 4, background: 'var(--paper-200)', borderRadius: 1 }} />
+              <span style={{ width: 24, height: 8, background: 'var(--primary-900)', borderRadius: 1 }} />
+              <span style={{ width: 30, height: 4, background: 'var(--bg-inset)', borderRadius: 1 }} />
             </div>
-            <span className="op-report-thumb__ln" style={{ width: '75%', background: 'var(--paper-300)' }} />
+            <span className="op-report-thumb__ln" style={{ width: '75%', background: 'var(--border-2)' }} />
             <span className="op-report-thumb__ln" />
-            <span className="op-report-thumb__ln" style={{ height: 20, background: 'var(--bg-muted)', border: '1px solid var(--paper-200)' }} />
+            <span className="op-report-thumb__ln" style={{ height: 20, background: 'var(--bg-muted)', border: '1px solid var(--border-2)' }} />
             <span className="op-report-thumb__ln" />
             <span className="op-report-thumb__ln" />
           </div>

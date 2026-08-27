@@ -43,6 +43,7 @@ import { roleKey } from './admin/access';
 import { TierSplitBar } from './charts/TierSplitBar';
 import { fmtCount, fmtMoneyShort } from './operator/derive';
 import { clearSession, isOperatorRole, loadSession, type ApiRole } from './session';
+import { watchSystemTheme } from './theme';
 import { currentStage, expectedAwardDate, StoreProvider, useStore } from './store';
 import { decisionQueue } from './admin/adminDerive';
 import { activeTenders, awardedContracts, tierCountsOf } from './admin/dashboardDerive';
@@ -328,6 +329,10 @@ export default function App() {
   const [, forceRender] = useState(0);
   const session = loadSession();
 
+  // The OS preference is followed only while the reader has expressed none of their own; the
+  // subscription lives once, at the root, because the theme is a document-level fact.
+  useEffect(watchSystemTheme, []);
+
   const logout = () => {
     if (isApiMode) void apiLogout().catch(() => {});
     clearSession();
@@ -364,7 +369,7 @@ export default function App() {
     <StoreProvider>
       <header className="bar">
         <div className="bar-in">
-          <img src="/logo.svg" alt={t('app.title')} />
+          <img className="logo-adaptive" src="/logo.svg" alt={t('app.title')} />
           <div>
             <div className="bar-title">{t('app.title')}</div>
             <div className="bar-sub">{t('app.subtitle')}</div>

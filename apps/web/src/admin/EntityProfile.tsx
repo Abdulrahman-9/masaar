@@ -225,7 +225,7 @@ export default function EntityProfile({ id }: { id: string }) {
                     <div className="ad-late__t">{t(`entity.ev_${e.kind}`)}{e.detail ? ` — ${e.detail}` : ''}</div>
                     <div className="ad-late__s">{e.reason}</div>
                   </div>
-                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--ink-4)' }}>{e.on}</span>
+                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{e.on}</span>
                 </div>
               ))
             )}
@@ -239,7 +239,7 @@ export default function EntityProfile({ id }: { id: string }) {
           title={dialog === 'suspend' ? t('entity.suspend') : t('entity.lift')}
           sub={vendor.name}
           onClose={close}
-          footer={<><button className="op-btn-ghost" onClick={close}>{t('entity.cancel')}</button><span style={{ flex: 1 }} /><button className={dialog === 'suspend' ? 'op-btn-primary op-btn-danger' : 'op-btn-primary'} disabled={!reasonOk} onClick={dialog === 'suspend' ? confirmSuspend : confirmLift}>{t('entity.confirm')}</button></>}
+          footer={<><button className="op-btn-ghost" onClick={close}>{t('entity.cancel')}</button><span style={{ flex: 1 }} /><button className={dialog === 'suspend' ? 'op-btn-danger' : 'op-btn-primary'} disabled={!reasonOk} onClick={dialog === 'suspend' ? confirmSuspend : confirmLift}>{t('entity.confirm')}</button></>}
         >
           <label className="wz-field__l">{t('entity.reason')}</label>
           <textarea className="wz-ta" rows={3} dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('entity.reasonPh')} style={{ width: '100%', marginTop: 6 }} />
@@ -249,7 +249,7 @@ export default function EntityProfile({ id }: { id: string }) {
       {dialog === 'ban' && (
         <Modal
           title={t('entity.ban')} sub={vendor.name} onClose={close}
-          footer={<><button className="op-btn-ghost" onClick={close}>{t('entity.cancel')}</button><span style={{ flex: 1 }} /><button className="op-btn-primary op-btn-danger" disabled={!reasonOk || !banWithinLimit(banUntil, today)} onClick={confirmBan}>{t('entity.confirmBan')}</button></>}
+          footer={<><button className="op-btn-ghost" onClick={close}>{t('entity.cancel')}</button><span style={{ flex: 1 }} /><button className="op-btn-danger" disabled={!reasonOk || !banWithinLimit(banUntil, today)} onClick={confirmBan}>{t('entity.confirmBan')}</button></>}
         >
           <label className="wz-field__l">{t('entity.banUntil')} <small>— {t('entity.banCap')}</small></label>
           {/* native date widget: value stored as Latin ISO; display digits follow browser locale (documented Track-0 exclusion) */}

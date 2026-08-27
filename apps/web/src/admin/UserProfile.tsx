@@ -260,7 +260,7 @@ export default function UserProfile({ id }: { id: string }) {
                       {e.reason} · <span className="acc-by">{e.by.name}</span> ({t(`roles.names.${roleKey(e.by.role)}`)})
                     </div>
                   </div>
-                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--ink-4)' }} title={e.at}>{e.on}</span>
+                  <span className="op-code" style={{ fontSize: 10.5, color: 'var(--text-muted)' }} title={e.at}>{e.on}</span>
                 </div>
               ))
             )}

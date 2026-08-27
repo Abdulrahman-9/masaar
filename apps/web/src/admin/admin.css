@@ -1,57 +1,31 @@
 /* ========================================================================
-   Admin panel redesign (Batch 4) — dark "operations room" sidebar + follow-up
-   Reuses the operator shell primitives (op-shell/op-main/op-topbar/op-page).
+   Admin panel — swept to DESIGN-V2-SPEC §4 (BUILD-2 step 3).
+   Reuses the operator shell primitives (op-shell/op-main/op-topbar/op-page)
+   AND, from this wave on, the sidebar itself: `.op-side, .ad-side` is one rule
+   in operator.css. What is left here is what is genuinely admin — the badge,
+   the disclosure, the support block — plus the follow-up room and governance.
+   Tokens only; logical properties only; no colour literal anywhere.
    ======================================================================== */
-.ad-side {
-  background: var(--brand-navy-900);
-  color: var(--ink-on-dark);
-  border: none;
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  box-sizing: border-box;
+
+/* the environment badge on the navy gradient: sky reads on both stops (4.84 / 6.86 light,
+   7.89 / 8.33 dark) where the light-theme --mark-accent would sink into the panel */
+.ad-side__badge {
+  margin-inline-start: auto;
+  font-size: var(--t-micro);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.1em;
+  color: var(--secondary-400);
+  border: 1px solid var(--side-border);
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
 }
-.ad-side__logo { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; border-bottom: 1px solid rgba(244, 241, 234, 0.14); }
-.ad-side__logo img { height: 32px; }
-.ad-side__badge { margin-inline-start: auto; font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: 0.1em; color: var(--brand-amber-400); border: 1px solid rgba(219, 166, 89, 0.45); padding: 2px 8px; border-radius: var(--r-pill); }
 .ad-nav { display: flex; flex-direction: column; gap: 2px; }
-.ad-nav__group { font-size: 9.5px; font-weight: var(--fw-semibold); letter-spacing: 0.08em; color: var(--ink-on-dark-2); padding: 12px 10px 4px; }
-.ad-nav__btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--r-sm);
-  font-size: 13.5px;
-  font-family: inherit;
-  border: none;
-  cursor: pointer;
-  text-align: start;
-  width: 100%;
-  box-sizing: border-box;
-  background: transparent;
-  color: var(--ink-on-dark-2);
-  text-decoration: none;
-  transition: background var(--dur-base) var(--ease-out);
-}
-.ad-nav__btn:hover { background: rgba(244, 241, 234, 0.08); color: var(--ink-on-dark); }
-/* The active item is amber-on-navy here and navy-on-paper in the operator shell. That divergence
-   is CORRECT and is not to be "unified": the two surfaces are inverses of each other, and one
-   treatment would break whichever it was not designed against (amber fill + navy-900 text = 6.09
-   here; navy-800 fill + white text = 15.52 there). Weight carries the state as well as colour. */
-.ad-nav__btn--on, .ad-nav__btn--on:hover { background: var(--brand-amber-500); color: var(--brand-navy-900); font-weight: var(--fw-semibold); }
-.ad-nav__btn[aria-current='page'] { font-weight: var(--fw-semibold); }
 
 /* ---- «أدوات ومراجع» — the secondary disclosure (§4-د) ---- */
 .ad-nav__disc {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   inline-size: 100%;
   box-sizing: border-box;
   padding-block: 9px;
@@ -60,16 +34,16 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 10.5px;
+  font: inherit;
+  font-size: var(--t-micro);
   font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-align: start;
-  color: var(--ink-on-dark-2);
+  color: var(--side-fg-2);
   border-radius: var(--r-sm);
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
-.ad-nav__disc:hover { background: rgba(244, 241, 234, 0.08); color: var(--ink-on-dark); }
+.ad-nav__disc:hover { background: var(--side-hover); color: var(--side-fg); }
 /* the current page lives inside the group, so it cannot be folded away — the pointer is told the
    same thing the accessibility tree is told by aria-disabled, and the hover affordance is dropped */
 .ad-nav__disc[aria-disabled='true'] { cursor: default; }
@@ -85,31 +59,25 @@ html[dir='ltr'] .ad-nav__disc[aria-expanded='true'] .ad-nav__caret { transform: 
 /* MANDATORY: `display: flex` beats the UA's [hidden] { display: none }, so without this the
    attribute would be set and nothing would actually hide. */
 .ad-nav__sec[hidden] { display: none; }
-.ad-nav__btn svg { flex-shrink: 0; }
-.ad-nav__count { margin-inline-start: auto; font-family: var(--font-mono); font-size: 11px; padding: 1px 7px; border-radius: var(--r-pill); background: rgba(244, 241, 234, 0.1); color: var(--ink-on-dark); }
-.ad-nav__btn--on .ad-nav__count { background: rgba(11, 37, 64, 0.18); color: var(--brand-navy-900); }
-.ad-side__sup { margin-top: auto; padding: 12px 10px; background: rgba(244, 241, 234, 0.08); border-radius: var(--r-md); }
-.ad-side__sup-l { font-size: 11px; color: var(--ink-on-dark-2); }
-.ad-side__sup-n { font-size: 13px; font-weight: var(--fw-semibold); color: var(--ink-on-dark); margin-top: 2px; }
-.ad-side__sup-r { font-size: 11px; color: var(--ink-on-dark-2); margin-top: 4px; font-family: var(--font-mono); direction: ltr; }
-.ad-side__credit { padding: 8px 10px 2px; text-align: center; border-top: 1px solid rgba(244, 241, 234, 0.14); }
-/* the ink layer is defined for the LIGHT theme — on this navy panel the on-dark pair is the
-   correct token, and borrowing --ink-4 only ever worked by accident (§1-ب) */
-.ad-side__credit-l { font-size: 9.5px; color: var(--ink-on-dark-2); letter-spacing: 0.08em; font-weight: var(--fw-semibold); }
-.ad-side__credit-n { font-size: 11.5px; color: #DDE2E9; margin-top: 3px; font-weight: var(--fw-medium); }
-.ad-avatar { background: var(--brand-amber-500); color: var(--brand-navy-900); }
+.ad-side__sup { margin-block-start: auto; padding: var(--space-3) 10px; background: var(--side-hover); border-radius: var(--r-sm); }
+.ad-side__sup-l { font-size: var(--t-micro); color: var(--side-fg-2); }
+.ad-side__sup-n { font-size: var(--t-body-sm); font-weight: var(--fw-semibold); color: var(--side-fg); margin-block-start: 2px; }
+.ad-side__sup-r { font-size: var(--t-micro); color: var(--side-fg-2); margin-block-start: 4px; font-family: var(--font-mono); direction: ltr; }
+/* the identity mark on the topbar wears the brand gradient in both shells (§1-ج) */
+.ad-avatar { background: var(--grad-brand); color: var(--side-fg); }
 
 /* ---- Follow-up room ---- */
-.ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
 /* a three-question strip fills its row instead of leaving a fourth column of paper */
 .ad-kpis--3 { grid-template-columns: repeat(3, 1fr); }
 /* The room asks seven questions (client requests 1 + 5). A fixed column count would either
    crush them on a laptop or leave a hole on a wide screen, so the row sizes itself: at the
    1240px page width this settles on seven columns, and it sheds columns gracefully below. */
 .ad-kpis--wrap { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
-.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: var(--elev-rest); display: flex; flex-direction: column; gap: 6px; }
+.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-md); padding: 14px var(--space-4); box-shadow: var(--elev-rest); display: flex; flex-direction: column; gap: 6px; }
 /* a KPI that IS a queue: the tile opens the registry listing exactly what it counted.
-   Height changes ONLY on an interaction state — no tile is born elevated (spec §1-ج). */
+   Height changes ONLY on an interaction state — no tile is born elevated.
+   The FILLED status KPI of dashboard.dc.html is not adopted (§4-ي / §5-هـ). */
 a.ad-kpi--link {
   text-decoration: none;
   color: inherit;
@@ -121,11 +89,11 @@ a.ad-kpi--link {
 }
 a.ad-kpi--link:hover,
 a.ad-kpi--link:focus-visible {
-  border-color: var(--border-3);
+  border-color: var(--border-control);
   box-shadow: var(--elev-hover);
   transform: translateY(var(--lift));
 }
-a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { color: var(--ink-1); }
+a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { color: var(--text-1); }
 /* The click affordance, printed in the RESTING state — a hint that appears only under a pointer
    does not exist for a touch or keyboard reader. A tile with no destination never renders it. */
 .ad-kpi__go {
@@ -134,8 +102,8 @@ a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { col
   gap: 5px;
   margin-block-start: auto;
   padding-block-start: 2px;
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: var(--t-micro);
+  color: var(--text-3);
   transition: color var(--dur-fast) var(--ease-out);
 }
 /* The same slot as `.ad-kpi__go`, on the one tile that has no registry to open: a ratio over
@@ -144,167 +112,173 @@ a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { col
 .ad-kpi__win {
   margin-block-start: auto;
   padding-block-start: 2px;
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: var(--t-micro);
+  color: var(--text-3);
 }
 .ad-kpi__head { display: flex; align-items: center; gap: 7px; }
-.ad-kpi__dot { width: 8px; height: 8px; border-radius: var(--r-pill); }
-.ad-kpi__l { font-size: 12px; color: var(--ink-3); }
-.ad-kpi__row { display: flex; align-items: baseline; gap: 8px; }
+.ad-kpi__dot { inline-size: 8px; block-size: 8px; border-radius: var(--r-pill); }
+.ad-kpi__l { font-size: var(--t-caption); color: var(--text-3); }
+.ad-kpi__row { display: flex; align-items: baseline; gap: var(--space-2); }
 /* tabular figures are not optional here: the value counts up frame by frame (§2-1), and
    proportional digits would make the whole tile twitch sideways for 600ms */
-.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--ink-1); }
-.ad-kpi__delta { font-size: 11.5px; font-weight: var(--fw-semibold); }
+.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-size: var(--t-display-2); font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--text-1); }
+.ad-kpi__delta { font-size: var(--t-caption); font-weight: var(--fw-semibold); }
 
-.ad-cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
-.ad-panel { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
-.ad-panel__head { padding: 14px 20px; border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: 10px; }
-.ad-panel__t { font-size: 14px; font-weight: var(--fw-semibold); }
-.ad-panel__s { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
-.ad-panel__count { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-size: 11px; font-weight: var(--fw-semibold); padding: 2px 9px; border-radius: var(--r-pill); }
+.ad-cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-block-start: 14px; align-items: start; }
+.ad-panel { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-md); box-shadow: var(--elev-rest); overflow: hidden; }
+.ad-panel__head { padding: 14px var(--space-5); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: 10px; }
+.ad-panel__t { font-size: var(--t-body); font-weight: var(--fw-semibold); }
+.ad-panel__s { font-size: var(--t-caption); color: var(--text-3); margin-block-start: 2px; }
+.ad-panel__count { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-size: var(--t-micro); font-weight: var(--fw-semibold); padding: 2px 9px; border-radius: var(--r-pill); }
+/* one modifier, one caller (`FollowUpRoom` — the decisions panel). The `--red` twin was never
+   emitted by any screen: a rule nothing selects is the rule a later edit changes by mistake. */
 .ad-panel__count--amber { background: var(--status-risk-bg); color: var(--status-risk); }
-.ad-panel__count--red { background: var(--status-delayed-bg); color: var(--status-delayed); }
 
 /* A panel whose whole content is one <figure>: the chart lives DIRECTLY in the panel — never in
    a card inside a card (a standing ban) — so the panel only has to supply the padding the
    figure's own caption then owns. */
-.ad-panel--fig { padding: 16px 20px; }
+.ad-panel--fig { padding: var(--space-4) var(--space-5); }
 
 /* ---- a panel that is itself a disclosure (the per-company detail, request 2) ---- */
 .ad-disc { margin-block-start: 14px; }
 .ad-disc > .ad-disc__sum { cursor: pointer; list-style: none; border-block-end: none; }
 .ad-disc > .ad-disc__sum::-webkit-details-marker { display: none; }
-.ad-disc > .ad-disc__sum:hover { background: var(--bg-page); }
+.ad-disc > .ad-disc__sum:hover { background: var(--bg-muted); }
 .ad-disc[open] > .ad-disc__sum { border-block-end: 1px solid var(--border-1); }
-.ad-disc__caret { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out); }
+.ad-disc__caret { flex: none; color: var(--text-3); transition: transform var(--dur-fast) var(--ease-out); }
 /* the same caret grammar as `.reg-explain__caret`: closed it points along the reading direction
    (mirrored under RTL), open it points DOWN — and a rotation needs no mirror of its own */
 html[dir='rtl'] .ad-disc__caret { transform: scaleX(-1); }
 .ad-disc[open] .ad-disc__caret,
 html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
-/* the same guard `.reg-explain__caret` carries: a reader who asked for less motion still gets the
-   state change, it just arrives without the sweep */
 
-
-.ad-decision { padding: 14px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 14px; text-align: start; width: 100%; background: transparent; border-inline: none; border-top: none; font-family: inherit; cursor: pointer; }
+.ad-decision { padding: 14px var(--space-5); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: 14px; text-align: start; inline-size: 100%; background: transparent; border-inline: none; border-top: none; font-family: inherit; cursor: pointer; }
 .ad-decision:last-child { border-bottom: none; }
-.ad-decision:hover { background: var(--bg-page); }
-.ad-decision__icon { width: 34px; height: 34px; border-radius: var(--r-md); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--brand-navy-50); color: var(--brand-navy-700); }
+.ad-decision:hover { background: var(--bg-muted); }
+.ad-decision__icon { inline-size: 34px; block-size: 34px; border-radius: var(--r-sm); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--btn-secondary-bg); color: var(--link); }
 .ad-decision__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.ad-decision__t { font-size: 14px; font-weight: var(--fw-semibold); color: var(--ink-1); }
-.ad-decision__meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
-.ad-decision__due { font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; padding: 3px 10px; border-radius: var(--r-pill); background: var(--status-risk-bg); color: var(--status-risk); }
-.ad-decision__go { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--brand-navy-800); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: var(--fw-medium); border: none; cursor: pointer; white-space: nowrap; }
-.ad-decision__go:hover { background: var(--brand-navy-700); }
-.ad-empty-inline { padding: 20px; text-align: center; color: var(--ink-3); font-size: 12.5px; }
+.ad-decision__t { font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--text-1); }
+.ad-decision__meta { display: flex; align-items: center; gap: var(--space-2); font-size: var(--t-caption); color: var(--text-3); flex-wrap: wrap; }
+.ad-decision__due { font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; padding: 3px 10px; border-radius: var(--r-pill); background: var(--status-risk-bg); color: var(--status-risk); }
+.ad-empty-inline { padding: var(--space-5); text-align: center; color: var(--text-3); font-size: var(--t-body-sm); }
 
-.ad-late { padding: 12px 20px; border-bottom: 1px solid rgba(11, 19, 32, 0.06); display: flex; align-items: center; gap: 12px; }
+.ad-late { padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: var(--space-3); }
 .ad-late:last-child { border-bottom: none; }
 .ad-late__body { flex: 1; min-width: 0; }
-.ad-late__t { font-size: 13px; font-weight: var(--fw-medium); color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ad-late__s { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
-.ad-late__chip { font-size: 11.5px; font-weight: var(--fw-bold); color: var(--status-delayed); background: var(--status-delayed-bg); padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
+.ad-late__t { font-size: var(--t-body-sm); font-weight: var(--fw-medium); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-late__s { font-size: var(--t-caption); color: var(--text-3); margin-block-start: 2px; }
 
-.ad-searchchip { font-size: 9.5px; font-weight: var(--fw-bold); padding: 2px 7px; border-radius: var(--r-sm); flex-shrink: 0; }
+.ad-searchchip { font-size: var(--t-micro); font-weight: var(--fw-bold); padding: 2px 7px; border-radius: var(--r-sm); flex-shrink: 0; }
 .ad-searchchip--tender { background: var(--status-progress-bg); color: var(--status-progress); }
 .ad-searchchip--contract { background: var(--status-done-bg); color: var(--status-done); }
-.ad-searchchip--entity { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+/* an entity result is SCOPED, not a lifecycle state — the same «restricted / pay attention»
+   vocabulary the scoped capability cell wears (§1-و) */
+.ad-searchchip--entity { background: var(--st-pending-bg); color: var(--st-pending-fg); }
 
-/* ---- Governance modal ---- */
-.ad-modal { position: fixed; inset: 0; background: rgba(6, 24, 38, 0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.ad-modal__card { width: 480px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-radius: var(--r-xl); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; }
-.ad-modal__head { padding: 18px 22px; border-bottom: 1px solid var(--border-1); display: flex; align-items: flex-start; gap: 12px; }
-.ad-modal__head > div { flex: 1; min-width: 0; }
-.ad-modal__title { font-size: 16px; font-weight: var(--fw-semibold); }
-.ad-modal__sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-.ad-modal__body { padding: 18px 22px; }
-.ad-modal__foot { padding: 14px 22px; border-top: 1px solid var(--border-1); background: var(--bg-page); display: flex; align-items: center; gap: 8px; border-radius: 0 0 var(--r-xl) var(--r-xl); }
+/* ---- Governance modal ----
+   The base `.ad-modal` family lives in operator.css and is defined ONCE. Only the wide
+   variant is admin's, and it is qualified by the backdrop so it beats the base whatever
+   order the bundler picks: a checklist form is a single act in numbered sections, not
+   several decisions, so it keeps the Modal contract and only gains room. */
+.ad-modal .ad-modal__card--wide { inline-size: 720px; }
 
-/* ---- Danger action buttons + tender lifecycle banner ---- */
-.op-btn-danger { color: var(--status-delayed); }
-.op-btn-ghost.op-btn-danger:hover { background: var(--status-delayed-bg); color: var(--status-delayed); }
-.op-btn-primary.op-btn-danger { background: var(--status-delayed); border-color: var(--status-delayed); color: #fff; }
-.op-btn-primary.op-btn-danger:hover { background: var(--status-delayed); filter: brightness(0.94); }
-.ad-lifebanner { margin: 14px 0 4px; padding: 14px 18px; border-radius: var(--r-lg); background: var(--bg-card); border: 1px solid var(--border-1); box-shadow: var(--shadow-1); }
+/* ---- Tender lifecycle banner ---- */
+.ad-lifebanner { margin: 14px 0 4px; padding: 14px 18px; border-radius: var(--r-md); background: var(--bg-card); border: 1px solid var(--border-1); box-shadow: var(--elev-rest); }
 
 /* ---- Contract lifecycle stage rail ---- */
-.ctr-stage { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(11, 19, 32, 0.06); }
+.ctr-stage { display: flex; align-items: center; gap: var(--space-3); padding-block: 9px; border-bottom: 1px solid var(--border-1); }
 .ctr-stage:last-child { border-bottom: none; }
-.ctr-stage__dot { width: 24px; height: 24px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); font-family: var(--font-mono); }
-.ctr-stage__dot--done { background: var(--status-done); color: #fff; }
-.ctr-stage__dot--now { background: var(--brand-amber-500); color: var(--brand-navy-900); box-shadow: 0 0 0 3px var(--status-risk-bg); }
-/* the dot prints the STAGE NUMBER — text a reader counts with, in an enabled tracker, so 4.5:1
-   applies: --ink-3 on the tinted --bg-muted well is 5.30:1 (--ink-disabled was 2.31:1) */
-.ctr-stage__dot--todo { background: var(--bg-muted); color: var(--ink-3); }
+.ctr-stage__dot { inline-size: 24px; block-size: 24px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: var(--t-micro); font-weight: var(--fw-bold); font-family: var(--font-mono); }
+.ctr-stage__dot--done { background: var(--status-done); color: var(--status-on-fill); }
+/* DEVIATION from §1-ج, computed: the spec routes this dot to --st-pending-BASE, but the dot
+   prints the STAGE NUMBER — text, at 4.5:1 — and the spec's own §5-هـ measures white on
+   #D97706 at 3.186. The foreground step of the same family carries it: white on #A84D08 is
+   5.43 in light, and near-black on #FBBF24 is far above AA in dark. */
+.ctr-stage__dot--now { background: var(--st-pending-fg); color: var(--status-on-fill); box-shadow: 0 0 0 3px var(--status-risk-bg); }
+/* the same reasoning one step quieter: a number a reader counts with, in an ENABLED tracker,
+   so 1.4.3's inactive-component exemption does not reach it and --text-disabled may not be used */
+.ctr-stage__dot--todo { background: var(--bg-muted); color: var(--text-3); }
 .ctr-stage__body { flex: 1; min-width: 0; }
-.ctr-stage__t { font-size: 13.5px; font-weight: var(--fw-medium); color: var(--ink-1); }
-.ctr-stage__d { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ctr-dev { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; font-weight: var(--fw-bold); padding: 1px 6px; border-radius: var(--r-pill); }
+.ctr-stage__t { font-size: var(--t-h4); font-weight: var(--fw-medium); color: var(--text-1); }
+.ctr-stage__d { font-size: var(--t-caption); color: var(--text-3); margin-block-start: 1px; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ctr-dev { font-family: var(--font-mono); direction: ltr; font-size: var(--t-micro); font-weight: var(--fw-bold); padding: 1px 6px; border-radius: var(--r-pill); }
 .ctr-dev--late { background: var(--status-delayed-bg); color: var(--status-delayed); }
 .ctr-dev--early { background: var(--status-done-bg); color: var(--status-done); }
 
 /* ---- Contract schedule & progress ---- */
-.ctr-sched-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.ctr-sched-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-block-end: var(--space-3); }
 .ctr-sched-dates > div { display: flex; flex-direction: column; gap: 3px; }
-.ctr-sched__l { font-size: 11px; color: var(--ink-3); }
-.ctr-sched__pending { font-size: 12px; color: var(--status-progress); font-weight: var(--fw-medium); }
-.ctr-bar { display: grid; grid-template-columns: 96px 1fr 42px; align-items: center; gap: 10px; margin: 7px 0; }
-.ctr-bar__l { font-size: 12px; color: var(--ink-2); }
-.ctr-bar__track { height: 8px; border-radius: var(--r-pill); background: var(--bg-muted); overflow: hidden; }
-.ctr-bar__fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-out); }
-.ctr-bar__v { font-family: var(--font-mono); direction: ltr; font-size: 12px; text-align: end; color: var(--ink-1); }
-.ctr-variance { margin-top: 8px; font-size: 12.5px; font-weight: var(--fw-semibold); }
+.ctr-sched__l { font-size: var(--t-micro); color: var(--text-3); }
+.ctr-sched__pending { font-size: var(--t-caption); color: var(--status-progress); font-weight: var(--fw-medium); }
+.ctr-bar { display: grid; grid-template-columns: 96px 1fr 42px; align-items: center; gap: 10px; margin-block: 7px; }
+.ctr-bar__l { font-size: var(--t-caption); color: var(--text-2); }
+.ctr-bar__track { block-size: 8px; border-radius: var(--r-pill); background: var(--chart-track); overflow: hidden; }
+.ctr-bar__fill { display: block; block-size: 100%; border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-out); }
+.ctr-bar__v { font-family: var(--font-mono); direction: ltr; font-size: var(--t-caption); text-align: end; color: var(--text-1); }
+.ctr-variance { margin-block-start: var(--space-2); font-size: var(--t-body-sm); font-weight: var(--fw-semibold); }
 /* Client request 12 — «كيف أتحكّم بهذه النسبة». The arithmetic behind the bar, stated in one
    line right under it instead of left to be inferred from a number that moves on its own. */
-.ctr-formula { margin-block-start: 6px; font-size: 11.5px; line-height: var(--lh-loose); color: var(--ink-3); }
+.ctr-formula { margin-block-start: 6px; font-size: var(--t-caption); line-height: var(--lh-loose); color: var(--text-3); }
 /* the before → after the advance-stage confirmation previews (Design Principle 2) */
-.ctr-prev { display: flex; align-items: center; gap: 10px; margin-block-start: 12px; }
-.ctr-prev__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 20px; font-weight: var(--fw-semibold); color: var(--ink-3); }
+.ctr-prev { display: flex; align-items: center; gap: 10px; margin-block-start: var(--space-3); }
+.ctr-prev__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-h2); font-weight: var(--fw-semibold); color: var(--text-3); }
 .ctr-prev__v--after { color: var(--status-done); }
-.ctr-prev__arrow { color: var(--ink-3); display: inline-flex; }
-.ctr-prev__l { font-size: 11.5px; color: var(--ink-3); margin-inline-start: auto; }
+.ctr-prev__arrow { color: var(--text-3); display: inline-flex; }
+.ctr-prev__l { font-size: var(--t-caption); color: var(--text-3); margin-inline-start: auto; }
 
-/* ---- Filter select — a data filter, not the language switcher it used to borrow ---- */
-.op-filter-select {
+/* ---- Selects — the field shape of §4-هـ ----
+   `appearance` is left NATIVE on purpose: color-scheme is set per theme in tokens.css, so the
+   platform draws the arrow and the popup in the right theme for free. Replacing it with an
+   absolutely-positioned chevron would mean an icon element in every call site and a hand-drawn
+   popup we do not have. NAMED DEBT — the §4-هـ chevron waits for that markup wave. */
+.op-filter-select,
+.acc-scope-select {
   font: inherit;
-  font-size: 12.5px;
-  height: 32px;
-  max-width: 320px;
-  padding-inline: 12px;
-  border-radius: var(--r-md);
+  font-size: var(--t-body-sm);
+  block-size: 36px;
+  padding-inline: var(--space-3);
+  border-radius: var(--r-sm);
   /* the edge IS the affordance on a control — 3:1 minimum (WCAG 1.4.11), not the card hairline */
   border: 1px solid var(--border-control);
   background: var(--bg-card);
-  color: var(--ink-2);
+  color: var(--text-2);
   cursor: pointer;
 }
-.op-filter-select:hover { background: var(--bg-muted); }
+.op-filter-select { max-inline-size: 320px; }
+.acc-scope-select { max-inline-size: 260px; margin-inline-start: auto; }
+.op-filter-select:hover, .acc-scope-select:hover { background: var(--bg-muted); }
 
 /* ============================================================
-   Approval chain (ق1) — the ladder pill and the decision state.
-   Namespaced ad-tier/ad-dec; tokens only; logical properties only.
-   A tier is an authority band, NOT a lifecycle state, so it reads in the
-   brand vocabulary (amber = joint committee, navy = parent company) and
-   leaves the closed --status-* set to things that actually have a status.
+   Approval chain (ق1) — the ladder chip and the decision state (§4-د).
+   A tier is an AUTHORITY BAND, not a lifecycle state, so it reads as a rung of
+   the indigo ramp and leaves the closed --status-* set to things that have a
+   status. The chip is SQUARE-cornered on purpose — that is how the reference
+   tells a tier apart from the disc-shaped status badge.
    ============================================================ */
-.ad-tier { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
-.ad-tier--operator { background: var(--bg-muted); color: var(--ink-2); }
-.ad-tier--jmc      { background: var(--brand-amber-50); color: var(--brand-amber-700); }
-.ad-tier--mdoc     { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+.ad-tier {
+  display: inline-flex; align-items: center; gap: 5px;
+  block-size: 22px; padding-inline: 9px; border-radius: var(--r-sm);
+  border: 1px solid var(--btn-secondary-bd);
+  background: var(--btn-secondary-bg);
+  font-size: var(--t-micro); font-weight: var(--fw-semibold); white-space: nowrap;
+}
+.ad-tier--operator { color: var(--tier-operator); }
+.ad-tier--jmc      { color: var(--tier-jmc); }
+.ad-tier--mdoc     { color: var(--tier-mdoc); }
 
 /* the decision the waiting body has (or has not) taken — here the semantics ARE lifecycle */
-.ad-dec { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
-.ad-dec--pending   { background: var(--status-progress-bg); color: var(--status-progress); }
-.ad-dec--ratified  { background: var(--status-done-bg); color: var(--status-done); }
-.ad-dec--returned  { background: var(--status-delayed-bg); color: var(--status-delayed); }
-.ad-dec--suspended { background: var(--status-risk-bg); color: var(--status-risk); }
-.ad-dec--cancelled { background: var(--status-blocked-bg); color: var(--status-blocked); }
+.ad-dec { display: inline-flex; align-items: center; block-size: 22px; padding-inline: 10px; border-radius: var(--r-pill); border: 1px solid transparent; font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; }
+.ad-dec--pending   { background: var(--status-progress-bg); border-color: var(--status-progress-bd); color: var(--status-progress); }
+.ad-dec--ratified  { background: var(--status-done-bg); border-color: var(--status-done-bd); color: var(--status-done); }
+.ad-dec--returned  { background: var(--status-delayed-bg); border-color: var(--status-delayed-bd); color: var(--status-delayed); }
+.ad-dec--suspended { background: var(--status-risk-bg); border-color: var(--status-risk-bd); color: var(--status-risk); }
+.ad-dec--cancelled { background: var(--status-blocked-bg); border-color: var(--status-blocked-bd); color: var(--status-blocked); }
 
 /* the ladder as a read-only three-row table (the add-operator form, request 4) */
 .ad-ladder { display: flex; flex-direction: column; gap: 6px; }
-.ad-ladder__row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); }
-.ad-ladder__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; color: var(--ink-1); margin-inline-start: auto; white-space: nowrap; }
-.ad-ladder__note { margin-block-start: 8px; font-size: 11.5px; line-height: var(--lh-loose); color: var(--ink-3); }
+.ad-ladder__row { display: flex; align-items: center; gap: 10px; font-size: var(--t-caption); color: var(--text-2); }
+.ad-ladder__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-caption); color: var(--text-1); margin-inline-start: auto; white-space: nowrap; }
+.ad-ladder__note { margin-block-start: var(--space-2); font-size: var(--t-caption); line-height: var(--lh-loose); color: var(--text-3); }
 
 /* ============================================================
    Access governance — registry, 360° file, capability matrix.
@@ -313,50 +287,49 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
    ============================================================ */
 
 /* ---- role / status / attribute pills ---- */
-.acc-role { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
-.acc-role--super      { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+.acc-role { display: inline-flex; align-items: center; block-size: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; }
+.acc-role--super      { background: var(--btn-secondary-bg); color: var(--link); }
 .acc-role--mdoc       { background: var(--status-progress-bg); color: var(--status-progress); }
-/* the joint committee wears the amber the tier pill already gives its band (.ad-tier--jmc) —
-   one body, one colour, on the pill, on the card and in the matrix column */
-.acc-role--jmc        { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+/* one body, one colour: the joint committee wears the tier colour its band already carries
+   on `.ad-tier--jmc`, on the pill, on the card and in the matrix column */
+.acc-role--jmc        { background: var(--btn-secondary-bg); color: var(--tier-jmc); }
 .acc-role--evaluation { background: var(--status-blocked-bg); color: var(--status-blocked); }
-.acc-role--auditor    { background: var(--bg-muted); color: var(--ink-2); }
+.acc-role--auditor    { background: var(--bg-muted); color: var(--text-2); }
 .acc-role--operator   { background: var(--status-done-bg); color: var(--status-done); }
 /* a role name no longer in the register (only reachable from a historical audit row) —
    readable, but visibly not one of the five live roles */
-.acc-role--unknown    { background: var(--bg-muted); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--border-1); }
+.acc-role--unknown    { background: var(--bg-muted); color: var(--text-3); box-shadow: inset 0 0 0 1px var(--border-1); }
 
-.acc-status { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.acc-status { display: inline-flex; align-items: center; gap: 6px; block-size: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; }
 .acc-status--active   { background: var(--status-done-bg); color: var(--status-done); }
-.acc-status--disabled { background: var(--bg-muted); color: var(--ink-3); }
+.acc-status--disabled { background: var(--bg-muted); color: var(--text-3); }
 
-.acc-attr { display: inline-flex; align-items: center; height: 20px; padding-inline: 8px; border-radius: var(--r-pill); font-size: 11px; background: var(--bg-muted); color: var(--ink-3); white-space: nowrap; }
-.acc-conflict { font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--brand-amber-700); }
-.acc-refused { margin-inline-start: 8px; font-size: 10.5px; font-weight: var(--fw-bold); color: var(--status-delayed); background: var(--status-delayed-bg); padding: 1px 7px; border-radius: var(--r-pill); }
-.acc-by { font-weight: var(--fw-medium); color: var(--ink-2); }
+.acc-attr { display: inline-flex; align-items: center; block-size: 20px; padding-inline: var(--space-2); border-radius: var(--r-pill); font-size: var(--t-micro); background: var(--bg-muted); color: var(--text-3); white-space: nowrap; }
+.acc-conflict { font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--st-pending-fg); }
+.acc-refused { margin-inline-start: var(--space-2); font-size: var(--t-micro); font-weight: var(--fw-bold); color: var(--status-delayed); background: var(--status-delayed-bg); padding: 1px 7px; border-radius: var(--r-pill); }
+.acc-by { font-weight: var(--fw-medium); color: var(--text-2); }
 .acc-type--action { color: var(--status-progress); font-weight: var(--fw-semibold); }
-.acc-type--read   { color: var(--ink-3); }
+.acc-type--read   { color: var(--text-3); }
 
 /* mono values inside Arabic prose must stay LTR and isolated, or codes and arrows mis-order */
-.acc-mono { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; }
+.acc-mono { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-caption); }
 
-.acc-avatar { width: 32px; height: 32px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--brand-navy-50); color: var(--brand-navy-700); font-size: 12px; font-weight: var(--fw-bold); }
-.acc-avatar--sm { width: 24px; height: 24px; font-size: 10px; }
+.acc-avatar { inline-size: 32px; block-size: 32px; border-radius: var(--r-pill); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--btn-secondary-bg); color: var(--link); font-size: var(--t-caption); font-weight: var(--fw-bold); }
+.acc-avatar--sm { inline-size: 24px; block-size: 24px; font-size: var(--t-micro); }
 
 /* ---- registry ---- */
-.acc-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 16px 12px; }
-.acc-scope-select { font: inherit; font-size: 12.5px; height: 32px; max-width: 260px; padding-inline: 12px; border-radius: var(--r-md); border: 1px solid var(--border-control); background: var(--bg-card); color: var(--ink-2); cursor: pointer; margin-inline-start: auto; }
+.acc-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block: var(--space-4) var(--space-3); }
 .acc-row--off { opacity: 0.62; }
-.acc-count { font-family: var(--font-mono); direction: ltr; font-size: 10.5px; opacity: 0.75; margin-inline-start: 5px; }
 
-/* rows are real buttons so a keyboard can open a file — a bare <tr onClick> cannot be reached */
-.acc-open { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding-inline: 11px; border-radius: var(--r-sm); background: var(--bg-card); color: var(--ink-1); border: 1px solid var(--border-control); font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; }
-.acc-open:hover { background: var(--bg-muted); }
+/* rows are real buttons so a keyboard can open a file — a bare <tr onClick> cannot be reached.
+   DECLARED EXCEPTION to the 34px button shape: one per registry row, inside a dense table. */
+.acc-open { display: inline-flex; align-items: center; gap: 6px; block-size: 26px; padding-inline: 11px; border-radius: var(--r-sm); background: transparent; color: var(--btn-ghost-fg); border: 1px solid var(--border-control); font: inherit; font-size: var(--t-caption); cursor: pointer; white-space: nowrap; }
+.acc-open:hover { background: var(--btn-ghost-hover); }
 
 /* ---- 360° file ---- */
 .acc-actionstack { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.acc-actionstack .wz-gate { text-align: end; max-width: 280px; }
-.acc-actionstack__row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.acc-actionstack .wz-gate { text-align: end; max-inline-size: 280px; }
+.acc-actionstack__row { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
 
 /* ---- capability matrix ---- */
 .acc-matrix { overflow-x: auto; }
@@ -364,37 +337,35 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
 .acc-matrix th:first-child, .acc-matrix td:first-child { position: sticky; inset-inline-start: 0; background: var(--bg-card); z-index: 2; }
 .acc-matrix thead th:first-child { z-index: 3; }
 
-.acc-cell { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 12px; font-weight: var(--fw-bold); }
+.acc-cell { display: inline-flex; align-items: center; justify-content: center; inline-size: 24px; block-size: 24px; border-radius: var(--r-sm); font-family: var(--font-mono); font-size: var(--t-caption); font-weight: var(--fw-bold); }
 .acc-cell--yes     { background: var(--status-done-bg); color: var(--status-done); }
-.acc-cell--scoped  { background: var(--brand-amber-50); color: var(--brand-amber-700); }
-.acc-cell--open    { background: var(--bg-muted); color: var(--ink-3); border: 1px dashed var(--border-3); }
+/* «granted, but only within a scope» — restriction, the same vocabulary the entity chip wears */
+.acc-cell--scoped  { background: var(--st-pending-bg); color: var(--st-pending-fg); }
+.acc-cell--open    { background: var(--bg-muted); color: var(--text-3); border: 1px dashed var(--border-2); }
 /* «—» and «⊘» are the ABSENCE of a permission — informational marks with an aria-label, inside a
    fully enabled table. WCAG 1.4.3's exemption covers text in an INACTIVE COMPONENT and does not
-   reach them, so neither may take --ink-disabled (2.61:1, and 1.55:1 once an opacity was stacked
-   on top). Both take --ink-3 on --bg-card = 5.98:1. They stay weaker than a granted cell by
-   having NO fill and no hue at all, and the two states are told apart by their glyphs — which is
-   what the legend and the aria-label name, never the colour. */
-.acc-cell--no      { background: transparent; color: var(--ink-3); }
-.acc-cell--session { background: transparent; color: var(--ink-3); }
+   reach them, so neither may take --text-disabled. Both take --text-3 on --bg-card. They stay
+   weaker than a granted cell by having NO fill and no hue at all, and the two states are told
+   apart by their glyphs — which is what the legend and the aria-label name, never the colour. */
+.acc-cell--no      { background: transparent; color: var(--text-3); }
+.acc-cell--session { background: transparent; color: var(--text-3); }
 /* not a permission — a disagreement between the spec document and the enforced guard */
 .acc-cell--conflict { background: var(--status-delayed-bg); color: var(--status-delayed); }
 
-.acc-legend { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 11.5px; color: var(--ink-3); margin-block: 12px; }
+.acc-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; font-size: var(--t-caption); color: var(--text-3); margin-block: var(--space-3); }
 .acc-legend > span { display: inline-flex; align-items: center; gap: 6px; }
 
-.acc-domain td { background: var(--bg-page); font-size: 11px; font-weight: var(--fw-bold); letter-spacing: 0.06em; color: var(--ink-3); padding-block: 6px; }
-.acc-holders { font-family: var(--font-mono); direction: ltr; font-weight: var(--fw-bold); font-size: 12px; }
+.acc-domain td { background: var(--bg-muted); font-size: var(--t-micro); font-weight: var(--fw-bold); letter-spacing: 0.06em; color: var(--text-3); padding-block: 6px; }
+.acc-holders { font-family: var(--font-mono); direction: ltr; font-weight: var(--fw-bold); font-size: var(--t-caption); }
 .acc-holders--none { color: var(--status-delayed); }
 
 /* ============================================================
    «الوصول والأدوار» — the ONE merged section (client requests 20 + 21).
-   Three tabs of one subject; role cards that answer the three financial
-   questions in large type. Namespaced acc-*; tokens only; logical props.
    ============================================================ */
 
 /* ---- the section head row each tab carries (sub-line + its own actions) ---- */
 .acc-tabhead { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-block: var(--space-4) var(--space-2); }
-.acc-tabhead__s { font-size: var(--t-body-sm); color: var(--ink-3); line-height: var(--lh-normal); }
+.acc-tabhead__s { font-size: var(--t-body-sm); color: var(--text-3); line-height: var(--lh-normal); }
 .acc-tabhead__a { display: flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
 
 /* ---- the three big switches. Deliberately not `.file-tab`: those are a hairline
@@ -405,90 +376,88 @@ html[dir='rtl'] .ad-disc[open] .ad-disc__caret { transform: rotate(90deg); }
   display: grid; grid-template-columns: auto 1fr; align-items: center;
   gap: 2px var(--space-3); padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-2); border-radius: var(--r-md);
-  background: var(--bg-card); color: var(--ink-2); font: inherit; text-align: start; cursor: pointer;
-  transition: background 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out;
+  background: var(--bg-card); color: var(--text-2); font: inherit; text-align: start; cursor: pointer;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
-.acc-tab > svg { grid-row: 1 / span 2; color: var(--ink-3); }
-.acc-tab__l { font-size: var(--t-h4); font-weight: var(--fw-semibold); color: var(--ink-1); }
-.acc-tab__s { font-size: var(--t-micro); color: var(--ink-3); line-height: var(--lh-snug); }
-.acc-tab:hover { background: var(--bg-muted); border-color: var(--border-3); }
-.acc-tab--on { border-color: var(--brand-navy-600); box-shadow: inset 0 0 0 1px var(--brand-navy-600); background: var(--brand-navy-50); }
-.acc-tab--on > svg, .acc-tab--on .acc-tab__l { color: var(--brand-navy-800); }
-.acc-tab:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.acc-tab > svg { grid-row: 1 / span 2; color: var(--text-3); }
+.acc-tab__l { font-size: var(--t-h4); font-weight: var(--fw-semibold); color: var(--text-1); }
+.acc-tab__s { font-size: var(--t-micro); color: var(--text-3); line-height: var(--lh-snug); }
+.acc-tab:hover { background: var(--bg-muted); border-color: var(--border-control); }
+.acc-tab--on { border-color: var(--btn-primary-bg); box-shadow: inset 0 0 0 1px var(--btn-primary-bg); background: var(--btn-secondary-bg); }
+.acc-tab--on > svg, .acc-tab--on .acc-tab__l { color: var(--link); }
 
 /* ---- «من يوافق على ماذا» — the triad, with the live ceilings and a worked example ---- */
 .acc-triad { margin-block-start: var(--space-4); }
 .acc-triad__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); padding: var(--space-4) var(--space-5) var(--space-2); }
-.acc-triad__body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--r-md); background: var(--bg-inset); }
-.acc-triad__body--jmc { background: var(--brand-amber-50); }
-.acc-triad__body--mdoc { background: var(--brand-navy-50); }
+.acc-triad__body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--r-sm); background: var(--bg-inset); }
+.acc-triad__body--jmc { background: var(--st-pending-bg); }
+.acc-triad__body--mdoc { background: var(--btn-secondary-bg); }
 .acc-triad__head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-.acc-triad__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-micro); color: var(--ink-2); margin-inline-start: auto; white-space: nowrap; }
-.acc-triad__who { font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--ink-1); line-height: var(--lh-snug); }
-.acc-triad__what { margin: 0; font-size: var(--t-body-sm); color: var(--ink-2); line-height: var(--lh-loose); }
-.acc-triad__ex { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); font-size: var(--t-body-sm); font-weight: var(--fw-medium); color: var(--ink-1); line-height: var(--lh-normal); }
-.acc-triad__ex > svg { flex-shrink: 0; color: var(--ink-3); }
+.acc-triad__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-micro); color: var(--text-2); margin-inline-start: auto; white-space: nowrap; }
+.acc-triad__who { font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--text-1); line-height: var(--lh-snug); }
+.acc-triad__what { margin: 0; font-size: var(--t-body-sm); color: var(--text-2); line-height: var(--lh-loose); }
+.acc-triad__ex { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); font-size: var(--t-body-sm); font-weight: var(--fw-medium); color: var(--text-1); line-height: var(--lh-normal); }
+.acc-triad__ex > svg { flex-shrink: 0; color: var(--text-3); }
 /* a tender code and a money figure are single tokens — they wrap AROUND, never through */
 .acc-triad__ex .acc-mono { white-space: nowrap; flex-shrink: 0; }
-.acc-triad__ex--none { color: var(--ink-3); font-weight: var(--fw-regular); }
-.acc-triad__foot { padding: 0 var(--space-5) var(--space-4); font-size: var(--t-micro); color: var(--ink-3); line-height: var(--lh-loose); }
+.acc-triad__ex--none { color: var(--text-3); font-weight: var(--fw-regular); }
+.acc-triad__foot { padding: 0 var(--space-5) var(--space-4); font-size: var(--t-micro); color: var(--text-3); line-height: var(--lh-loose); }
 
 /* ---- the role cards ---- */
 .acc-rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-4); align-items: start; }
 .acc-rc {
   display: flex; flex-direction: column; gap: var(--space-3);
   padding: var(--space-4) var(--space-5) var(--space-5);
-  background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+  background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-md); box-shadow: var(--elev-rest);
 }
 .acc-rc__head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-3); }
-.acc-rc__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 40px; block-size: 40px; border-radius: var(--r-md); background: var(--bg-muted); color: var(--ink-2); }
-.acc-rc--super .acc-rc__icon { background: var(--brand-navy-50); color: var(--brand-navy-800); }
+.acc-rc__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 40px; block-size: 40px; border-radius: var(--r-sm); background: var(--bg-muted); color: var(--text-2); }
+.acc-rc--super .acc-rc__icon { background: var(--btn-secondary-bg); color: var(--link); }
 .acc-rc--mdoc  .acc-rc__icon { background: var(--status-progress-bg); color: var(--status-progress); }
-.acc-rc--jmc   .acc-rc__icon { background: var(--brand-amber-50); color: var(--brand-amber-700); }
+.acc-rc--jmc   .acc-rc__icon { background: var(--st-pending-bg); color: var(--st-pending-fg); }
 .acc-rc--evaluation .acc-rc__icon { background: var(--status-blocked-bg); color: var(--status-blocked); }
 .acc-rc--operator   .acc-rc__icon { background: var(--status-done-bg); color: var(--status-done); }
 .acc-rc__id { min-inline-size: 0; }
-.acc-rc__name { margin: 0; font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--ink-1); line-height: var(--lh-snug); }
-.acc-rc__code { display: block; font-size: var(--t-micro); color: var(--ink-4); }
-.acc-rc__holders { font-family: var(--font-mono); direction: ltr; font-size: var(--t-h2); font-weight: var(--fw-bold); color: var(--ink-1); }
-.acc-rc__who { margin: 0; font-size: var(--t-body-sm); color: var(--ink-2); line-height: var(--lh-loose); }
+.acc-rc__name { margin: 0; font-size: var(--t-h3); font-weight: var(--fw-bold); color: var(--text-1); line-height: var(--lh-snug); }
+.acc-rc__code { display: block; font-size: var(--t-micro); color: var(--text-muted); }
+.acc-rc__holders { font-family: var(--font-mono); direction: ltr; font-size: var(--t-h2); font-weight: var(--fw-bold); color: var(--text-1); }
+.acc-rc__who { margin: 0; font-size: var(--t-body-sm); color: var(--text-2); line-height: var(--lh-loose); }
 
 /* the three financial facts — large type is the whole point of request 21. The first column is
    the widest because it is the one that carries a grouped money figure. */
-.acc-rc__facts { display: grid; grid-template-columns: 1.35fr 1fr 0.85fr; gap: var(--space-3) var(--space-2); margin: 0; padding: var(--space-3); border-radius: var(--r-md); background: var(--bg-inset); }
+.acc-rc__facts { display: grid; grid-template-columns: 1.35fr 1fr 0.85fr; gap: var(--space-3) var(--space-2); margin: 0; padding: var(--space-3); border-radius: var(--r-sm); background: var(--bg-inset); }
 .acc-rc__fact { display: flex; flex-direction: column; gap: var(--space-1); min-inline-size: 0; }
-.acc-rc__fact dt { font-size: var(--t-micro); color: var(--ink-3); }
+.acc-rc__fact dt { font-size: var(--t-micro); color: var(--text-3); }
 .acc-rc__fact dd { margin: 0; }
-.acc-rc__v { font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--ink-1); line-height: var(--lh-snug); overflow-wrap: break-word; }
+.acc-rc__v { font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--text-1); line-height: var(--lh-snug); overflow-wrap: break-word; }
 /* money stays one unbroken LTR island: «$10,000,000», never «10,000,000$» or a mid-figure break */
 .acc-rc__money { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; white-space: nowrap; font-size: var(--t-body); }
-.acc-rc__v--strong { font-size: var(--t-h4); color: var(--brand-navy-800); }
-.acc-rc__v--none { color: var(--ink-3); font-weight: var(--fw-regular); }
-.acc-rc__stats { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--t-caption); color: var(--ink-2); }
+.acc-rc__v--strong { font-size: var(--t-h4); color: var(--link); }
+.acc-rc__v--none { color: var(--text-3); font-weight: var(--fw-regular); }
+.acc-rc__stats { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--t-caption); color: var(--text-2); }
 /* holders are LINKS to their files — a hairline ring and a hover tint make that legible, since
    the shared avatar tint alone is nearly invisible on a white card */
 .acc-rc__people { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.acc-rc__people .acc-avatar { box-shadow: inset 0 0 0 1px var(--border-2); text-decoration: none; transition: background 150ms ease-out; }
-.acc-rc__people .acc-avatar:hover { background: var(--brand-navy-100); }
-.acc-rc__people .acc-avatar:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.acc-rc__people .acc-avatar { box-shadow: inset 0 0 0 1px var(--border-2); text-decoration: none; transition: background var(--dur-fast) var(--ease-out); }
+.acc-rc__people .acc-avatar:hover { background: var(--btn-secondary-hover); }
 .acc-rc__orphan { padding: var(--space-2) var(--space-3); border-radius: var(--r-sm); background: var(--status-delayed-bg); color: var(--status-delayed); font-size: var(--t-caption); }
 
+/* the card's two text links: colour says «link», the underline says «you are on it» — the
+   colour no longer shifts on hover, because --link is already the one link colour per theme */
 .acc-rc__more {
   display: inline-flex; align-items: center; gap: var(--space-2); align-self: flex-start;
-  padding: 0; border: 0; background: none; color: var(--brand-navy-700);
+  padding: 0; border: 0; background: none; color: var(--link);
   font: inherit; font-size: var(--t-body-sm); font-weight: var(--fw-medium); cursor: pointer;
 }
-.acc-rc__more:hover { color: var(--brand-navy-800); text-decoration: underline; }
-.acc-rc__more:focus-visible { outline: var(--focus-ring); outline-offset: 3px; border-radius: var(--r-xs); }
 /* «حاملو الدور» — the card's way to the ACCOUNTS register, filtered to this role. A link, not a
    button: it navigates, and grant/revoke/disable stay on the account file where the guards live. */
 .acc-rc__holderlink {
   display: inline-flex; align-items: center; gap: var(--space-2); align-self: flex-start;
-  color: var(--brand-navy-700); font-size: var(--t-body-sm); font-weight: var(--fw-medium);
+  color: var(--link); font-size: var(--t-body-sm); font-weight: var(--fw-medium);
   text-decoration: none;
 }
-.acc-rc__holderlink:hover { color: var(--brand-navy-800); text-decoration: underline; }
-.acc-rc__holderlink:focus-visible { outline: var(--focus-ring); outline-offset: 3px; border-radius: var(--r-xs); }
+.acc-rc__more:hover, .acc-rc__more:focus-visible,
+.acc-rc__holderlink:hover, .acc-rc__holderlink:focus-visible { text-decoration: underline; }
 /* same disclosure gesture as .reg-explain__caret — mirrored under RTL, 90° when open */
 .acc-rc__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out); }
 html[dir='rtl'] .acc-rc__caret { transform: scaleX(-1); }
@@ -496,103 +465,89 @@ html[dir='rtl'] .acc-rc__caret { transform: scaleX(-1); }
 html[dir='rtl'] .acc-rc__more[aria-expanded='true'] .acc-rc__caret { transform: rotate(90deg); }
 
 .acc-rc__caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.acc-rc__caps li { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--t-caption); color: var(--ink-2); padding-block-end: var(--space-2); border-block-end: 1px solid var(--border-1); }
+.acc-rc__caps li { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--t-caption); color: var(--text-2); padding-block-end: var(--space-2); border-block-end: 1px solid var(--border-1); }
 .acc-rc__caps li:last-child { border-block-end: none; padding-block-end: 0; }
 
-/* TARGET FILE: apps/web/src/admin/admin.css -- Tender-review award-decision ceremony (TenderReview.tsx). The "record to be written" preview inside the ratify/return modals. Rows reuse the existing .wz-reviewrow label/value grid (operator.css). Tokens + logical props only. */
-.rv-ledger { margin-block-start: 14px; padding: 2px 14px 6px; border: 1px solid var(--border-1); border-radius: var(--r-md); background: var(--bg-inset); }
-.rv-ledger__cap { padding-block: 10px 2px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--ink-3); }
+/* Tender-review award-decision ceremony (TenderReview.tsx). The "record to be written" preview
+   inside the ratify/return modals. Rows reuse the .wz-reviewrow label/value grid (operator.css). */
+.rv-ledger { margin-block-start: 14px; padding: 2px 14px 6px; border: 1px solid var(--border-1); border-radius: var(--r-sm); background: var(--bg-inset); }
+.rv-ledger__cap { padding-block: 10px 2px; font-size: var(--t-micro); font-weight: var(--fw-semibold); color: var(--text-3); }
 .rv-ledger .wz-reviewrow:last-child { border-block-end: none; }
 /* «من يملك هذا القرار» — the tier line standing above the ratify/return controls */
-.rv-tier { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-end: 12px; }
-.rv-tier__s { font-size: 12.5px; color: var(--ink-2); }
+.rv-tier { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-end: var(--space-3); }
+.rv-tier__s { font-size: var(--t-body-sm); color: var(--text-2); }
 
 /* ---- Batch 4 «مفاتيح الربط» — cross-record link affordances (contract ↔ entity ↔ tender) ---- */
 /* Status pill that is also a navigation link (contractor → its Vendor file). */
-a.ad-pill-link { text-decoration: none; cursor: pointer; transition: filter 150ms ease-out; }
+a.ad-pill-link { text-decoration: none; cursor: pointer; transition: filter var(--dur-fast) var(--ease-out); }
 a.ad-pill-link:hover { filter: brightness(0.96); }
 /* Lineage chip link — «من المناقصة …» and «العقد الناتج …». */
-.ad-fromtender { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); background: var(--bg-inset); border: 1px solid var(--border-1); padding: 4px 11px; border-radius: var(--r-pill); text-decoration: none; transition: background 150ms ease-out, color 150ms ease-out; }
-.ad-fromtender:hover { background: var(--bg-muted); color: var(--ink-1); }
+.ad-fromtender { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-caption); color: var(--text-2); background: var(--bg-inset); border: 1px solid var(--border-1); padding: 4px 11px; border-radius: var(--r-pill); text-decoration: none; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.ad-fromtender:hover { background: var(--bg-muted); color: var(--text-1); }
 
 /* «إجراءات أخرى» overflow menu (ContractProfile action row) — lightweight disclosure. */
 .ctr-actions { position: relative; display: inline-flex; }
-.ctr-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 6px); min-width: 210px; background: var(--bg-card); border: 1px solid var(--border-2); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: 6px; z-index: 30; }
-.ctr-menuitem { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: var(--r-sm); background: transparent; border: none; font: inherit; font-size: 12.5px; color: var(--ink-1); cursor: pointer; text-align: start; }
+.ctr-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 6px); min-inline-size: 210px; background: var(--bg-card); border: 1px solid var(--border-2); border-radius: var(--r-lg); box-shadow: var(--shadow-3); padding: 6px; z-index: 30; animation: pop-in var(--dur-fast) var(--ease-out); }
+.ctr-menuitem { display: flex; align-items: center; gap: var(--space-2); inline-size: 100%; padding: var(--space-2) 10px; border-radius: var(--r-sm); background: transparent; border: none; font: inherit; font-size: var(--t-body-sm); color: var(--text-1); cursor: pointer; text-align: start; }
 .ctr-menuitem:hover { background: var(--bg-muted); }
 .ctr-menuitem .op-devbadge { margin-inline-start: auto; }
 
 /* Entity-file contracts panel — each row is a real link to the contract file. */
 a.ent-crow { text-decoration: none; color: inherit; }
-a.ent-crow:hover { background: var(--bg-page); }
+a.ent-crow:hover { background: var(--bg-muted); }
 
 /* ============================================================
    Client wave 1 · phase 2 — merged operator+fields checklist form
-   and the ق7 archive model. Namespaced cf-* / arch-*; tokens only;
-   logical properties only.
+   and the ق7 archive model. Namespaced cf-* / arch-*.
    ============================================================ */
 
-/* The one wide dialog: a checklist form is a single act in numbered sections,
-   not several decisions, so it keeps the Modal contract and only gains room.
-
-   The base `.ad-modal__card { width: 480px }` is declared TWICE — here (line 109) and again in
-   operator.css, which mirrors the shared Modal for the operator skin. Both are single-class
-   selectors, so in a bundle where operator.css lands last the base beat this override on source
-   order alone and the modifier was dead. Qualifying it with the backdrop raises it to (0,2,0),
-   which wins over either copy of the base whatever order the bundler picks. */
-.ad-modal .ad-modal__card--wide { width: 720px; }
-
 /* ---- numbered gated section (SectionHeader: number → check) ---- */
-.cf-sec { border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 14px 16px; background: var(--bg-card); }
-.cf-sec + .cf-sec { margin-block-start: 12px; }
+.cf-sec { border: 1px solid var(--border-1); border-radius: var(--r-md); padding: 14px var(--space-4); background: var(--bg-card); }
+.cf-sec + .cf-sec { margin-block-start: var(--space-3); }
 .cf-sec--locked { background: var(--bg-inset); }
 .cf-sec--locked .cf-sec__body { opacity: 0.55; }
 .cf-sec__head { display: flex; align-items: center; gap: 10px; }
 .cf-sec__n {
-  width: 24px; height: 24px; flex-shrink: 0; border-radius: var(--r-pill);
+  inline-size: 24px; block-size: 24px; flex-shrink: 0; border-radius: var(--r-pill);
   display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-size: 12px; font-weight: var(--fw-bold);
-  background: var(--paper-200); color: var(--ink-3);
+  font-family: var(--font-mono); font-size: var(--t-caption); font-weight: var(--fw-bold);
+  background: var(--bg-inset); color: var(--text-3);
   transition: background var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
 }
-.cf-sec--on .cf-sec__n { background: var(--brand-navy-800); color: #fff; }
-.cf-sec--done .cf-sec__n { background: var(--status-done); color: #fff; }
-.cf-sec__t { font-size: 13.5px; font-weight: var(--fw-semibold); color: var(--ink-1); }
-.cf-sec--locked .cf-sec__t { color: var(--ink-3); }
-.cf-sec__s { font-size: 11.5px; color: var(--ink-3); margin-inline-start: auto; text-align: end; }
-.cf-sec__body { margin-block-start: 12px; display: flex; flex-direction: column; gap: 12px; }
+.cf-sec--on .cf-sec__n { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+.cf-sec--done .cf-sec__n { background: var(--status-done); color: var(--status-on-fill); }
+.cf-sec__t { font-size: var(--t-h4); font-weight: var(--fw-semibold); color: var(--text-1); }
+.cf-sec--locked .cf-sec__t { color: var(--text-3); }
+.cf-sec__s { font-size: var(--t-caption); color: var(--text-3); margin-inline-start: auto; text-align: end; }
+.cf-sec__body { margin-block-start: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
 
 /* ---- repeatable field rows ---- */
-.cf-row { border: 1px solid var(--border-1); border-radius: var(--r-md); padding: 12px; background: var(--bg-page); }
-.cf-row__head { display: flex; align-items: center; gap: 8px; margin-block-end: 10px; }
-.cf-row__n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
-.cf-row__rm { margin-inline-start: auto; background: transparent; border: none; font: inherit; font-size: 11.5px; color: var(--status-delayed); cursor: pointer; padding: 2px 6px; border-radius: var(--r-sm); }
+.cf-row { border: 1px solid var(--border-1); border-radius: var(--r-sm); padding: var(--space-3); background: var(--bg-muted); }
+.cf-row__head { display: flex; align-items: center; gap: var(--space-2); margin-block-end: 10px; }
+.cf-row__n { font-family: var(--font-mono); font-size: var(--t-micro); color: var(--text-3); }
+.cf-row__rm { margin-inline-start: auto; background: transparent; border: none; font: inherit; font-size: var(--t-caption); color: var(--status-delayed); cursor: pointer; padding: 2px 6px; border-radius: var(--r-sm); }
 .cf-row__rm:hover { background: var(--status-delayed-bg); }
 .cf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cf-grid--3 { grid-template-columns: 2fr 1fr 1fr; }
-.cf-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px dashed var(--border-2); border-radius: var(--r-md); padding: 8px 14px; font: inherit; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
-.cf-add:hover { background: var(--bg-muted); color: var(--ink-1); }
+.cf-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px dashed var(--border-2); border-radius: var(--r-sm); padding: var(--space-2) 14px; font: inherit; font-size: var(--t-body-sm); color: var(--text-2); cursor: pointer; }
+.cf-add:hover { background: var(--bg-muted); color: var(--text-1); }
 
 /* ---- the id slug preview + the created-records receipt ---- */
-.cf-slug { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: 11.5px; color: var(--ink-2); background: var(--bg-inset); border: 1px solid var(--border-1); padding: 3px 9px; border-radius: var(--r-sm); align-self: flex-start; }
+.cf-slug { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-caption); color: var(--text-2); background: var(--bg-inset); border: 1px solid var(--border-1); padding: 3px 9px; border-radius: var(--r-sm); align-self: flex-start; }
 .cf-made { display: flex; flex-direction: column; gap: 6px; margin-block-start: 10px; }
-.cf-made__row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-1); }
-.cf-made__row .op-code { font-size: 11.5px; }
+.cf-made__row { display: flex; align-items: center; gap: 9px; font-size: var(--t-body-sm); color: var(--text-1); }
+.cf-made__row .op-code { font-size: var(--t-caption); }
 
 /* ---- archive model (ق7) ---- */
 /* An archived row stays legible — it is withdrawn, not deleted. So it recedes by a TOKEN COLOUR
    swap, never by row opacity: opacity fades the action buttons and their focus rings along with
    the text, and those are exactly the parts a keyboard user needs at full strength (the restore
-   action lives there). Contrast computed on the tokens, resting AND on the hover tint:
-     · --ink-2 #364254 on --bg-card #FFFFFF ......... 10.2:1
-     · --ink-2 on the --bg-muted #F4F1EA row hover ... 9.0:1
-     · the «مؤرشف» pill, --ink-2 on --bg-inset #ECE7DC 8.3:1
-   The pill previously paired --ink-3 with --bg-inset at 3.7:1 and failed AA outright; --ink-3 on
-   the hover tint is 4.1:1 and fails too, which is why the muted ink is --ink-2 and not --ink-3.
+   action lives there). --text-2 clears AA on the card, on the row hover tint and on the inset
+   well the pill sits in; --text-3 failed on two of the three, which is why it is not used here.
    Weight, not opacity, carries the rest of the "withdrawn" signal. */
-.arch-row td { color: var(--ink-2); }
-.arch-row .op-tbl__name { color: var(--ink-2); font-weight: var(--fw-regular); }
-.arch-pill { display: inline-flex; align-items: center; height: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: var(--fw-semibold); white-space: nowrap; background: var(--bg-inset); color: var(--ink-2); border: 1px solid var(--border-2); }
+.arch-row td { color: var(--text-2); }
+.arch-row .op-tbl__name { color: var(--text-2); font-weight: var(--fw-regular); }
+.arch-pill { display: inline-flex; align-items: center; block-size: 22px; padding-inline: 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; background: var(--bg-inset); color: var(--text-2); border: 1px solid var(--border-2); }
 
 /* A hairline between two INDEPENDENT chip groups in one filter row — the classification set and
    the archive set are not alternatives to each other, and a bare gap reads as if they were. */
@@ -604,15 +559,12 @@ a.ent-crow:hover { background: var(--bg-page); }
 }
 
 /* ============================================================
-   Polish pass (wave 6) — keyboard parity and rings that are not clipped.
+   Keyboard parity (spec ذ6). Every rule below already tinted under a pointer and did NOTHING
+   for a keyboard reader. Each target is a real <a>/<button>, so :focus-visible costs nothing.
    ============================================================ */
-
-/* Hover parity (spec ذ6). Every rule below already tinted under a pointer and did NOTHING for a
-   keyboard reader. Each target is a real <a>/<button>, so :focus-visible costs nothing and closes
-   the gap; a non-focusable element simply never matches. */
 .ad-decision:focus-visible,
 .ad-disc > .ad-disc__sum:focus-visible,
-a.ent-crow:focus-visible { background: var(--bg-page); }
+a.ent-crow:focus-visible { background: var(--bg-muted); }
 
 .acc-open:focus-visible,
 .op-filter-select:focus-visible,
@@ -620,12 +572,9 @@ a.ent-crow:focus-visible { background: var(--bg-page); }
 .ctr-menuitem:focus-visible { background: var(--bg-muted); }
 
 .ad-fromtender:focus-visible,
-.cf-add:focus-visible { background: var(--bg-muted); color: var(--ink-1); }
+.cf-add:focus-visible { background: var(--bg-muted); color: var(--text-1); }
 .cf-row__rm:focus-visible { background: var(--status-delayed-bg); }
-.acc-tab:focus-visible { background: var(--bg-muted); border-color: var(--border-3); }
-.acc-rc__more:focus-visible,
-.acc-rc__holderlink:focus-visible { color: var(--brand-navy-800); }
-.ad-decision__go:focus-visible { background: var(--brand-navy-700); }
+.acc-tab:focus-visible { background: var(--bg-muted); border-color: var(--border-control); }
 
 /* A ring that gets cut off is not a ring. `.ad-panel` clips its children (`overflow: hidden` is
    what keeps its rounded corners), so a FULL-BLEED row inside one loses the outer 2px of its

@@ -42,7 +42,7 @@ export default function Gallery() {
         <h2>{t('gallery.title')}</h2>
         <p className="hint">{t('gallery.hint')}</p>
         <div className="skin-tabs">
-          {(['ledger', 'control', 'blueprint'] as const).map((k) => (
+          {(['ledger', 'blueprint'] as const).map((k) => (
             <button
               key={k}
               className={`skin-tab${skin === k ? ' skin-tab--on' : ''}`}

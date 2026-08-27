@@ -114,8 +114,8 @@ export default function Approvals() {
   const awaitingMdoc = awaitingTier(rows, 'MDOC').length;
   const ratifiedMonth = ratifiedInMonth(rows, today).length;
   const kpis = [
-    { l: t('approvals.kpiJmc'), v: awaitingJmc, tone: awaitingJmc > 0 ? 'var(--brand-amber-700)' : undefined },
-    { l: t('approvals.kpiMdoc'), v: awaitingMdoc, tone: awaitingMdoc > 0 ? 'var(--brand-navy-800)' : undefined },
+    { l: t('approvals.kpiJmc'), v: awaitingJmc, tone: awaitingJmc > 0 ? 'var(--status-risk)' : undefined },
+    { l: t('approvals.kpiMdoc'), v: awaitingMdoc, tone: awaitingMdoc > 0 ? 'var(--link)' : undefined },
     { l: t('approvals.kpiRatified'), v: ratifiedMonth, tone: undefined as string | undefined },
   ];
 

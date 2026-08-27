@@ -1,8 +1,7 @@
 /* ============================================================
-   Registry layer (batch 1) — shared list-screen chrome.
-   New classes only where the existing vocabulary had none:
-   sortable table headers + the pagination bar.
-   Tokens only; logical properties only.
+   Registry layer — shared list-screen chrome, swept to
+   DESIGN-V2-SPEC §4 (BUILD-2 step 4). Tokens only; logical
+   properties only; no colour literal.
    ============================================================ */
 
 /* ---- sortable header ---- */
@@ -22,50 +21,54 @@
   cursor: pointer;
   text-align: start;
 }
-.reg-sort:hover { color: var(--ink-1); }
+.reg-sort:hover { color: var(--text-1); }
 .reg-sort__caret { flex-shrink: 0; transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
 /* neutral: a faint down caret hints the column is sortable */
 .reg-sort__caret--off { opacity: 0.35; transform: rotate(90deg); }
-.reg-sort__caret--asc { transform: rotate(-90deg); color: var(--brand-navy-800); }
-.reg-sort__caret--desc { transform: rotate(90deg); color: var(--brand-navy-800); }
+.reg-sort__caret--asc { transform: rotate(-90deg); color: var(--link); }
+.reg-sort__caret--desc { transform: rotate(90deg); color: var(--link); }
 
 /* ---- pagination bar ---- */
 .reg-pager {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-block-start: 12px;
+  margin-block-start: var(--space-3);
 }
-.reg-pager__range { font-size: 12.5px; color: var(--ink-3); }
-.reg-pager__controls { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+.reg-pager__range { font-size: var(--t-body-sm); color: var(--text-3); }
+.reg-pager__controls { display: flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+/* DECLARED EXCEPTION to the 36px field shape (§4-هـ): the page-size select lives inside a
+   narrow horizontal control group beside two 26px pager buttons, and a full-height field
+   there would out-weigh the register it is paging. */
 .reg-pager__size {
   font: inherit;
-  font-size: 12.5px;
-  height: 28px;
+  font-size: var(--t-body-sm);
+  block-size: 28px;
   padding-inline: 10px;
-  border-radius: var(--r-md);
-  /* control edge, not card hairline — §1-ج */
+  border-radius: var(--r-sm);
+  /* control edge, not card hairline — WCAG 1.4.11 */
   border: 1px solid var(--border-control);
   background: var(--bg-card);
-  color: var(--ink-2);
+  color: var(--text-2);
   cursor: pointer;
 }
 .reg-pager__size:hover { background: var(--bg-muted); }
 .reg-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Registry filter <select> — the operator portal does not load admin.css, so its
-   .op-filter-select is unavailable there; the registry layer carries its own token-only copy. */
+/* Registry filter <select> — the field shape of §4-هـ. `appearance` stays NATIVE for the same
+   reason it does on `.op-filter-select`: color-scheme is declared per theme, so the platform
+   draws the arrow and the popup correctly for free. */
 .reg-select {
   font: inherit;
-  font-size: 12.5px;
-  height: 32px;
-  max-width: 340px;
-  padding-inline: 12px;
-  border-radius: var(--r-md);
+  font-size: var(--t-body-sm);
+  block-size: 36px;
+  max-inline-size: 340px;
+  padding-inline: var(--space-3);
+  border-radius: var(--r-sm);
   border: 1px solid var(--border-control);
   background: var(--bg-card);
-  color: var(--ink-2);
+  color: var(--text-2);
   cursor: pointer;
 }
 .reg-select:hover { background: var(--bg-muted); }
@@ -77,93 +80,93 @@
 .reg-range {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
+  gap: var(--space-2);
+  block-size: 36px;
   padding-inline: 10px;
   /* the FRAME only groups; the two <input> ends inside it are the controls, and they carry the
      3:1 edge. Giving both the control weight would read as three stacked boxes. */
   border: 1px solid var(--border-2);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--bg-card);
 }
-.reg-range__l { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.reg-range__l { font-size: var(--t-caption); color: var(--text-3); white-space: nowrap; }
 .reg-range__end { display: inline-flex; align-items: center; gap: 4px; }
-.reg-range__cap { font-size: 11px; color: var(--ink-3); }
+.reg-range__cap { font-size: var(--t-micro); color: var(--text-3); }
+/* DECLARED EXCEPTION to the 36px field shape: two ends nested INSIDE a 36px frame. */
 .reg-range__in {
   font: inherit;
-  font-size: 12px;
-  height: 24px;
+  font-size: var(--t-caption);
+  block-size: 24px;
   padding-inline: 6px;
   border: 1px solid var(--border-control);
-  border-radius: var(--r-sm);
-  background: var(--bg-page);
-  color: var(--ink-1);
+  border-radius: var(--r-xs);
+  background: var(--bg-muted);
+  color: var(--text-1);
 }
 /* money ends are machine-format data — an LTR island in the mono face, like every other figure */
 .reg-range__in--num { font-family: var(--font-mono); direction: ltr; text-align: end; inline-size: 104px; }
-.reg-range__in:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 /* crossed ends: the group SAYS so — «لا صفوف مطابقة» and «المدى مقلوب» are different sentences */
 .reg-range--bad { border-color: var(--status-delayed); }
-.reg-range__warn { font-size: 11.5px; color: var(--status-delayed); white-space: nowrap; }
+.reg-range__warn { font-size: var(--t-caption); color: var(--status-delayed); white-space: nowrap; }
 /* a draft the URL contract would refuse: the end says so beside itself rather than being wiped.
    `.wz-gate` carries the refusal voice; only the inline metrics belong to this control. */
-.reg-range__bad { font-size: 11.5px; color: var(--status-delayed); white-space: nowrap; }
+.reg-range__bad { font-size: var(--t-caption); color: var(--status-delayed); white-space: nowrap; }
 
 /* ---- ق5 — the Article-25 mark ----
-   Navy, because membership of the five government companies is a legal FACT about the company, not
-   a status that can change with behaviour: the closed semantic status vocabulary
-   (planned/progress/done/risk/delayed/blocked) would have mis-read it as one. Lives on the registry
-   layer because BOTH portals show it — the entity registry and the operator's bidder picker. */
+   Indigo, because membership of the five government companies is a legal FACT about the company,
+   not a status that can change with behaviour: the closed semantic status vocabulary
+   (planned/progress/done/risk/delayed/blocked) would have mis-read it as one. Lives on the
+   registry layer because BOTH portals show it — the entity registry and the bidder picker. */
 .ent-state {
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  block-size: 20px;
   padding-inline: 9px;
   border-radius: var(--r-pill);
-  font-size: 11px;
+  font-size: var(--t-micro);
   font-weight: var(--fw-semibold);
   white-space: nowrap;
-  background: var(--brand-navy-50);
-  color: var(--brand-navy-800);
-  border: 1px solid var(--brand-navy-100);
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-fg);
+  border: 1px solid var(--btn-secondary-bd);
 }
 
 /* ---- the export/print stamp (phase 4, request 7 + methodology م5) ----
-   A quiet monospace-free band under the head: it repeats, on screen, the exact sentence the CSV
-   and the printed page carry, so a reader can verify the claim before exporting. */
+   A quiet band under the head: it repeats, on screen, the exact sentence the CSV and the printed
+   page carry, so a reader can verify the claim before exporting. */
 .reg-stamp {
-  font-size: 12px;
+  font-size: var(--t-caption);
   line-height: var(--lh-loose);
-  color: var(--ink-3);
+  color: var(--text-3);
   background: var(--bg-muted);
   border: 1px solid var(--border-1);
-  border-radius: var(--r-md);
-  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  padding: 7px var(--space-3);
   margin-block-start: 10px;
 }
 
 /* ---- SectionExplainer — the collapsed «ما هذا القسم؟» strip ----
-   A quiet paper band, not a card: it explains the screen it sits under and must never
+   A quiet band, not a card: it explains the screen it sits under and must never
    compete with the registry itself. Closed by default; the caret is the only motion. */
 .reg-explain {
   border: 1px solid var(--border-1);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--bg-muted);
-  margin-block: 12px 0;
+  margin-block: var(--space-3) 0;
 }
 .reg-explain__sum {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 9px 14px;
-  font-size: 12.5px;
+  font-size: var(--t-body-sm);
   font-weight: var(--fw-semibold);
-  color: var(--ink-2);
+  color: var(--text-2);
   cursor: pointer;
   list-style: none;
 }
 .reg-explain__sum::-webkit-details-marker { display: none; }
-.reg-explain__sum:hover { color: var(--ink-1); }
+.reg-explain__sum:hover { color: var(--text-1); }
 /* The disclosure caret. Closed it points along the reading direction (the base glyph points
    inline-end, mirrored under RTL); open it points DOWN in both directions — a rotation is
    direction-agnostic, which is why the open rule simply replaces the mirror. */
@@ -172,14 +175,13 @@ html[dir='rtl'] .reg-explain__caret { transform: scaleX(-1); }
 .reg-explain[open] .reg-explain__caret,
 html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg); }
 .reg-explain__body {
-  padding: 0 14px 12px;
-  font-size: 12.5px;
+  padding: 0 14px var(--space-3);
+  font-size: var(--t-body-sm);
   line-height: var(--lh-loose);
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 .reg-explain__body p { margin: 0 0 6px; }
-.reg-explain__body p:last-child { margin-bottom: 0; }
-
+.reg-explain__body p:last-child { margin-block-end: 0; }
 
 /* ---- the URL-borne filter chip (§5-ج) ----
    A standing chip carrying its own dismiss: the reader sees WHY the registry is short and can
@@ -203,23 +205,23 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .reg-chip__x:hover, .reg-chip__x:focus-visible { opacity: 1; }
-/* the chip body is navy-on-white-text, so the default navy focus ring would sit navy-on-navy —
-   amber is the one ring that reads on this surface (the same pairing §1-ج prescribes for dark) */
+/* the chip body is a FILLED primary chip, so the indigo focus ring would sit indigo-on-indigo —
+   the sky ring is the one that reads on it, exactly as it does on the navy sidebar (§1-و) */
 .reg-chip__x:focus-visible { outline-color: var(--focus-color-on-dark); }
 
-/* FilterChips badge — .acc-count lives in admin.css which the operator portal never loads;
-   registry.css is bundled in both portals (identical to the admin.css rule, harmless duplicate). */
+/* FilterChips badge — the ONE definition. admin.css carried a byte-identical copy until this
+   wave; registry.css is the sheet both portals load, so the copy went and this stayed. */
 .acc-count {
   font-family: var(--font-mono);
   direction: ltr;
-  font-size: 10.5px;
+  font-size: var(--t-micro);
   opacity: 0.75;
   margin-inline-start: 5px;
 }
 
-/* ---- polish pass (wave 6): hover parity for the keyboard ---- */
+/* ---- keyboard parity: hover affordances the pointer alone could summon ---- */
 .reg-sort:focus-visible,
-.reg-explain__sum:focus-visible { color: var(--ink-1); }
+.reg-explain__sum:focus-visible { color: var(--text-1); }
 .reg-pager__size:focus-visible,
 .reg-select:focus-visible { background: var(--bg-muted); }
 

@@ -78,11 +78,16 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
           {tender.bidders.length === 0 && <div className="op-empty">{gate.ok ? t('wizev.noBidders') : gateNote}</div>}
           {tender.bidders.map((b) => {
             const st = b.technicalResult;
+            // A classified row wears the SAME status pair its verdict button wears, so the tint and
+            // the button can never drift apart. The v1 tints mixed by hand here were light-theme
+            // literals: rgba(248,222,219,.35) on the dark card left the subline at 2.413 and
+            // rgba(178,53,53,.4) left the edge at 1.305. Tokens make the row follow the theme.
+            const tone = st === 'fail' ? 'delayed' : st === 'pass' ? 'done' : null;
             return (
-              <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '13px 16px', borderRadius: 11, border: `1px solid ${st === 'fail' ? 'rgba(178,53,53,0.4)' : st === 'pass' ? 'rgba(31,122,77,0.4)' : 'var(--border-1)'}`, background: st === 'fail' ? 'rgba(248,222,219,0.35)' : st === 'pass' ? 'rgba(219,238,223,0.3)' : 'var(--bg-card)' }}>
+              <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '13px 16px', borderRadius: 11, border: `1px solid ${tone ? `var(--status-${tone}-bd)` : 'var(--border-1)'}`, background: tone ? `var(--status-${tone}-bg)` : 'var(--bg-card)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }} dir="auto">{b.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
                     <span>{t('bids.docs')}: {b.docsOk ? t('filebidders.docsOk') : t('filebidders.docsNo')}</span>
                     <span className="op-task__mdot" />
                     <span>{t('filebidders.colBond')}: {b.bondOk ? t('filebidders.bondOk') : t('filebidders.bondNo')}</span>
@@ -90,8 +95,8 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
                 </div>
                 <span className="file-locked"><Icon name="lock" size={13} />{t('wizev.priceLocked')} <span className="op-code" style={{ fontSize: 10 }}>12.4.2</span></span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className={st === 'pass' ? 'op-btn-nav' : 'op-btn-ghost'} style={st === 'pass' ? { background: 'var(--status-done)' } : undefined} onClick={() => dispatch({ type: 'SET_TECHNICAL', tenderId, bidderId: b.id, result: 'pass' })}>{t('bids.pass')}</button>
-                  <button className={st === 'fail' ? 'op-btn-nav' : 'op-btn-ghost'} style={st === 'fail' ? { background: 'var(--status-delayed)' } : undefined} onClick={() => dispatch({ type: 'SET_TECHNICAL', tenderId, bidderId: b.id, result: 'fail' })}>{t('bids.fail')}</button>
+                  <button className={st === 'pass' ? 'op-btn-primary' : 'op-btn-ghost'} style={st === 'pass' ? { background: 'var(--status-done)' } : undefined} onClick={() => dispatch({ type: 'SET_TECHNICAL', tenderId, bidderId: b.id, result: 'pass' })}>{t('bids.pass')}</button>
+                  <button className={st === 'fail' ? 'op-btn-primary' : 'op-btn-ghost'} style={st === 'fail' ? { background: 'var(--status-delayed)' } : undefined} onClick={() => dispatch({ type: 'SET_TECHNICAL', tenderId, bidderId: b.id, result: 'fail' })}>{t('bids.fail')}</button>
                 </div>
                 {st === 'fail' && (
                   <select className="wz-in" style={{ width: '100%', height: 34, fontSize: 12.5 }} value={reasons[b.id] ?? ''} onChange={(e) => setReasons((r) => ({ ...r, [b.id]: e.target.value }))}>
@@ -110,10 +115,10 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
       help: { t: t('wizev.help1'), r: 'SCPP 12.4.2' },
       conditions: [{ t: t('wizev.cOpened'), ok: opened }],
       content: !opened ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '28px 20px', border: '1px dashed var(--border-3)', borderRadius: 12, background: 'var(--bg-page)' }}>
-          <span style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--brand-navy-50)', color: 'var(--brand-navy-700)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="lock" size={24} /></span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '28px 20px', border: '1px dashed var(--border-2)', borderRadius: 12, background: 'var(--bg-page)' }}>
+          <span style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--btn-secondary-bg)', color: 'var(--link)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="lock" size={24} /></span>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{t('wizev.gateTitle')}</div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.8, color: 'var(--ink-2)', maxWidth: 480, textAlign: 'center' }}>{t('wizev.gateDesc', { n: passCount })}</div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.8, color: 'var(--text-2)', maxWidth: 480, textAlign: 'center' }}>{t('wizev.gateDesc', { n: passCount })}</div>
           <button className="op-btn-primary" onClick={() => dispatch({ type: 'SET_EVAL_STEP', tenderId, step: 3 })}><Icon name="lock" size={15} />{t('wizev.openBtn')}</button>
         </div>
       ) : (
@@ -163,23 +168,25 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {lowest && verdict && (
             <div style={{ border: '2px solid var(--status-done)', background: 'var(--status-done-bg)', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <span style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--status-done)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="check" size={18} strokeWidth={2} /></span>
+              {/* the ink on a saturated fill inverts with the theme: white on #147739 is 5.634,
+                  while white on the dark fill #4ADE80 is 1.743 — the mark simply vanished. */}
+              <span style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--status-done)', color: 'var(--status-on-fill)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="check" size={18} strokeWidth={2} /></span>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div style={{ fontSize: 12, color: 'var(--status-done)', fontWeight: 600 }}>{t('wizev.recTitle')}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }} dir="auto">{lowestBidder?.name ?? ''} — <span className="op-code">{fmtMoney(lowest.priceUSD!)}</span></div>
-                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 3 }}>{t('wizev.recDelta', { pct: Math.abs(verdict.deltaPct).toFixed(1) })} <span className="op-code" style={{ fontSize: 10.5 }}>6.9.3</span></div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 3 }}>{t('wizev.recDelta', { pct: Math.abs(verdict.deltaPct).toFixed(1) })} <span className="op-code" style={{ fontSize: 10.5 }}>6.9.3</span></div>
               </div>
             </div>
           )}
           <button className={`wz-check${minutes ? ' wz-check--on' : ''}`} style={{ width: '100%', alignSelf: 'stretch' }} onClick={() => setMinutes(!minutes)}>
             <span className="wz-check__m">✓</span>
             <span style={{ flex: 1, textAlign: 'start' }}>{t('wizev.minutesLabel')}</span>
-            <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{minutes ? t('wizev.uploaded') : t('wizev.clickUpload')}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{minutes ? t('wizev.uploaded') : t('wizev.clickUpload')}</span>
           </button>
 
           <div className="wz-field">
             <label className="wz-field__l">{t('wizev.docsTitle')}</label>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.8, marginBlockEnd: 8 }}>{t('wizev.docsNote')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.8, marginBlockEnd: 8 }}>{t('wizev.docsNote')}</div>
             {!cur ? (
               <div className="wz-note wz-note--warn"><Icon name="alert" size={15} /><span>{t('wizev.noStage')}</span></div>
             ) : (
@@ -196,7 +203,7 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
                       </span>
                       {!up && (
                         <>
-                          <button className="op-btn-nav" onClick={() => markReceived(d, name)}>
+                          <button className="op-btn-primary" onClick={() => markReceived(d, name)}>
                             <Icon name="check" size={12} />
                             {t('filedocs.markReceived')}
                           </button>
@@ -211,7 +218,7 @@ export default function EvaluateWizard({ tenderId }: { tenderId: string }) {
           </div>
           {!docsOk && <span className="wz-gate">{t('wizev.docsGate')}</span>}
 
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.8 }}>{t('wizev.recNote')}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.8 }}>{t('wizev.recNote')}</div>
         </div>
       ),
     },
