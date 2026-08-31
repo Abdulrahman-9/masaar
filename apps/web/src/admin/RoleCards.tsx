@@ -8,7 +8,7 @@ import {
   capsForRole, holdersOfRole, impactfulCount, readCount, roleFinancialFacts, roleIcon, roleKey, roleTone,
 } from './access';
 import { tierExample } from './adminDerive';
-import { TIER_ORDER, TierPill, tierRange } from './TierPill';
+import { DefaultLadderNote, LadderSourceTag, OverrideCaveat, TIER_ORDER, TierPill, tierRange } from './TierPill';
 import { initials } from './Users';
 
 /**
@@ -37,13 +37,17 @@ import { initials } from './Users';
 export function TriadExplainer({ state }: { state: State }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === 'ar' ? 'ar' : 'en';
+  /** د9 — the triad describes THE SYSTEM, so it shows the default ladder; the tag beside the
+   *  heading says so, and `DefaultLadderNote` in the foot counts the companies that are not on it.
+   *  `tierExample` needs no change: it goes through `tenderApprovalTier`, which already resolves
+   *  per operator, so an example is drawn from a request that really does sit in that band. */
   const tiers = state.approvalTiers;
 
   return (
     <section className="ad-panel acc-triad">
       <div className="ad-panel__head">
         <div>
-          <div className="ad-panel__t">{t('triad.title')}</div>
+          <div className="ad-panel__t">{t('triad.title')} <LadderSourceTag own={false} /></div>
           <div className="ad-panel__s">{t('triad.sub')}</div>
         </div>
       </div>
@@ -77,7 +81,10 @@ export function TriadExplainer({ state }: { state: State }) {
       </div>
       {/* `n`, never `count`: i18next reserves `count` for pluralization, and a Latin-digit
           string handed to it would be read as a plural selector rather than printed */}
-      <div className="acc-triad__foot">{t('triad.foot', { n: fmtCount(state.tenders.length, lang) })}</div>
+      <div className="acc-triad__foot">
+        {t('triad.foot', { n: fmtCount(state.tenders.length, lang) })}
+        <DefaultLadderNote state={state} />
+      </div>
     </section>
   );
 }
@@ -98,12 +105,31 @@ function RoleCard({ role, state }: { role: ApiRole; state: State }) {
    * The figure is rendered as its own mono LTR island rather than interpolated into the sentence:
    * a `$` left loose in an RTL run is reordered to the far end («10,000,000$»), which is a wrong
    * number in the one place on this screen that must not be misread.
+   *
+   * د9 §7-5 — the ceiling comes from `roleFinancialFacts(role, state.approvalTiers)`, which asks
+   * the DEFAULT ladder, and rightly so: the question is about a ROLE, and a role's rank is not a
+   * property of any one company. But printed bare the figure said «this signature clears exactly
+   * $X» — true of every company on the default and false of any company on a ladder of its own.
+   * The function therefore does not change; the SENTENCE does. The figure wears the same
+   * «الافتراضي النظامي» tag every other system-describing surface wears, and `OverrideCaveat`
+   * adds the one clause the tag cannot carry — how many companies are measured by something else.
+   *
+   * Only this branch is qualified. «لا يوافق» names no ceiling at all, and «يوافق على الكل» is the
+   * MDOC rank, which clears the top band whatever its floor is: an override moves ceilings, never
+   * the fact that the last rung is unbounded. Tagging either would be a caveat about nothing.
    */
+  const readsDefaultCeiling = facts.decides && !facts.approvesUnlimited;
   const approves = !facts.decides
     ? <>{t('rolecard.approvesNone')}</>
     : facts.approvesUnlimited
       ? <>{t('rolecard.approvesAll')}</>
-      : <>{t('rolecard.approvesUpTo')}{' '}<span className="acc-rc__money">{fmtMoney(facts.approvesUpToUSD ?? 0)}</span></>;
+      : (
+        <>
+          {t('rolecard.approvesUpTo')}{' '}
+          <span className="acc-rc__money">{fmtMoney(facts.approvesUpToUSD ?? 0)}</span>{' '}
+          <LadderSourceTag own={false} />
+        </>
+      );
 
   return (
     <article className={`acc-rc acc-rc--${roleTone(role)}`}>
@@ -122,7 +148,12 @@ function RoleCard({ role, state }: { role: ApiRole; state: State }) {
       <dl className="acc-rc__facts">
         <div className="acc-rc__fact">
           <dt>{t('rolecard.qApproves')}</dt>
-          <dd className={facts.decides ? 'acc-rc__v acc-rc__v--strong' : 'acc-rc__v acc-rc__v--none'}>{approves}</dd>
+          {/* the caveat lives INSIDE the <dd>: a <dl> with div wrappers admits dt/dd and nothing
+              else between them, and `.ad-ladder__note` resets the size the --strong figure sets */}
+          <dd className={facts.decides ? 'acc-rc__v acc-rc__v--strong' : 'acc-rc__v acc-rc__v--none'}>
+            {approves}
+            {readsDefaultCeiling && <OverrideCaveat state={state} className="ad-ladder__note" />}
+          </dd>
         </div>
         <div className="acc-rc__fact">
           <dt>{t('rolecard.qWitnesses')}</dt>

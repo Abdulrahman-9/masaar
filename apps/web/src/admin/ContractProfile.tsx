@@ -327,7 +327,7 @@ export default function ContractProfile({ id }: { id: string }) {
                           {g.kind === 'performance' && <div className="op-tbl__code" style={{ color: check.ok ? 'var(--status-done)' : 'var(--status-delayed)' }}>{check.ok ? t('contracts.ok') : t('contracts.below')} {check.pct}%</div>}
                         </td>
                         <td className="op-end mono">{fmtMoney(g.valueUSD)}</td>
-                        <td><span className="op-code">{g.expiresOn}</span>{soon && <div><StatusPill status="risk">{t('contracts.expiringSoon')}</StatusPill></div>}</td>
+                        <td><span className="op-code">{g.expiresOn}</span>{soon && <div><StatusPill size="sm" status="risk">{t('contracts.expiringSoon')}</StatusPill></div>}</td>
                       </tr>
                     );
                   })}

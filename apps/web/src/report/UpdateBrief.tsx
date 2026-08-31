@@ -5,7 +5,7 @@ import {
   activeTenders, awardedContracts, companyStats, TENDER_PARTS, tenderPartOf, tierCountsOf,
   type TenderPart,
 } from '../admin/dashboardDerive';
-import { TIER_ORDER, tierRange } from '../admin/TierPill';
+import { DefaultLadderNote, TIER_ORDER, tierRange } from '../admin/TierPill';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { resolveSessionOrg } from '../orgIdentity';
@@ -157,7 +157,10 @@ export default function UpdateBrief() {
                   <tr key={tier}>
                     <td>{t(`tier.pill.${tier}`)}</td>
                     <td>{t(`tier.body.${tier}`)}</td>
-                    {/* the ceilings are READ from the ladder in state — moving them moves this cell */}
+                    {/* د9 — the DEFAULT ceilings, read from state; the note under the table says
+                        so and counts the companies on a ladder of their own. The two count columns
+                        need no such caveat: `awaitingTier` goes through `tenderApprovalTier`, so
+                        every request is already counted in the band ITS ladder puts it in. */}
                     <td className="rp-num">{tierRange(tier, state.approvalTiers)}</td>
                     <td className="c rp-mono">{fmtCount(inBand[tier], lang)}</td>
                     <td className="c">
@@ -172,6 +175,7 @@ export default function UpdateBrief() {
                 ))}
               </tbody>
             </table>
+            <DefaultLadderNote state={state} className="rp-note" />
             <div className="rp-note">{t('brief.ladderNote')}</div>
           </div>
 

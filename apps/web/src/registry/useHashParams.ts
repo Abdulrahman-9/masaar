@@ -58,6 +58,12 @@ export function useHashParams(): URLSearchParams {
 export type HashParamName =
   | 'op' | 'tier' | 'status' | 'prog' | 'pending' | 'stage' | 'field'
   | 'method' | 'scope' | 'vmin' | 'vmax' | 'from' | 'to' | 'arch'
+  // د12 / س‌ل2 — the SETTLED half of the approval chain's one decision dimension. `pending` already
+  // held the other half (and every follow-up-room tile links through it), so this name carries only
+  // the two decisions that were actually taken. They are one dimension, not two: a writer sets one
+  // and clears the other in a single `setMany`, which is why `?dec=ratified&pending=1` — a window
+  // onto rows that cannot exist — is never written by any control on the screen.
+  | 'dec'
   // PHASE 5 (client request 20): `tab` is the address contract of a section that holds several
   // views of ONE subject («الوصول والأدوار»). It goes through the same door as every other
   // parameter — a closed vocabulary, validated on read — so a stale or hand-typed tab lands on
@@ -115,6 +121,10 @@ const FIXED: Partial<Record<HashParamName, readonly string[]>> = {
   status: ['open', 'progress', 'risk', 'delayed', 'done'],
   prog: PROGRESS_BUCKETS,
   pending: ['1'],
+  // the two SETTLED members of `ApprovalDecision`. `pending` is deliberately absent — it is the
+  // `?pending=1` gate, one concept with one name. `cancelled`/`suspended` are lifecycle states,
+  // not decisions of an approving body, and the chain shows them without offering them as chips.
+  dec: ['ratified', 'returned'],
   stage: CONTRACT_STAGE_KEYS,
   scope: SCOPE_KEYS,
   arch: ARCHIVE_VIEWS,
@@ -198,12 +208,32 @@ export function isValidParamValue(name: HashParamName, raw: string): boolean {
  * a silent no-op and a silent wipe are both worse than the address simply not moving.
  */
 export function writeHashParam(name: HashParamName, value: string | null): boolean {
-  if (value && !isValidParamValue(name, value)) return false;
+  const one: Partial<Record<HashParamName, string | null>> = { [name]: value };
+  return writeHashParams(one);
+}
+
+/**
+ * The same act over SEVERAL dimensions at once, in ONE address rewrite.
+ *
+ * A counting tile is the reason it exists (ق2): «متأخرة» must land a registry holding exactly the
+ * rows it counted, which means setting `status` AND dropping `pending` — two writes would push two
+ * history entries, so one Back would leave the reader on a half-applied filter that no tile ever
+ * offered. It is also the ONE implementation: `writeHashParam` is now a one-name call into it.
+ *
+ * Validation is ALL-OR-NOTHING, for the same reason the single write refuses: a patch that would
+ * put a value the reader will ignore into the address writes nothing at all, rather than half of
+ * an intent.
+ */
+export function writeHashParams(patch: Partial<Record<HashParamName, string | null>>): boolean {
+  const entries = Object.entries(patch) as [HashParamName, string | null][];
+  if (entries.some(([name, value]) => Boolean(value) && !isValidParamValue(name, value as string))) return false;
   const hash = window.location.hash;
   const cut = hash.indexOf('?');
   const path = cut === -1 ? hash : hash.slice(0, cut);
   const p = new URLSearchParams(cut === -1 ? '' : hash.slice(cut + 1));
-  if (value) p.set(name, value); else p.delete(name);
+  for (const [name, value] of entries) {
+    if (value) p.set(name, value); else p.delete(name);
+  }
   const q = p.toString();
   window.location.hash = q ? `${path}?${q}` : path;
   return true;
@@ -237,6 +267,9 @@ export interface FilterParams {
   /** set (or clear, with `''`) one dimension: the screen answers at once, the address follows.
    *  Returns false — and moves NEITHER — when the value is one the reader would reject. */
   set: (name: HashParamName, value: string) => boolean;
+  /** set several dimensions in ONE act — one history entry, so a counting tile can set the
+   *  narrowing it counted AND drop the one it did not, without leaving a half-state behind Back. */
+  setMany: (patch: Partial<Record<HashParamName, string>>) => boolean;
   /** drop every dimension in ONE act — one address rewrite, so nothing re-seeds from a stale hash.
    *  `keep` re-states the few a reset must not drop (see `clearHashParams`). */
   clear: (keep?: Partial<Record<HashParamName, string>>) => void;
@@ -268,18 +301,31 @@ export function useFilterParams(): FilterParams {
     (name: HashParamName, allowed?: readonly string[]) => hashParam(local, name, allowed),
     [local],
   );
-  const set = useCallback((name: HashParamName, value: string) => {
+  const setMany = useCallback((patch: Partial<Record<HashParamName, string>>) => {
+    const entries = Object.entries(patch) as [HashParamName, string][];
     // the mirror and the address move together or not at all — a mirror holding a value the
     // address refused is the same disagreement this hook exists to prevent
-    if (value && !isValidParamValue(name, value)) return false;
+    if (entries.some(([name, value]) => Boolean(value) && !isValidParamValue(name, value))) return false;
     setLocal((prev) => {
       const next = new URLSearchParams(prev.toString());
-      if (value) next.set(name, value); else next.delete(name);
+      for (const [name, value] of entries) {
+        if (value) next.set(name, value); else next.delete(name);
+      }
       return next;
     });
-    writeHashParam(name, value || null);
+    const wire: Partial<Record<HashParamName, string | null>> = {};
+    for (const [name, value] of entries) wire[name] = value || null;
+    writeHashParams(wire);
     return true;
   }, []);
+  /** ONE dimension — the same act, named for the overwhelmingly common case. */
+  const set = useCallback(
+    (name: HashParamName, value: string) => {
+      const one: Partial<Record<HashParamName, string>> = { [name]: value };
+      return setMany(one);
+    },
+    [setMany],
+  );
   const clear = useCallback((keep?: Partial<Record<HashParamName, string>>) => {
     const next = new URLSearchParams();
     for (const [k, v] of Object.entries(keep ?? {})) if (v) next.set(k, v);
@@ -287,5 +333,5 @@ export function useFilterParams(): FilterParams {
     clearHashParams(keep);
   }, []);
 
-  return useMemo(() => ({ get, set, clear }), [get, set, clear]);
+  return useMemo(() => ({ get, set, setMany, clear }), [get, set, setMany, clear]);
 }

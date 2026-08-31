@@ -1,9 +1,10 @@
 import { METHODS, stageByKey } from '@masaar/scpp-rules';
-import { KpiTile, StatusPill } from '@masaar/ui';
+import { StatusPill } from '@masaar/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { sessionScopeOrgName } from '../orgIdentity';
 import { loadSession } from '../session';
-import { calendarOf, currentStage, fieldsOfOperator, liveFields, tenderApprovalTier, todayIso, useStore, type Tender } from '../store';
+import { calendarOf, currentStage, fieldsOfOperator, liveFields, sessionScopedTenders, tenderApprovalTier, tenderIsActive, todayIso, useStore, type Tender } from '../store';
 import { EmptyState } from '../registry/EmptyState';
 import { dateRangeInverted, inDateRange, inValueRange, rangeInverted } from '../registry/filters';
 import { activeFilterChips, FilterChips, type FilterChip } from '../registry/FilterChips';
@@ -13,6 +14,7 @@ import { reportStamp, type FilterLabels } from '../registry/report';
 import { SearchBox } from '../registry/SearchBox';
 import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
+import { StageRail } from '../registry/StageRail';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { SCOPE_KEYS, useFilterParams } from '../registry/useHashParams';
@@ -22,6 +24,7 @@ import {
   deriveTasks,
   fmtCount,
   fmtMoney,
+  fmtMoneyShort,
   progressPct,
   tenderDeviationWd,
   tenderStatus,
@@ -84,22 +87,33 @@ export default function TendersList() {
   // (AdminTenders / Approvals / Fields) deliberately keep listing them — they are the record of
   // record, and a historical tender must stay findable by the field it was raised on.
   const myFields = liveFields(fieldsOfOperator(state, loadSession()?.companyId));
+
+  // م3 — whose register this is, or `undefined` on a session that reads every company and would
+  // be claiming a narrowing it does not have. The inbox prints the identical sentence.
+  const scopeOrg = sessionScopeOrgName(state, lang);
   const fieldFilter = f.get('field', myFields.map((x) => x.id));
+
+  // D4 — the registry rows this session may see: an operator session reads its OWN company only,
+  // the same judgement the server makes (apps/api/src/auth/scope.ts operatorScopeWhere). This was
+  // the one place the reference prototype was stricter than us — the comment above the field
+  // filter promised «an operator's portal is its own company by definition» while the list read
+  // every company's tenders.
+  const myTenders = useMemo(() => sessionScopedTenders(state), [state]);
 
   // One derived task per open tender (its current stage) → its urgency group.
   // Reused, never re-derived, so the KPI counts stay honest to deriveTasks.
   const taskGroupById = useMemo(() => {
     const m = new Map<string, TaskGroup>();
-    for (const tk of deriveTasks(state, today, cal)) m.set(tk.tender.id, tk.group);
+    for (const tk of deriveTasks({ ...state, tenders: myTenders }, today, cal)) m.set(tk.tender.id, tk.group);
     return m;
-  }, [state, today]);
+  }, [state, myTenders, today]);
 
   const qn = q.trim().toLowerCase();
   // every dimension EXCEPT the status chips — the chip counts read off this set, so a chip never
   // promises rows the value window, the scope or the search has already removed
   const searched = useMemo(
     () =>
-      state.tenders.filter((x) => {
+      myTenders.filter((x) => {
         if (qn && !(`${x.title[lang]} ${x.code}`.toLowerCase().includes(qn))) return false;
         if (methodFilter && x.methodId !== Number(methodFilter)) return false;
         if (fieldFilter && x.fieldId !== fieldFilter) return false;
@@ -109,7 +123,7 @@ export default function TendersList() {
         if (!inDateRange(x.createdOn, dFrom, dTo)) return false;
         return true;
       }),
-    [state, qn, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, lang],
+    [state, myTenders, qn, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, lang],
   );
   const rows = useMemo(
     () => (statusFilter ? searched.filter((x) => tenderStatus(x, today, cal) === statusFilter) : searched),
@@ -119,6 +133,48 @@ export default function TendersList() {
   // KPIs read from the filtered set — what the screen shows is what they count.
   const lateCount = rows.filter((x) => taskGroupById.get(x.id) === 'late').length;
   const dueWeekCount = rows.filter((x) => taskGroupById.get(x.id) === 'week').length;
+  /**
+   * م2 — the money the register is carrying, the one dimension its three counters never had.
+   *
+   * «قيد الإنجاز» is the whole claim, so the sum is over IN-FLIGHT rows only: `tenderIsActive` is
+   * the store's own predicate for that (cancelled = dead, every stage closed = delivered), reused
+   * rather than restated, so this figure can never disagree with the archive gate about which
+   * requests are still running. Rows the filters removed are out by construction — the three
+   * tiles beside it already count the visible set and a fourth that summed the invisible one
+   * would make the row read as four answers to four different questions.
+   */
+  const inFlightValue = rows.reduce((s, x) => s + (tenderIsActive(x) ? x.estimatedValueUSD : 0), 0);
+  // the headline is short-form because an eight-figure sum cannot live at display size; the exact
+  // grouped figure sits under it whenever the short form rounded, so nothing is hidden (ج4)
+  const valueShort = fmtMoneyShort(inFlightValue);
+  const valueExact = fmtMoney(inFlightValue);
+
+  /**
+   * §2-ط — the filled statistical surface, spent here exactly as on the four admin registries:
+   * one class, one tone map, every fill and its ink measured in `tokens.css`. This register was
+   * the last screen still wearing the pre-decision outline tile (`KpiTile`), which is why the
+   * whole row moves and not just the new figure — a row half-filled is not a hierarchy, it is
+   * two design systems sharing a line.
+   *
+   * NONE OF THE FOUR IS A BUTTON (سابقة د14). The narrowings this screen owns are already offered
+   * as chips directly beneath, in the same vocabulary; a tile that duplicated one would be a
+   * second control for one filter, and the value tile has no filter to open at all — there is no
+   * «by value in flight» dimension, so a click would have to land something it never counted.
+   * A tile that cannot open exactly what it counted stays a number (قانون P3).
+   */
+  const kpis: { key: string; l: string; v: string; tone: string; alert?: boolean; delta?: string }[] = [
+    { key: 'total', l: t('reg.tlist.kpiTotal'), v: fmtCount(rows.length, lang), tone: 'brand' },
+    // §2-ط-د — the one tile that may pulse, and only when it has something to pulse about
+    { key: 'late', l: t('reg.tlist.kpiLate'), v: fmtCount(lateCount, lang), tone: 'delayed', alert: lateCount > 0 },
+    { key: 'dueWeek', l: t('reg.tlist.kpiDueWeek'), v: fmtCount(dueWeekCount, lang), tone: 'risk' },
+    {
+      key: 'value',
+      l: t('reg.tlist.kpiValue'),
+      v: valueShort,
+      tone: 'planned',
+      delta: valueShort === valueExact ? undefined : valueExact,
+    },
+  ];
 
   // Sort: code (Arabic-aware collation) and schedule progress. "none" restores filter order.
   const compare = useMemo(
@@ -187,7 +243,11 @@ export default function TendersList() {
       <div className="op-page__head">
         <div>
           <h1 className="op-page__title">{t('tenders.title')}</h1>
-          <div className="op-page__sub">{t('reg.tlist.sub', { n: fmtCount(state.tenders.length, lang) })}</div>
+          <div className="op-page__sub">{t('reg.tlist.sub', { n: fmtCount(myTenders.length, lang) })}</div>
+          {/* م3 — the narrowing D4 imposed, stated where it is felt. Until now the claim «an
+              operator's portal is its own company by definition» lived in the comment above the
+              field filter, which no reader ever sees; the same sentence stands on the inbox. */}
+          {scopeOrg && <div className="op-page__scope" dir="auto">{t('shell.scopeNote', { name: scopeOrg })}</div>}
           {/* the same one-line definition of «المطابقة» the admin registry carries (request 8 / ق4) —
               one wording, so operator and admin argue from the same sentence */}
           <div className="op-page__def">{t('match.def')}</div>
@@ -198,10 +258,19 @@ export default function TendersList() {
         </a>
       </div>
 
-      <div className="kpis m-skin">
-        <KpiTile label={t('reg.tlist.kpiTotal')} value={rows.length} />
-        <KpiTile label={t('reg.tlist.kpiLate')} value={lateCount} />
-        <KpiTile label={t('reg.tlist.kpiDueWeek')} value={dueWeekCount} />
+      <div className="ad-kpis ad-kpis--wrap" style={{ marginBlockStart: 4 }}>
+        {kpis.map((k) => (
+          <div key={k.key} className="ad-kpi ad-fill ad-kpi--fill" data-tone={k.tone}>
+            <span className="ad-kpi__head">
+              {/* the dot inherits the tile's ink under the fill (§2-ط): the tone worn twice,
+                  never a second colour */}
+              <span className={`ad-kpi__dot${k.alert ? ' ad-kpi__dot--alert' : ''}`} />
+              <span className="ad-kpi__l">{k.l}</span>
+            </span>
+            <span className="ad-kpi__row"><span className="ad-kpi__v">{k.v}</span></span>
+            {k.delta && <span className="ad-kpi__delta mono">{k.delta}</span>}
+          </div>
+        ))}
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBlock: '16px 12px' }}>
@@ -270,7 +339,7 @@ export default function TendersList() {
       {/* WYSIWYG: the same sentence the printed portfolio report carries, verifiable before printing */}
       <div className="reg-stamp">{stamp}</div>
 
-      {state.tenders.length === 0 ? (
+      {myTenders.length === 0 ? (
         <EmptyState mode="empty">{t('reg.tlist.emptyStore')}</EmptyState>
       ) : rows.length === 0 ? (
         <EmptyState
@@ -324,7 +393,14 @@ export default function TendersList() {
                       <td>
                         <PathChip id={x.methodId} lang={lang} />
                       </td>
-                      <td>{cur ? stageByKey(cur.key)?.[lang] ?? cur.key : t('tenders.completed')}</td>
+                      <td>
+                        <div className="op-tbl__stage">{cur ? stageByKey(cur.key)?.[lang] ?? cur.key : t('tenders.completed')}</div>
+                        {/* د4 — WHERE in the path, said by shape. One slot per real stage of THIS
+                            request, so a 10-stage method draws ten and an 11-stage method eleven;
+                            the current one is bigger and ringed, and turns red only where a
+                            planned end actually passed unclosed. */}
+                        <StageRail tender={x} today={today} lang={lang} />
+                      </td>
                       <td>
                         <div className="op-prog">
                           <div className="op-prog__track">
@@ -337,7 +413,7 @@ export default function TendersList() {
                         </div>
                       </td>
                       <td>
-                        <StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill>
+                        <StatusPill size="sm" status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill>
                       </td>
                       <td className="op-end">
                         <DevChip wd={tenderDeviationWd(x, today, cal)} />

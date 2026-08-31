@@ -28,8 +28,23 @@ export function tenderStatus(t: Tender, today: string, cal: WorkingCalendar): Op
  * store `stageStatus` for per-stage display in the file/drawer.
  */
 export function stageViewStatus(t: Tender, s: StageState, today: string): 'planned' | 'progress' | 'done' | 'delayed' {
+  return railStageStatus(t.stages, s, today);
+}
+
+/** The three fields a lifecycle slot is coloured by — all a tender stage and a contract stage
+ *  share (د13-ع1). Naming the shape lets ONE rule serve both instead of two copies drifting. */
+export type RailStage = { key: string; plannedTo?: string; actualTo?: string };
+
+/**
+ * The rule above, written over the shape rather than over `Tender` — so the post-award contract
+ * lifecycle (`ContractStage[]`, seven stages, its own key space) is toned by the SAME sentence
+ * that tones a tender: closed = done; the first still-open one = running, and red only if its
+ * planned end has passed; everything after it = planned. A second copy of this rule is how two
+ * rails come to disagree about what «الحالية» means.
+ */
+export function railStageStatus(stages: RailStage[], s: RailStage, today: string): 'planned' | 'progress' | 'done' | 'delayed' {
   if (s.actualTo) return 'done';
-  const cur = currentStage(t);
+  const cur = stages.find((x) => !x.actualTo);
   if (cur && cur.key === s.key) return s.plannedTo && today > s.plannedTo ? 'delayed' : 'progress';
   return 'planned';
 }

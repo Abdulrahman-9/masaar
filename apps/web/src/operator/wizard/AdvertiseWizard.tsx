@@ -5,7 +5,7 @@ import { addCalendarDays, addWorkingDays, toIso, toUtcDate } from '@masaar/worki
 import { calendarOf, tenderLocalContentApplies, todayIso, useStore } from '../../store';
 import { useActor } from '../../admin/UserActions';
 import { Icon } from '../Icon';
-import WizardShell, { type WizardStep } from './WizardShell';
+import WizardShell, { FieldError, fieldReject, groupReject, type WizardRejection, type WizardStep } from './WizardShell';
 
 const PAPERS = ['الصباح', 'الزمان', 'المدى', 'الصباح الجديد', 'العالم'];
 const AD_TYPES: { k: AnnouncementMode; ref: string }[] = [
@@ -48,20 +48,24 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
     void dispatch({ type: 'SET_LC_CLAUSE', tenderId, affixed, by: actor });
   };
 
+  // the last refusal the gate handed back — cleared by the edit that answers it
+  const [bad, setBad] = useState<WizardRejection | null>(null);
+
   const steps: WizardStep[] = [
     {
       label: t('wizad.s0'), title: t('wizad.s0'), sub: t('wizad.sub0'),
       help: { t: t('wizad.help0'), r: 'SCPP 11.1 · 11.2 · 11.4' },
-      conditions: [{ t: t('wizad.cType'), ok: !!mode }],
+      conditions: [{ t: t('wizad.cType'), ok: !!mode, field: 'wizad-type' }],
       content: (
-        <div className="wz-grid3">
-          {AD_TYPES.map((ty) => (
-            <button key={ty.k} className={`wz-cardbtn${mode === ty.k ? ' wz-cardbtn--on' : ''}`} onClick={() => setMode(ty.k)}>
+        <div role="group" aria-label={t('wizad.s0')} className="wz-grid3">
+          {AD_TYPES.map((ty, i) => (
+            <button key={ty.k} {...(i === 0 ? groupReject(bad, 'wizad-type') : {})} className={`wz-cardbtn${mode === ty.k ? ' wz-cardbtn--on' : ''}`} aria-pressed={mode === ty.k} onClick={() => { setBad(null); setMode(ty.k); }}>
               <span className="wz-cardbtn__t" style={{ fontSize: 14 }}>{t(`ann.${ty.k}`)}</span>
               <span className="wz-cardbtn__d">{t(`wizad.desc_${ty.k}`)}</span>
               <span className="op-scpp">{ty.ref}</span>
             </button>
           ))}
+          <FieldError rejected={bad} id="wizad-type" />
         </div>
       ),
     },
@@ -70,15 +74,16 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       help: { t: t('wizad.help1'), r: 'SCPP 11.1' },
       conditions: [
         { t: t('wizad.cDays', { n: min }), ok: days >= min },
-        { t: t('wizad.cStart'), ok: !!start },
+        { t: t('wizad.cStart'), ok: !!start, field: 'wizad-start' },
       ],
       content: (
         <div className="wz-grid2">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="wz-field">
-              <label className="wz-field__l">{t('wizad.start')}</label>
+              <label className="wz-field__l" htmlFor="wizad-start">{t('wizad.start')}</label>
               {/* native date widget: value stored as Latin ISO; display digits follow browser locale (documented Track-0 exclusion) */}
-              <input className="wz-in wz-in--mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <input {...fieldReject(bad, 'wizad-start', 'wz-in wz-in--mono')} type="date" value={start} onChange={(e) => { setBad(null); setStart(e.target.value); }} />
+              <FieldError rejected={bad} id="wizad-start" />
             </div>
             <div className="wz-field">
               <label className="wz-field__l">{t('wizad.days')}</label>
@@ -107,8 +112,8 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       conditions: isPub
         ? [
             { t: t('wizad.cPapers'), ok: papers.length >= 3 },
-            { t: t('wizad.cSite1'), ok: site1.trim().length > 8 },
-            { t: t('wizad.cSite2'), ok: site2.trim().length > 8 },
+            { t: t('wizad.cSite1'), ok: site1.trim().length > 8, field: 'wizad-site1' },
+            { t: t('wizad.cSite2'), ok: site2.trim().length > 8, field: 'wizad-site2' },
           ]
         : [{ t: t('wizad.cInvitees', { n: invMin }), ok: invitees >= invMin }],
       content: isPub ? (
@@ -122,8 +127,16 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
             </div>
           </div>
           <div className="wz-grid2" style={{ marginTop: 14 }}>
-            <div className="wz-field"><label className="wz-field__l">{t('wizad.site1')}</label><input className="wz-in wz-in--mono" style={{ height: 38, fontSize: 12 }} value={site1} onChange={(e) => setSite1(e.target.value)} placeholder="https://waha-oil.example/tenders/…" /></div>
-            <div className="wz-field"><label className="wz-field__l">{t('wizad.site2')}</label><input className="wz-in wz-in--mono" style={{ height: 38, fontSize: 12 }} value={site2} onChange={(e) => setSite2(e.target.value)} placeholder="https://company.example/tenders/…" /></div>
+            <div className="wz-field">
+              <label className="wz-field__l" htmlFor="wizad-site1">{t('wizad.site1')}</label>
+              <input {...fieldReject(bad, 'wizad-site1', 'wz-in wz-in--mono')} style={{ height: 38, fontSize: 12 }} value={site1} onChange={(e) => { setBad(null); setSite1(e.target.value); }} placeholder="https://waha-oil.example/tenders/…" />
+              <FieldError rejected={bad} id="wizad-site1" />
+            </div>
+            <div className="wz-field">
+              <label className="wz-field__l" htmlFor="wizad-site2">{t('wizad.site2')}</label>
+              <input {...fieldReject(bad, 'wizad-site2', 'wz-in wz-in--mono')} style={{ height: 38, fontSize: 12 }} value={site2} onChange={(e) => { setBad(null); setSite2(e.target.value); }} placeholder="https://company.example/tenders/…" />
+              <FieldError rejected={bad} id="wizad-site2" />
+            </div>
           </div>
         </div>
       ) : (
@@ -193,6 +206,7 @@ export default function AdvertiseWizard({ tenderId }: { tenderId: string }) {
       finalInstitutional
       doneHash={`#/operator/t/${tenderId}`}
       exitHash={`#/operator/t/${tenderId}`}
+      onReject={setBad}
       success={{ title: t('wizad.doneTitle'), desc: t('wizad.doneDesc', { end: toIso(endD) }), audit: `${tender.code} · PUBLISHED · ${toIso(toUtcDate(start))}` }}
       onFinish={() => {
         dispatch({

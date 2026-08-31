@@ -15,16 +15,47 @@ import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '..
 import { SearchBox } from '../registry/SearchBox';
 import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
+import { StageRail } from '../registry/StageRail';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { SCOPE_KEYS, useFilterParams } from '../registry/useHashParams';
-import { calendarOf, currentStage, tenderApprovalTier, todayIso, useStore, type Tender } from '../store';
+import { calendarOf, currentStage, resolveTiersFor, tenderApprovalTier, todayIso, useStore, type Tender } from '../store';
 import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
 import { pendingRatification } from './adminDerive';
+import { TierPill } from './TierPill';
 
 /** The four live statuses a tender can hold (from tenderStatus), in reading order. */
 const STATUS_ORDER: OpStatus[] = ['progress', 'risk', 'delayed', 'done'];
+
+/**
+ * ق2 — the semantic fill each counting tile wears (§2-ط).
+ *
+ * A tone is a NAME, not a colour: the six families and their two-theme values live in
+ * `tokens.css` and are spent by `.ad-fill[data-tone]` alone, so this screen cannot invent a
+ * seventh shade or restate one it already has. «الإجمالي» is `brand` because it is the prominent
+ * neutral — it counts everything and alarms about nothing.
+ */
+type Tone = 'brand' | 'risk' | 'delayed' | 'progress' | 'done' | 'planned';
+
+/**
+ * ق1 — the read-only board. Five columns: our four DERIVED statuses plus the one lifecycle
+ * state that is not a status at all.
+ *
+ * «ملغاة» takes the `planned` grey deliberately. It is not a stage of the work, it is the
+ * absence of it, and the closed status vocabulary has no fill family for a cancellation — so it
+ * wears the one neutral in the palette rather than a seventh colour improvised for it.
+ */
+const KANBAN_COLUMNS: { key: OpStatus | 'cancelled'; tone: Tone }[] = [
+  { key: 'progress', tone: 'progress' },
+  { key: 'risk', tone: 'risk' },
+  { key: 'delayed', tone: 'delayed' },
+  { key: 'done', tone: 'done' },
+  { key: 'cancelled', tone: 'planned' },
+];
+
+/** Which of the two renderings of the SAME filtered rows the reader is looking at. */
+type ViewMode = 'table' | 'board';
 /**
  * `open` is not a `tenderStatus` — it is the union of the three live ones, and it exists so the
  * follow-up room's «المناقصات المفتوحة» tile can land on a registry holding EXACTLY the rows it
@@ -44,6 +75,12 @@ export default function AdminTenders() {
   const words = useStampWords();
 
   const [q, setQ] = useState('');
+  /**
+   * ق1 — the view mode is LOCAL state, not a URL dimension: it changes nothing about WHICH rows
+   * the registry holds, and the export stamp describes rows. Putting it in the address would make
+   * two links that filter identically look different, and would print a rendering choice on a CSV.
+   */
+  const [mode, setMode] = useState<ViewMode>('table');
 
   /**
    * The URL contract (§5-ج), now carrying the whole toolbar (client request 7). Every clickable
@@ -70,9 +107,16 @@ export default function AdminTenders() {
 
   const qn = q.trim().toLowerCase();
 
-  // Every dimension EXCEPT the status chips, so the chip counts read off this set — a chip never
-  // promises rows the value window or the search has already removed.
-  const searched = useMemo(() => state.tenders.filter((tn) => {
+  /**
+   * Every dimension EXCEPT the two the KPI tiles own — `status` and `pending`.
+   *
+   * ق2 turned the four tiles into filters, and the standing law is «a tile opens EXACTLY what it
+   * counted». A tile counting off a set that already has its own narrowing applied cannot satisfy
+   * it: «متأخرة» would print 3 while the reader is looking at `?pending=1`, and clicking it would
+   * land 1. Counting off this base — every OTHER narrowing, none of its own — makes the printed
+   * figure and the destination the same arithmetic by construction.
+   */
+  const base = useMemo(() => state.tenders.filter((tn) => {
     if (opFilter && tn.operatorId !== opFilter) return false;
     if (methodFilter && tn.methodId !== Number(methodFilter)) return false;
     if (fieldFilter && tn.fieldId !== fieldFilter) return false;
@@ -80,10 +124,16 @@ export default function AdminTenders() {
     if (scopeFilter && (tn.scope ?? 'OTHER') !== scopeFilter) return false;
     if (!inValueRange(tn.estimatedValueUSD, vmin, vmax)) return false;
     if (!inDateRange(tn.createdOn, dFrom, dTo)) return false;
-    if (pendingParam && !pendingRatification(tn)) return false;
     if (qn && !(`${tn.code} ${tn.title.ar} ${tn.title.en}`.toLowerCase().includes(qn))) return false;
     return true;
-  }), [state, opFilter, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, pendingParam, qn]);
+  }), [state, opFilter, methodFilter, fieldFilter, tierFilter, scopeFilter, vmin, vmax, dFrom, dTo, qn]);
+
+  // The status CHIPS keep counting inside `pending` exactly as they did — they are a narrowing of
+  // the visible registry, not a landing pad for a figure printed elsewhere.
+  const searched = useMemo(
+    () => (pendingParam ? base.filter(pendingRatification) : base),
+    [base, pendingParam],
+  );
 
   const rows = useMemo(
     () => (statusFilter
@@ -103,16 +153,70 @@ export default function AdminTenders() {
   const { sorted, sortKey, dir, toggle } = useTableSort(rows, compare);
   const { pageRows, page, setPage, pageSize, setPageSize, total, start, end } = usePagination(sorted, 10);
 
-  // KPIs read the filtered set — as you narrow the registry the counts follow the view (honest, derived).
-  const pending = rows.filter(pendingRatification).length;
-  const late = rows.filter((tn) => tenderStatus(tn, today, cal) === 'delayed').length;
-  const done = rows.filter((tn) => tenderStatus(tn, today, cal) === 'done').length;
-  const kpis = [
-    { l: t('reg.atenders.kpiTotal'), v: rows.length, tone: undefined as string | undefined },
-    { l: t('reg.atenders.kpiPending'), v: pending, tone: pending > 0 ? 'var(--status-risk)' : undefined },
-    { l: t('reg.atenders.kpiLate'), v: late, tone: late > 0 ? 'var(--status-delayed)' : undefined },
-    { l: t('reg.atenders.kpiDone'), v: done, tone: done > 0 ? 'var(--status-done)' : undefined },
+  /**
+   * ق2 — the four counting tiles, each a FILTER that lands the rows it printed.
+   *
+   * Every tile writes BOTH dimensions it owns in one act (`setMany`): the narrowing it means, and
+   * the removal of the other tile's narrowing. Two separate writes would push two history entries
+   * and leave a half-applied state behind Back that no tile ever offered.
+   *
+   * They still follow every other dimension — narrow by company or by value window and the four
+   * figures move with the view. They are `aria-pressed` toggles, so a second press on the active
+   * tile widens back to the base rather than being a click that does nothing.
+   */
+  const kpis: { key: string; l: string; v: number; tone: Tone; on: boolean; go: () => void }[] = [
+    {
+      key: 'total',
+      l: t('reg.atenders.kpiTotal'),
+      v: base.length,
+      tone: 'brand',
+      on: statusFilter === '' && !pendingParam,
+      go: () => f.setMany({ status: '', pending: '' }),
+    },
+    {
+      key: 'pending',
+      l: t('reg.atenders.kpiPending'),
+      v: base.filter(pendingRatification).length,
+      tone: 'risk',
+      on: pendingParam && statusFilter === '',
+      go: () => f.setMany({ status: '', pending: pendingParam && statusFilter === '' ? '' : '1' }),
+    },
+    {
+      key: 'late',
+      l: t('reg.atenders.kpiLate'),
+      v: base.filter((tn) => tenderStatus(tn, today, cal) === 'delayed').length,
+      tone: 'delayed',
+      on: statusFilter === 'delayed' && !pendingParam,
+      go: () => f.setMany({ pending: '', status: statusFilter === 'delayed' && !pendingParam ? '' : 'delayed' }),
+    },
+    {
+      key: 'done',
+      l: t('reg.atenders.kpiDone'),
+      v: base.filter((tn) => tenderStatus(tn, today, cal) === 'done').length,
+      tone: 'done',
+      on: statusFilter === 'done' && !pendingParam,
+      go: () => f.setMany({ pending: '', status: statusFilter === 'done' && !pendingParam ? '' : 'done' }),
+    },
   ];
+
+  /**
+   * ق1 — the board, derived from the SORTED, FILTERED rows the table would show. One narrowing,
+   * two renderings: a card can never appear on the board that the table would not list.
+   *
+   * A cancelled request is pulled out FIRST: `tenderStatus` would otherwise scatter cancellations
+   * across the four live columns, reading as work in progress on a request nobody is progressing.
+   */
+  const board = useMemo(() => {
+    const cancelled = new Set(sorted.filter((tn) => tn.lifecycle?.status === 'cancelled'));
+    return KANBAN_COLUMNS.map((col) => ({
+      ...col,
+      cards: col.key === 'cancelled'
+        ? sorted.filter((tn) => cancelled.has(tn))
+        : sorted.filter((tn) => !cancelled.has(tn) && tenderStatus(tn, today, cal) === col.key),
+    }));
+    // `cal` is rebuilt on every render by `calendarOf`, so it is left out of the key exactly as it
+    // is in `rows` and `compare` above — it moves only with `state`, which `sorted` already carries.
+  }, [sorted, today]);
 
   const operatorName = (id: string) => {
     const o = state.operators.find((x) => x.id === id);
@@ -205,6 +309,10 @@ export default function AdminTenders() {
   };
 
   const clearFilters = () => { setQ(''); f.clear(); };
+  /** ق5 — «مسح (N)»: the button says how much it is about to undo, so «مسح» is never a guess. */
+  const clearLabel = activeChips.length > 0
+    ? t('reg.atenders.clearFiltersN', { n: fmtCount(activeChips.length, lang) })
+    : t('reg.atenders.clearFilters');
 
   return (
     <div className="op-page" style={{ maxWidth: 1240 }}>
@@ -217,22 +325,54 @@ export default function AdminTenders() {
               in their tooltips, so the definition and the computation cannot drift apart. */}
           <div className="op-page__def">{t('match.def')}</div>
         </div>
-        {/* Admin reviews, never creates — no primary. The export mirrors the filtered rows on screen. */}
-        <button className="op-btn-ghost" onClick={doExport}>{t('reg.atenders.exportCsv')}</button>
+        {/* Admin reviews, never creates — no primary. The export mirrors the filtered rows on
+            screen, and so does the print: both describe the SAME stamp. */}
+        <div className="op-page__actions" data-noprint="1">
+          {/* ق1 — one narrowing, two renderings. `aria-pressed` is the same contract the counting
+              tiles below use, so «this one is chosen» reads identically across the screen. */}
+          <div className="kb-switch" role="group" aria-label={t('reg.atenders.viewLabel')}>
+            <button type="button" aria-pressed={mode === 'table'} onClick={() => setMode('table')}>
+              {t('reg.atenders.viewTable')}
+            </button>
+            <button type="button" aria-pressed={mode === 'board'} onClick={() => setMode('board')}>
+              {t('reg.atenders.viewBoard')}
+            </button>
+          </div>
+          <button className="op-btn-ghost" onClick={doExport}>{t('reg.atenders.exportCsv')}</button>
+          {/* ق7 — a real act with no server behind it: the browser prints the stamped registry.
+              `data-noprint` takes the tools off the page; the table and the stamp stay. */}
+          <button className="op-btn-ghost" onClick={() => window.print()}>
+            <Icon name="printer" size={14} />{t('reg.atenders.print')}
+          </button>
+        </div>
       </div>
 
-      <div className="ad-kpis" style={{ marginTop: 4 }}>
+      {/* ق2 + §2-ط — the four counting tiles, filled by tone and clickable as filters. */}
+      <div className="ad-kpis" style={{ marginBlockStart: 4 }} data-noprint="1">
         {kpis.map((k) => (
-          <div key={k.l} className="ad-kpi">
-            <div className="ad-kpi__head"><span className="ad-kpi__l">{k.l}</span></div>
-            <div className="ad-kpi__row">
-              <span className="ad-kpi__v" style={k.tone ? { color: k.tone } : undefined}>{fmtCount(k.v, lang)}</span>
-            </div>
-          </div>
+          <button
+            key={k.key}
+            type="button"
+            className="ad-kpi ad-fill ad-kpi--fill"
+            data-tone={k.tone}
+            aria-pressed={k.on}
+            title={t('reg.atenders.kpiHint', { label: k.l })}
+            onClick={k.go}
+          >
+            <span className="ad-kpi__head">
+              {/* the ONE piece of hierarchy inside a fully-filled row (§2-ط-د): «متأخرة» pulses,
+                  and only while it has something to pulse about — a beat on zero is a false alarm */}
+              <span className={`ad-kpi__dot${k.tone === 'delayed' && k.v > 0 ? ' ad-kpi__dot--alert' : ''}`} />
+              <span className="ad-kpi__l">{k.l}</span>
+            </span>
+            <span className="ad-kpi__row">
+              <span className="ad-kpi__v">{fmtCount(k.v, lang)}</span>
+            </span>
+          </button>
         ))}
       </div>
 
-      <div className="acc-filters">
+      <div className="acc-filters" data-noprint="1">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.atenders.searchPh')} style={{ width: 280 }} />
         <FilterChips chips={statusChips} onSelect={(key) => f.set('status', key)} lang={lang} />
         {/* filter by operating company — the destination every per-company chart row lands on */}
@@ -277,7 +417,7 @@ export default function AdminTenders() {
         />
       </div>
 
-      <div className="acc-filters" style={{ marginBlock: '0 12px' }}>
+      <div className="acc-filters" style={{ marginBlock: '0 12px' }} data-noprint="1">
         <RangeFilter
           id="atn-val" kind="money" label={t('reg.atenders.rangeValue')}
           min={vmin} max={vmax} inverted={valueBad}
@@ -291,9 +431,9 @@ export default function AdminTenders() {
       </div>
 
       {activeChips.length > 0 && (
-        <div className="acc-filters" style={{ marginBlock: '0 10px' }}>
+        <div className="acc-filters" style={{ marginBlock: '0 10px' }} data-noprint="1">
           <FilterChips chips={activeChips} onSelect={() => {}} lang={lang} />
-          <button className="op-btn-ghost" onClick={clearFilters}>{t('reg.atenders.clearFilters')}</button>
+          <button className="op-btn-ghost" onClick={clearFilters}>{clearLabel}</button>
         </div>
       )}
 
@@ -306,10 +446,47 @@ export default function AdminTenders() {
       ) : rows.length === 0 ? (
         <EmptyState
           mode="noMatch"
-          action={<button className="op-btn-ghost" onClick={clearFilters}>{t('reg.atenders.clearFilters')}</button>}
+          action={<button className="op-btn-ghost" onClick={clearFilters}>{clearLabel}</button>}
         >
           {valueBad || dateBad ? t('reg.range.invertedBody') : t('reg.atenders.noMatch')}
         </EmptyState>
+      ) : mode === 'board' ? (
+        /* ق1 — the board. READ-ONLY by construction: every card is an `<a>` to the file, there is
+           no drag handle and no state control, because a status here is DERIVED from the stage
+           dates and a decision belongs to the review screen with its ledger preview. It shows the
+           whole filtered set, not a page of it — a column that stopped at ten would print a count
+           it did not hold. */
+        <div className="kb">
+          {board.map((col) => (
+            <section key={col.key} className="kb__col">
+              {/* a real heading, not a coloured strip: the board is navigable by heading, and the
+                  count belongs to the head it names rather than floating beside it */}
+              <h2 className="kb__head ad-fill" data-tone={col.tone}>
+                {t(`reg.atenders.col.${col.key}`)}
+                <span className="kb__n">{fmtCount(col.cards.length, lang)}</span>
+              </h2>
+              {col.cards.length === 0 ? (
+                <p className="kb__empty">{t('reg.atenders.colEmpty')}</p>
+              ) : col.cards.map((tender) => {
+                const dev = tenderDeviationWd(tender, today, cal);
+                return (
+                  <a key={tender.id} className="kb__card" href={`#/admin/review/${tender.id}`}>
+                    <span className="kb__top">
+                      <span className="kb__code">{tender.code}</span>
+                      {/* the deviation badge appears on REAL lateness only — the closed rule that
+                          red belongs to a request that has actually run past its plan */}
+                      {dev > 0 && <span className="kb__dev"><DevChip wd={dev} /></span>}
+                    </span>
+                    <span className="kb__t" dir="auto">{tender.title[lang]}</span>
+                    <span className="kb__foot">
+                      <span className="kb__v">{fmtMoney(tender.estimatedValueUSD)}</span>
+                    </span>
+                  </a>
+                );
+              })}
+            </section>
+          ))}
+        </div>
       ) : (
         <>
           <div className="op-tablecard">
@@ -319,11 +496,15 @@ export default function AdminTenders() {
                   <SortableTh label={t('tenders.colTender')} sortKey="tender" active={sortKey} dir={dir} onToggle={toggle} />
                   <th>{t('tenders.colPath')}</th>
                   <SortableTh label={t('approvals.colValue')} sortKey="value" active={sortKey} dir={dir} onToggle={toggle} className="op-end" style={{ width: 140 }} />
+                  {/* ق3 — WHO clears a request of this value. The cell reads `tenderApprovalTier`
+                      and nothing else: no threshold is printed here, so the column cannot outlive
+                      the ladder it describes when per-operator ceilings land (د9). */}
+                  <th>{t('reg.stamp.dim.tier')}</th>
                   <th>{t('tenders.colStage')}</th>
                   <th>{t('tenders.colStatus')}</th>
                   <SortableTh label={t('tenders.colDeviation')} sortKey="deviation" active={sortKey} dir={dir} onToggle={toggle} className="op-end" />
                   <th>{t('adtenders.colRatify')}</th>
-                  <th style={{ width: 150 }} className="op-end" />
+                  <th style={{ width: 150 }} className="op-end" data-noprint="1" />
                 </tr>
               </thead>
               <tbody>
@@ -338,8 +519,18 @@ export default function AdminTenders() {
                       </td>
                       <td><PathChip id={tender.methodId} lang={lang} /></td>
                       <td className="op-end mono">{fmtMoney(tender.estimatedValueUSD)}</td>
-                      <td>{cur ? stageByKey(cur.key)?.[lang] : t('tenders.completed')}</td>
-                      <td><StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill></td>
+                      {/* د9 — the tier already resolved per operator (`tenderApprovalTier`); the
+                          TOOLTIP has to name the same ladder, or the pill and its explanation part */}
+                      <td><TierPill tier={tenderApprovalTier(state, tender)} tiers={resolveTiersFor(state, tender.operatorId)} /></td>
+                      {/* ق4 — the SAME rail component the operator registry wears, written once in
+                          `registry/StageRail.tsx`. Here it is `aria-hidden`: this row already
+                          names the stage in words on the line above, and the board mode has no
+                          rail at all, so nothing is said twice on either surface. */}
+                      <td>
+                        <div className="op-tbl__stage">{cur ? stageByKey(cur.key)?.[lang] : t('tenders.completed')}</div>
+                        <StageRail tender={tender} today={today} lang={lang} decorative />
+                      </td>
+                      <td><StatusPill size="sm" status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill></td>
                       <td className="op-end"><DevChip wd={tenderDeviationWd(tender, today, cal)} /></td>
                       <td>
                         {tender.ratification ? (
@@ -348,7 +539,7 @@ export default function AdminTenders() {
                           <span className="op-dev op-dev--none">—</span>
                         )}
                       </td>
-                      <td className="op-end">
+                      <td className="op-end" data-noprint="1">
                         {/* a real link, so review is reachable by keyboard — an onClick <tr> is not */}
                         <a className="acc-open" href={`#/admin/review/${tender.id}`}>
                           {t('reg.atenders.openReview')}

@@ -7,7 +7,7 @@ import { Icon } from '../operator/Icon';
 import { govReasonValid, todayIso, useStore, type Actor, type StoreDispatch } from '../store';
 import { useAdminUi } from './AdminShell';
 import { Modal } from './Modal';
-import { TierPill, tierRange, TIER_ORDER } from './TierPill';
+import { LadderSourceTag, TierPill, tierRange, TIER_ORDER } from './TierPill';
 import { useActor } from './UserActions';
 
 /* ------------------------------------------------------------------ *
@@ -644,11 +644,13 @@ export default function OperatorFieldsWizard({ onClose }: { onClose: () => void 
           </tbody>
         </table>
 
-        {/* The GLOBAL approval ladder, read-only (ق1 — one ladder for every company, request 4
-            continuity): the bands this company's future requests will be measured against are
-            stated while it is being registered, not discovered later. */}
+        {/* The SYSTEM DEFAULT approval ladder, read-only: the bands this company's future requests
+            will be measured against are stated while it is being registered, not discovered later.
+            د9 — a company under registration has no ladder of its OWN yet (approving one is a
+            later, separately justified act from the registry itself), so what is shown is the
+            default, and the tag says exactly that rather than implying it is the only ladder. */}
         <div className="wz-field">
-          <span className="wz-field__l">{t('operators.ladderTitle')}</span>
+          <span className="wz-field__l">{t('operators.ladderTitle')} <LadderSourceTag own={false} /></span>
           <div className="ad-ladder" style={{ marginBlockStart: 6 }}>
             {TIER_ORDER.map((tier) => (
               <div key={tier} className="ad-ladder__row">

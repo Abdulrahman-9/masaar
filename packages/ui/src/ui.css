@@ -48,15 +48,22 @@
 }
 :root[data-theme='dark'] .m-skin--blueprint { --m-grid: rgba(147, 197, 253, 0.07); }
 
-/* ---------- StatusPill — the six system statuses (§4-ج) ---------- */
+/* ---------- StatusPill — the six system statuses (§4-ج) ----------
+   Three size knobs, declared here and turned in exactly one other place (`--sm`). The gap and the
+   dot are in `em`, not px, so they follow the type instead of needing a second set of numbers: at
+   the default 12px they still resolve to the shipped 7px and 6px, and at 11px they shrink with it.
+   That is what makes the small pill a MODIFIER rather than a second component. */
 .m-pill {
+  --pill-fs: var(--t-caption);
+  --pill-pb: 4px;
+  --pill-pi: 12px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: var(--t-caption);
+  gap: 0.58em;
+  font-size: var(--pill-fs);
   font-weight: var(--fw-semibold);
-  padding-block: 4px;
-  padding-inline: 12px;
+  padding-block: var(--pill-pb);
+  padding-inline: var(--pill-pi);
   border-radius: var(--r-pill);
   border: 1px solid transparent;   /* the colour arrives with the modifier */
   /* «the colour moves, the box does not» — no size or border-width is animated */
@@ -64,11 +71,15 @@
 }
 .m-pill::before {
   content: '';
-  inline-size: 6px;
-  block-size: 6px;
+  inline-size: 0.5em;
+  block-size: 0.5em;
   border-radius: var(--r-pill);
   background: currentColor;
 }
+/* The compact pill for a dense registry column (§4-ج). It states NO colour — not a hue, not a
+   border, not a background: a size modifier that also recoloured would give the six statuses a
+   seventh reading, and the status language is closed. It only turns the three knobs above. */
+.m-pill--sm { --pill-fs: var(--t-micro); --pill-pb: 2px; --pill-pi: 8px; }
 .m-pill--planned { color: var(--status-planned); background: var(--status-planned-bg); border-color: var(--status-planned-bd); }
 .m-pill--progress { color: var(--status-progress); background: var(--status-progress-bg); border-color: var(--status-progress-bd); }
 .m-pill--done { color: var(--status-done); background: var(--status-done-bg); border-color: var(--status-done-bd); }
@@ -282,12 +293,3 @@
   font-size: var(--t-micro);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .m-meter__fill,
-  .m-rail__fill,
-  .m-verdict,
-  .m-step__c,
-  .m-step__t {
-    transition-duration: 0.01ms !important;
-  }
-}

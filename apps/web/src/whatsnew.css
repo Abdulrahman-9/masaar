@@ -86,7 +86,3 @@
 }
 .wn__link:hover, .wn__link:focus-visible { background: var(--btn-secondary-bg); }
 
-@media (prefers-reduced-motion: reduce) {
-  .wn__body { animation: none; }
-  .wn__fold, .wn__x, .wn__link { transition: none; }
-}

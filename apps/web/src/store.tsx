@@ -53,9 +53,18 @@ export interface StageState {
   key: string;
   plannedFrom?: string;
   plannedTo?: string;
+  /** actual start recorded at closing (D1) — informational; every deadline still reads actualTo */
+  actualFrom?: string;
   actualTo?: string;
   uploadedDocs: string[];
+  /** classified deviation reason recorded when the stage closed late (D1) — the compliance
+   *  report quotes it, honouring «يظهر في تقرير الالتزام» instead of dropping the collected form */
+  devReason?: { cat: string; note: string };
 }
+
+/** The closed vocabulary of deviation-reason categories (D1) — one list for the wizard chips,
+ *  the reducer guard and the server DTO regex, so no surface can invent a fifth category. */
+export const DEV_REASON_CATS = ['publisherDelay', 'docsCompletion', 'forceMajeure', 'internalCoord'] as const;
 
 export interface BidderState {
   id: string;
@@ -213,6 +222,34 @@ export function byOid(by: By): string | undefined {
 }
 
 /**
+ * D4 — the client-side mirror of the server's `operatorScopeWhere` (apps/api/src/auth/scope.ts):
+ * an operator-scoped session sees ITS OWN company's tenders only; platform roles see everything.
+ * Reads the session identity the same way the request wizard does (loadSession().companyId).
+ * Like the Prisma fragment `{ operatorId: user.operatorId }`, a scoped session that names no
+ * company imposes no constraint rather than inventing one — the server behaves identically.
+ */
+export function sessionScopedTenders(state: State): Tender[] {
+  const companyId = sessionScopeCompanyId();
+  if (!companyId) return state.tenders;
+  return state.tenders.filter((x) => x.operatorId === companyId);
+}
+
+/**
+ * د15-م3 — the narrowing above, NAMED so a screen can say it out loud.
+ *
+ * The filter is a silent fact today: a reader on the register or the inbox sees a short list and
+ * has no way to tell a company-scoped view from an empty week. The plan's answer is a visible
+ * sentence, and a sentence that claims a scope must be governed by the very condition that
+ * imposes it — a second copy of «is this session scoped» is how a screen comes to promise a
+ * narrowing it does not have. So the condition lives HERE, once: the filter branches on it and
+ * the sentence renders off it. A platform session gets `undefined` and prints no claim at all.
+ */
+export function sessionScopeCompanyId(): string | undefined {
+  const s = loadSession();
+  return s && isOperatorRole(s.role) && s.companyId ? s.companyId : undefined;
+}
+
+/**
  * Append-only — there is no action that removes or edits entries (8.1-e).
  * `by`/`outcome`/`reasonCode` are optional: rows written before the access-governance
  * section, and rows hydrated from the server, carry none of them.
@@ -227,6 +264,13 @@ export interface AuditEntry {
   outcome?: 'applied' | 'refused';
   /** machine-readable gate id on refusal, e.g. 'last-super' */
   reasonCode?: string;
+  /**
+   * The transition an APPLIED row performed, in the `OLD→NEW` shape the user trail already uses
+   * (`UserEvent.detail`). Written where the target alone cannot say what moved: an operator id
+   * identifies WHICH ladder was approved but not what it was before or became. Optional and
+   * absent on every row that has a trail of its own to carry it.
+   */
+  detail?: string;
 }
 
 /** A company (mirrors Prisma `model Operator`). Financial Authority is NOT here — it is
@@ -351,9 +395,20 @@ export interface State {
   /** admin-managed public holidays — feed the working-day calendar (§11.3.4-e). Mirrors the API's
    *  `model Holiday` ({date, name}); every working-day deadline resolves through calendarOf(). */
   holidays: Holiday[];
-  /** the GLOBAL approval ladder (client decision ق1) — one set of ceilings for every operating
-   *  company, which is why it lives on the state root and not on an operator or a contract. */
+  /**
+   * The SYSTEM DEFAULT approval ladder (client decision ق1) — the set of ceilings every operating
+   * company is measured against unless one of its own has been approved, which is why it lives on
+   * the state root and not on an operator or a contract.
+   */
   approvalTiers: ApprovalTiers;
+  /**
+   * Per-operator ladder OVERRIDES (client decision 2026-08-25: «the supervisor sets the ceilings
+   * per operator»), keyed on `OperatorOrg.id`. An ABSENT key is the normal case and means «this
+   * company is on the system default» — never «no ladder». One optional layer above `approvalTiers`
+   * rather than a ladder moved onto the operator record: ق1's default stays a single source, and
+   * `resolveTiersFor` is the one place the two are read together.
+   */
+  operatorTiers: Record<string, ApprovalTiers>;
 }
 
 /** A public holiday: the ISO date the calendar keys on, plus a display name (e.g. "Eid al-Fitr"). */
@@ -619,14 +674,48 @@ export function aboveOwnFA(state: State, t: Tender): boolean {
 }
 
 /**
- * Which body clears this request (ق1) — read off the GLOBAL ladder in state, never a literal.
+ * THE LADDER THIS COMPANY IS MEASURED AGAINST — its own if one has been approved, else the system
+ * default (client decision 2026-08-25, superseding ق1's «one ladder for all»).
+ *
+ * Deliberately NOT a copy and NOT a repair:
+ *  · a company with no entry gets `state.approvalTiers` BY IDENTITY — the default is one object,
+ *    and handing back a clone would create a second ladder to keep in sync;
+ *  · a stored entry that is structurally wrong (non-numeric, negative, inverted) is returned AS
+ *    STORED, because `approvalTierFor` is the single judge of a ladder and it fails closed to MDOC.
+ *    Substituting the default here would hand back a ladder nobody approved and clear requests at
+ *    the LOWEST gate on the strength of it — the same reasoning `normTiers` documents for loads.
+ *  · a tender with no operator (`!operatorId`) reads the default, which is today's behaviour
+ *    verbatim: an unowned request cannot borrow another company's ceilings.
+ */
+export function resolveTiersFor(state: State, operatorId?: string): ApprovalTiers {
+  return (operatorId && state.operatorTiers[operatorId]) || state.approvalTiers;
+}
+
+/** Operators that carry an approved ladder of their own AND exist in the registry. An entry left
+ *  behind for a company that is no longer registered is inert: it names nothing, so it is counted
+ *  nowhere and shown nowhere (a registry figure must resolve to a row a reader can open). */
+export function operatorsWithOwnTiers(state: State): string[] {
+  return state.operators.filter((o) => state.operatorTiers[o.id]).map((o) => o.id);
+}
+
+/**
+ * Which body clears this request — read off THIS TENDER'S OPERATOR'S ladder, never a literal.
+ *
+ * This is the ONE point at which the per-operator ladder enters the derivation. Every consumer —
+ * the RATIFY/RETURN authority gate in the reducer, `approvalChain`, `awaitingTier`/`tierExample`,
+ * the dashboard counters, both tier filters, the tender file — already routes through here, so
+ * each of them inherits the resolution without a line of its own. A screen that teaches itself
+ * the ladder separately is the drift this function exists to prevent.
+ *
  * Distinct from `aboveOwnFA`: FA (§7.1, per field) decides whether the cost cycle opens; the
  * ladder decides whose signature the award needs. A tender can be within its field's FA and
  * still sit in the operator band, or above FA and land in either upper band — the two questions
- * have different inputs and must not be collapsed.
+ * have different inputs and must not be collapsed. A per-operator CEILING does not change that:
+ * `operatorTiers` is a signature ladder scoped to a company, never a financial authority for it
+ * (the retired `SET_OPERATOR_FA` is not revived by this — see ops/OPERATOR-TIERS-SPEC.md §0).
  */
 export function tenderApprovalTier(state: State, t: Tender): ApprovalTier {
-  return approvalTierFor(t.estimatedValueUSD, state.approvalTiers);
+  return approvalTierFor(t.estimatedValueUSD, resolveTiersFor(state, t.operatorId));
 }
 
 /** Resolve the accredited estimate per the prevailing rule (6.9.1 / 6.9.2 / agreed). */
@@ -669,7 +758,10 @@ export type Action =
   | { type: 'SET_TECHNICAL'; tenderId: string; bidderId: string; result: 'pass' | 'fail' }
   | { type: 'SET_PRICE'; tenderId: string; bidderId: string; priceUSD: number }
   | { type: 'TOGGLE_DOC'; tenderId: string; stageKey: string; doc: string }
-  | { type: 'COMPLETE_STAGE'; tenderId: string; stageKey: string; actualTo: string }
+  // actualFrom/devReason (D1): the wizard collects them, so the action carries them — a form
+  // field that is gathered and then dropped is a placebo. Both optional: legacy callers and
+  // no-deviation closes send neither.
+  | { type: 'COMPLETE_STAGE'; tenderId: string; stageKey: string; actualTo: string; actualFrom?: string; devReason?: { cat: string; note: string } }
   // award decision + lifecycle governance carry the immutable Actor (oid), never a
   // display name — the same identity contract the access-governance actions use.
   | { type: 'RATIFY'; tenderId: string; by: Actor }
@@ -700,6 +792,12 @@ export type Action =
   // operating companies — the Financial Authority each one carries governs MCT entry (6.9),
   // MDOC participation tier (12.2) and anti-splitting detection (7.2)
   | { type: 'CREATE_OPERATOR'; operatorId: string; name: string; nameEn?: string; reason: string; by: Actor }
+  // client decision 2026-08-25 — the supervisor approves a company's OWN approval ladder. This is
+  // a SIGNATURE ladder scoped to one company, NOT a financial authority for it (§7.1 FA remains
+  // per-field, on the Service Contract, moved by SET_CONTRACT_FA). `tiers: null` drops the
+  // override and returns the company to the system default — a full governed act with the same
+  // Actor and justification, never a silent erase.
+  | { type: 'SET_OPERATOR_TIERS'; operatorId: string; tiers: ApprovalTiers | null; reason: string; by: Actor }
   // a field is created together with its Service Contract (§7.1) — the source of its FA, so a
   // new operator's field is usable immediately (a field with no contract cannot raise a tender)
   | { type: 'CREATE_FIELD'; fieldId: string; operatorId: string; name: string; nameEn?: string; code: string; contractId: string; contractCode: string; financialAuthorityUSD: number; signedOn: string; expiresOn: string; reason: string; by: Actor }
@@ -795,10 +893,11 @@ function auditAccess(
   by: Actor,
   outcome: 'applied' | 'refused',
   reasonCode?: string,
+  detail?: string,
 ): State {
   return {
     ...state,
-    audit: [...state.audit, { ts: new Date().toISOString(), action, target, by, outcome, ...(reasonCode ? { reasonCode } : {}) }],
+    audit: [...state.audit, { ts: new Date().toISOString(), action, target, by, outcome, ...(reasonCode ? { reasonCode } : {}), ...(detail ? { detail } : {}) }],
   };
 }
 
@@ -835,6 +934,35 @@ export function govReasonValid(reason: string): boolean {
   return n >= 20 && n <= 2000;
 }
 
+/**
+ * Is this a ladder a supervisor may APPROVE? — the ENTRY gate, deliberately stricter than the
+ * engine's `ladderUsable` reading gate, and shared by the editor and the reducer so a disabled
+ * confirm button and a refused dispatch can never disagree.
+ *
+ * Two ceilings that are real, finite and non-negative, and `operatorMaxUSD` STRICTLY below
+ * `jmcMaxUSD`. The engine tolerates equality (it asks only «is this readable»), but two equal
+ * ceilings describe an EMPTY ط2 band: such a ladder is not a two-tier ladder, it is an ambiguity,
+ * and the place to refuse an ambiguity is the door rather than the safety valve. `approvalTierFor`
+ * is not relaxed in exchange — the last fail-closed reading stays exactly as conservative as it is.
+ *
+ * A `operatorMaxUSD` of ZERO is accepted on purpose: a supervisor who wants every one of a
+ * company's requests to leave its own authority is expressing a real policy. (This is the opposite
+ * of the FA rule, where zero is refused — because there the question is «what may this field spend
+ * on its own», and here it is «where does this company's signature stop».)
+ */
+export function ladderApprovable(t: ApprovalTiers): boolean {
+  const { operatorMaxUSD: op, jmcMaxUSD: jmc } = t;
+  if (!Number.isFinite(op) || !Number.isFinite(jmc)) return false;
+  if (op < 0 || jmc < 0) return false;
+  return op < jmc;
+}
+
+/** Are these the same two ceilings? — the no-op test the editor and the reducer share. */
+export function sameTiers(a: ApprovalTiers | undefined, b: ApprovalTiers | undefined): boolean {
+  if (!a || !b) return a === b;
+  return a.operatorMaxUSD === b.operatorMaxUSD && a.jmcMaxUSD === b.jmcMaxUSD;
+}
+
 /* ---------------- access guards (shared by the UI gates and the reducer) ----------------
  * One definition each, mirroring apps/api/src/users/users.service.ts line for line, so a gate
  * shown in the UI and a refusal written by the reducer can never disagree.
@@ -864,22 +992,45 @@ export function banWithinLimit(banUntil: string, today: string): boolean {
   return banUntil <= max;
 }
 
-function actionTarget(state: State, action: Action): string {
+/**
+ * The name a log row gives the thing an action acted on — a CODE (or a name/email) wherever one
+ * exists, because a row is read by a human, not joined by an id.
+ *
+ * WHY TWO STATES. Every action but one names a target that ALREADY EXISTS, so `prev` answers it.
+ * `CREATE_TENDER` is the exception: it carries no `tenderId` — the tender it names is MINTED by
+ * `apply`, and does not exist in `prev` at all. Resolving it against `prev` is what forced the old
+ * fallback to `budgetCode`, and a budget code is not an identity: it is shared by every request
+ * drawn on the same budget line, so a created tender's own birth row could never be filtered back
+ * to its file (FileLog matches code-or-id), while matching the budget code instead would hand one
+ * tender the birth rows of its budget siblings. Resolving AFTER apply removes both: the row names
+ * the code the tender actually got. Nothing else changes — the wrapper still writes the same
+ * action, the same actor and the same success/refusal semantics.
+ *
+ * The created tender is identified as the one `next` has and `prev` does not, so this stays true
+ * however ids are minted and however the list is ordered. Old rows already stored against a budget
+ * code are left exactly as written (8.1-e, append-only): no migration, no rewrite.
+ */
+function actionTarget(prev: State, next: State, action: Action): string {
   if ('tenderId' in action) {
-    return state.tenders.find((t) => t.id === action.tenderId)?.code ?? action.tenderId;
+    return prev.tenders.find((t) => t.id === action.tenderId)?.code ?? action.tenderId;
   }
   if ('vendorId' in action) {
-    return state.vendors.find((v) => v.id === action.vendorId)?.name ?? action.vendorId;
+    return prev.vendors.find((v) => v.id === action.vendorId)?.name ?? action.vendorId;
   }
   if ('contractId' in action) {
-    return state.contracts.find((c) => c.id === action.contractId)?.code ?? action.contractId;
+    return prev.contracts.find((c) => c.id === action.contractId)?.code ?? action.contractId;
   }
   // defensive: access actions audit themselves, but keep the target identical to the
   // server's (users.service.ts records dto.email) should one ever reach the wrapper.
   if ('userId' in action) {
-    return state.users.find((u) => u.id === action.userId)?.email ?? action.userId;
+    return prev.users.find((u) => u.id === action.userId)?.email ?? action.userId;
   }
-  if (action.type === 'CREATE_TENDER') return action.budgetCode;
+  if (action.type === 'CREATE_TENDER') {
+    const before = new Set(prev.tenders.map((t) => t.id));
+    // the fallback cannot fire on a creation that happened (the wrapper only runs when it did),
+    // and keeps the old answer rather than an empty target for any caller that reaches here dry
+    return next.tenders.find((t) => !before.has(t.id))?.code ?? action.budgetCode;
+  }
   return '—';
 }
 
@@ -1020,7 +1171,23 @@ function apply(state: State, action: Action): State {
         const req = [...requiredDocsFor(s.key), ...(s.key === 'sign' && tenderHasImportedCritical(t) ? criticalImportDocs(true) : [])];
         // stages cannot close without required documents
         if (!stageCanClose(req, s.uploadedDocs).ok) return t;
-        return { ...t, stages: t.stages.map((x) => (x === s ? { ...x, actualTo: action.actualTo } : x)) };
+        // D1 — mirror of the server DTO bounds: a malformed annotation refuses the whole close
+        // (the server would 400 it), never lands half-validated. Category from the closed list,
+        // detail ≥15 chars, both-or-neither.
+        if (action.devReason != null) {
+          const { cat, note } = action.devReason;
+          if (!(DEV_REASON_CATS as readonly string[]).includes(cat) || note.trim().length < 15) return t;
+        }
+        if (action.actualFrom && !/^\d{4}-\d{2}-\d{2}$/.test(action.actualFrom)) return t;
+        return {
+          ...t,
+          stages: t.stages.map((x) => (x === s ? {
+            ...x,
+            actualTo: action.actualTo,
+            ...(action.actualFrom ? { actualFrom: action.actualFrom } : {}),
+            ...(action.devReason ? { devReason: { cat: action.devReason.cat, note: action.devReason.note.trim() } } : {}),
+          } : x)),
+        };
       });
     case 'RATIFY': {
       const rt = state.tenders.find((x) => x.id === action.tenderId);
@@ -1301,6 +1468,43 @@ function apply(state: State, action: Action): State {
       };
       return auditAccess({ ...state, operators: [...state.operators, created] }, action.type, created.name, action.by, 'applied');
     }
+    case 'SET_OPERATOR_TIERS': {
+      // the target is the operator ID: it is the key the override is stored under, so an audit
+      // row naming anything else could not be tied back to the entry it moved
+      const target = action.operatorId;
+      // 1 — a ladder for a company that is not registered names nothing and would sit inert
+      if (!state.operators.some((o) => o.id === target)) {
+        return auditAccess(state, action.type, target, action.by, 'refused', 'unknown-operator');
+      }
+      // 2 — approving (or withdrawing) a company's signature ladder retroactively re-measures
+      // every one of its live requests; without a documented justification it is refused, checked
+      // BEFORE the no-op exactly as SET_CONTRACT_FA and ADD_HOLIDAY check theirs
+      if (!govReasonValid(action.reason)) {
+        return auditAccess(state, action.type, target, action.by, 'refused', 'reason');
+      }
+      // 3 — the entry gate (ladderApprovable): finite, non-negative, operator ceiling STRICTLY
+      // below the JMC ceiling. Not applied to `null`, which withdraws rather than sets one.
+      if (action.tiers && !ladderApprovable(action.tiers)) {
+        return auditAccess(state, action.type, target, action.by, 'refused', 'ladder-invalid');
+      }
+      const current = state.operatorTiers[target];
+      // 4 — no change, no row: a row claiming a change that never happened is the same
+      // fabrication as an unrecorded one (the SET_USER_ROLE precedent, verbatim)
+      if (action.tiers ? sameTiers(current, action.tiers) : !current) return state;
+      const operatorTiers = { ...state.operatorTiers };
+      if (action.tiers) operatorTiers[target] = action.tiers;
+      else delete operatorTiers[target];
+      // the transition in the SAME `OLD→NEW` shape SET_USER_ROLE writes, with the SYSTEM DEFAULT
+      // named as the standing end of it: a company arriving from the default, or returning to it,
+      // is a real move and the row has to say which ladder it left and which it now stands on
+      const ladderText = (x: ApprovalTiers | undefined) => (x ? `${usd(x.operatorMaxUSD)}/${usd(x.jmcMaxUSD)}` : 'default');
+      return auditAccess(
+        { ...state, operatorTiers },
+        action.type, target, action.by, 'applied',
+        undefined,
+        `${ladderText(current)}→${ladderText(action.tiers ?? undefined)}`,
+      );
+    }
     case 'CREATE_FIELD': {
       // a field is born with its Service Contract — the source of an authority (§7.1); creating one
       // without a documented justification is refused, exactly as its governance siblings are.
@@ -1488,6 +1692,9 @@ const NON_AUDITED = new Set([
   // access actions audit themselves inside apply() with an outcome + actor the wrapper cannot supply
   'CREATE_USER', 'SET_USER_ROLE', 'SET_USER_SCOPE', 'SET_USER_TWOFA', 'SET_USER_DISABLED',
   'CREATE_OPERATOR', 'CREATE_FIELD', 'SET_CONTRACT_FA',
+  // approving a company's own signature ladder self-audits applied/refused with its Actor and,
+  // on success, the OLD→NEW transition the target id alone cannot carry (2026-08-25)
+  'SET_OPERATOR_TIERS',
   // registry governance (ق7 archive model + request 9 later-edit + request 14 add): every one
   // self-audits applied/refused with its Actor, exactly like the CREATE_FIELD precedent above.
   'RENAME_FIELD', 'ARCHIVE_FIELD', 'RESTORE_FIELD',
@@ -1511,6 +1718,12 @@ const CLIENT_ONLY = new Set([
   'CREATE_USER', 'SET_USER_ROLE', 'SET_USER_SCOPE', 'SET_USER_TWOFA', 'SET_USER_DISABLED',
   // there is no /operators endpoint at all — these are local-only by necessity, not by choice
   'CREATE_OPERATOR', 'CREATE_FIELD', 'SET_CONTRACT_FA',
+  // NAMED DEBT (ops/OPERATOR-TIERS-SPEC.md §9 phase 2 / ops/POST-V2-IMPROVEMENTS.md §د): the server
+  // has no per-operator ladder model — `assertTierAuthority` reads DEFAULT_APPROVAL_TIERS directly.
+  // Because a local override would make a disabled «صادق» button and a 403 disagree, the EDITOR is
+  // withheld in api-mode (Operators.tsx) rather than the write being faked. Remove from this set
+  // and reopen the editor the day the endpoint lands.
+  'SET_OPERATOR_TIERS',
   // NAMED DEBT (client wave 1, phase 2): the archive model and the entity registry have no server
   // routes either — /api/fields and /api/service-contracts do not exist at all, and /api/vendors
   // exposes suspend/lift/ban/scores but neither an archive flag nor a create route. Every screen
@@ -1531,14 +1744,14 @@ export function reducer(state: State, action: Action): State {
   // append-only audit (8.1-e) — attempts are logged whether or not the guard let them through
   return {
     ...next,
-    audit: [...next.audit, { ts: new Date().toISOString(), action: action.type, target: actionTarget(state, action), ...(by ? { by } : {}) }],
+    audit: [...next.audit, { ts: new Date().toISOString(), action: action.type, target: actionTarget(state, next, action), ...(by ? { by } : {}) }],
   };
 }
 
 /* ---------------- seed ---------------- */
 
 /**
- * The GLOBAL approval ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating
+ * The SYSTEM DEFAULT approval ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating
  * company's own, 5–10M the Joint Management Committee's, >10M نفط الوسط's.
  *
  * The figures now live in the engine (`DEFAULT_APPROVAL_TIERS`) and are re-exported under the
@@ -1546,15 +1759,22 @@ export function reducer(state: State, action: Action): State {
  * second literal here would be a second ladder — the exact drift `normTiers` refuses to create.
  *
  * ── THE OTHER HALF OF THIS LADDER ───────────────────────────────────────────────────────────────
- * The client reads `state.approvalTiers`, which is EDITABLE STATE seeded from here. The server
+ * The client reads `state.approvalTiers` as the default and `state.operatorTiers` as the approved
+ * per-company overrides above it (2026-08-25), resolved in ONE place: `resolveTiersFor`. The server
  * reads the engine constant directly (`TendersService.assertTierAuthority`, apps/api/src/tenders/
- * tenders.service.ts) and has no tiers model to read instead — that constant is its authoritative
- * ladder. Today the two are the same object, so a disabled «صادق» button and a 403 always agree.
+ * tenders.service.ts) and has no ladder model at all — that constant is its authoritative ladder,
+ * and it knows nothing of an override.
  *
- * NAMED DEBT (ops/CLIENT-FEEDBACK-PLAN.md, phase 1 — ONE debt, two halves): the governed action
- * that moves the two ceilings does not exist yet. When it lands, this side becomes genuinely
- * mutable while the server's stays constant, and they part. Move BOTH sites together or the drift
- * alarms (jmcRole.test.ts here, tenders.service.spec.ts there) will fail — which is their job.
+ * That asymmetry is why the per-operator EDITOR is withheld in api-mode (Operators.tsx) and
+ * `SET_OPERATOR_TIERS` sits in CLIENT_ONLY: a locally approved ceiling the server does not enforce
+ * would make a disabled «صادق» button and a 403 disagree, which is the one thing the ladder must
+ * never do. In api-mode the shown ladder is therefore the DEFAULT, which is exactly what the
+ * server rules by, so the two halves still agree.
+ *
+ * NAMED DEBT (ops/OPERATOR-TIERS-SPEC.md §9 phase 2, ops/POST-V2-IMPROVEMENTS.md §د): the server
+ * needs the ladder model, the governed endpoint and the same resolution order. Move BOTH sites
+ * together or the drift alarms (jmcRole.test.ts here, tenders.service.spec.ts there) will fail —
+ * which is their job.
  */
 export const SEED_APPROVAL_TIERS: ApprovalTiers = DEFAULT_APPROVAL_TIERS;
 
@@ -2020,6 +2240,10 @@ export function seedState(): State {
   return {
     tenders: [t1, t2, t3, t4], contracts: [c1, c2, c3, c4], vendors, audit: [], seq: 98,
     users, operators, fields, serviceContracts, holidays: [], approvalTiers: SEED_APPROVAL_TIERS,
+    // no seeded override: the demo universe shows the SYSTEM DEFAULT in force for all twelve
+    // companies as a fact, so the four seed tenders' tiers are the default ladder's verdict and
+    // not an accident of a fixture. An approved ladder is a supervisor's act, never seed data.
+    operatorTiers: {},
   };
 }
 
@@ -2046,9 +2270,31 @@ export function seedState(): State {
  * SEED_MIGRATION_V9 and ROLE_RENAME_V10 were written because those migrations really did change
  * records; a row asserting a change that never happened is the same fabrication as an unrecorded
  * one, and the audit log is not a changelog of key names.
+ *
+ * v12 — STAGE DEVIATION RECORD (design-finish D1, 2026-08-30): `StageState` gained the optional
+ * `actualFrom` and `devReason` the closing wizard already collected and used to discard. Same
+ * wholesale pass-through as v11: both fields are optional and their absence means «not recorded»,
+ * so a v11 blob is a valid v12 blob unchanged — nothing rewritten, nothing appended to the log.
+ *
+ * v13 — PER-OPERATOR LADDERS (client decision 2026-08-25). The state root gained `operatorTiers`.
+ * The migration itself is another pass-through — an absent map means «every company is on the
+ * system default», which is exactly what a v12 blob meant — so nothing is rewritten and nothing is
+ * appended (the v11/v12 precedent: no row for a change that did not happen).
+ *
+ * WHY A KEY BUMP FOR AN ADDITIVE FIELD, when `holidays` and `approvalTiers` were normalized on
+ * load instead? Because the two directions are not alike. Those fields are INCIDENTAL: a v12 build
+ * reading a blob that lacks them shows less, and shows it honestly. `operatorTiers` is the reverse
+ * hazard — an OLD build reading a blob written by this one would not see the map at all and would
+ * measure a company that has an approved ladder against the default instead. That is a silent
+ * authority downgrade, not a display gap. Bumping the key means the old build never opens this
+ * blob at all, which is the isolation this warrants rather than a ceremony.
  */
-const KEY = 'masaar-operator-v11';
-/** The immediately previous key — same universe and vocabulary, additive archive flags only. */
+const KEY = 'masaar-operator-v13';
+/** The immediately previous key — same universe, the per-operator ladder map is purely additive. */
+const V12_KEY = 'masaar-operator-v12';
+/** The key before that — same universe, additive optional stage-deviation fields only. */
+const V11_KEY = 'masaar-operator-v11';
+/** The key before that — same universe and vocabulary, additive archive flags only. */
 const V10_KEY = 'masaar-operator-v10';
 /** The key before that — same universe, retired role vocabulary (migrated through v10's path). */
 const V9_KEY = 'masaar-operator-v9';
@@ -2059,6 +2305,7 @@ export function emptyState(): State {
   return {
     tenders: [], contracts: [], vendors: [], audit: [], seq: 0, users: [], operators: [],
     fields: [], serviceContracts: [], holidays: [], approvalTiers: SEED_APPROVAL_TIERS,
+    operatorTiers: {},
   };
 }
 
@@ -2101,6 +2348,30 @@ function normTiers(x: unknown): ApprovalTiers {
   // instead of being silently completed from seed or read as a ceiling of zero.
   const ceiling = (v: unknown): number => (typeof v === 'number' ? v : Number.NaN);
   return { operatorMaxUSD: ceiling(t.operatorMaxUSD), jmcMaxUSD: ceiling(t.jmcMaxUSD) };
+}
+
+/**
+ * The per-operator ladder map off a persisted blob — SHAPE only, and by the same rule as
+ * `normTiers`, one level down.
+ *
+ * A missing or non-object map is `{}`: nothing was ever approved, so every company is on the
+ * system default — the documented meaning of an absent entry, not an invention. But an entry that
+ * IS present and structurally wrong is kept exactly as stored (each ceiling through the same
+ * `ceiling()`, so a string becomes NaN rather than a coerced 0): `approvalTierFor` fails closed on
+ * it and reads that company's requests as ط3 MDOC. Completing a corrupt approved ladder from the
+ * default here would clear its requests at a LOWER gate than anyone signed off — the precise
+ * failure the fail-closed reading exists to prevent, and the one this load path must not undo.
+ */
+function normOperatorTiers(x: unknown): Record<string, ApprovalTiers> {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return {};
+  const out: Record<string, ApprovalTiers> = {};
+  for (const [id, v] of Object.entries(x as Record<string, unknown>)) {
+    if (!v || typeof v !== 'object') continue; // an entry that is not a ladder at all names none
+    const t = v as Partial<Record<keyof ApprovalTiers, unknown>>;
+    const ceiling = (n: unknown): number => (typeof n === 'number' ? n : Number.NaN);
+    out[id] = { operatorMaxUSD: ceiling(t.operatorMaxUSD), jmcMaxUSD: ceiling(t.jmcMaxUSD) };
+  }
+  return out;
 }
 
 /**
@@ -2153,10 +2424,15 @@ function migrateRoleVocabulary(s: State): State {
   };
 }
 
-/** A persisted blob → the in-memory shape: only the two fields that need normalizing are touched. */
+/** A persisted blob → the in-memory shape: only the fields that need normalizing are touched. */
 function normalizeBlob(parsed: State): State {
-  const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown };
-  return { ...parsed, holidays: normHolidays(p.holidays), approvalTiers: normTiers(p.approvalTiers) };
+  const p = parsed as State & { holidays?: unknown; approvalTiers?: unknown; operatorTiers?: unknown };
+  return {
+    ...parsed,
+    holidays: normHolidays(p.holidays),
+    approvalTiers: normTiers(p.approvalTiers),
+    operatorTiers: normOperatorTiers(p.operatorTiers),
+  };
 }
 
 function loadState(): State {
@@ -2165,20 +2441,37 @@ function loadState(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      // holidays and approvalTiers are additive with safe defaults, so a v11 blob written before
+      // holidays and approvalTiers are additive with safe defaults, so a v13 blob written before
       // either existed is still valid — normalize on load rather than bumping the key again.
       // (An early build stored holidays as bare date strings; normalize those to { date }.)
       if (hasShape(parsed)) return normalizeBlob(parsed);
     }
-    // v10 → v11: the archive flags are optional and absent means «live», so the blob IS the
+    // v12 → v13: `operatorTiers` is additive and its absence means «every company is on the system
+    // default» — the standing truth before the override existed — so the blob IS the migration.
+    // Every tender, contract, account, field, vendor and audit row survives verbatim, and nothing
+    // is appended to the log because nothing about the data changed.
+    const v12 = localStorage.getItem(V12_KEY);
+    if (v12) {
+      const parsed: unknown = JSON.parse(v12);
+      if (hasShape(parsed)) return normalizeBlob(parsed);
+    }
+    // v11 → v12: the stage-deviation fields are optional and absent means «not recorded», so the
+    // blob IS the migration — every tender, contract, account, field, vendor and audit row
+    // survives verbatim.
+    const v11 = localStorage.getItem(V11_KEY);
+    if (v11) {
+      const parsed: unknown = JSON.parse(v11);
+      if (hasShape(parsed)) return normalizeBlob(parsed);
+    }
+    // v10 → v11 → v12: the archive flags are optional and absent means «live», so the blob IS the
     // migration — every tender, contract, account, field, vendor and audit row survives verbatim.
     const v10 = localStorage.getItem(V10_KEY);
     if (v10) {
       const parsed: unknown = JSON.parse(v10);
       if (hasShape(parsed)) return normalizeBlob(parsed);
     }
-    // v9 → v10 → v11: same universe, renamed role vocabulary. Everything is kept; only accounts
-    // move, and the archive step above adds nothing, so the two hops compose without a second pass.
+    // v9 → v10 → v11 → v12: same universe, renamed role vocabulary. Everything is kept; only
+    // accounts move, and the additive hops above add nothing, so they compose without more passes.
     const v9 = localStorage.getItem(V9_KEY);
     if (v9) {
       const parsed: unknown = JSON.parse(v9);

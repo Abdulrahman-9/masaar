@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeNotices, type Notice } from './notify';
+import { fmtCount } from './operator/derive';
 import { Icon } from './operator/Icon';
 import { loadSession } from './session';
 import { todayIso, useStore } from './store';
@@ -18,9 +19,28 @@ import { todayIso, useStore } from './store';
 export type NoticePortal = 'operator' | 'admin' | 'public';
 
 export function NoticeBell({ portal }: { portal: NoticePortal }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'ar' ? 'ar' : 'en';
   const { state } = useStore();
   const notices = computeNotices(state, todayIso());
+  /**
+   * The overdue subset — the ONLY thing that earns motion, and the only thing whose absence
+   * makes the bell go still. `severity: 'delayed'` is set by `computeNotices` when a stage is
+   * running past `plannedTo`; `risk` (an approaching MCT deadline, a guarantee expiring) is a
+   * warning, not a breach, and gets a quiet dot.
+   */
+  const lateCount = notices.filter((n) => n.severity === 'delayed').length;
+  /**
+   * The count belongs in the accessible name, not only in the pixels: `aria-label` REPLACES the
+   * button's contents for a screen reader, so a bell labelled «الإشعارات» announced nothing about
+   * how many there were — or how many of them were already overdue.
+   */
+  const bellLabel = (title: string) =>
+    notices.length === 0
+      ? title
+      : lateCount > 0
+        ? t('notif.ariaLate', { title, n: fmtCount(notices.length, lang), late: fmtCount(lateCount, lang) })
+        : t('notif.ariaCount', { title, n: fmtCount(notices.length, lang) });
   const [open, setOpen] = useState(false);
   const [read, setRead] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,7 +71,7 @@ export function NoticeBell({ portal }: { portal: NoticePortal }) {
   if (portal === 'public') {
     return (
       <div className="bell-wrap" ref={ref}>
-        <button className="bell" aria-label={t('notices.title')} onClick={() => setOpen((o) => !o)}>
+        <button className="bell" aria-label={bellLabel(t('notices.title'))} title={bellLabel(t('notices.title'))} onClick={() => setOpen((o) => !o)}>
           <Icon name="bell" size={17} />
           {notices.length > 0 && <span className="bell__count mono">{notices.length}</span>}
         </button>
@@ -90,15 +110,15 @@ export function NoticeBell({ portal }: { portal: NoticePortal }) {
     <div className="op-notif" ref={ref}>
       <button
         className="op-iconbtn"
-        title={t('notif.title')}
-        aria-label={t('notif.title')}
+        title={bellLabel(t('notif.title'))}
+        aria-label={bellLabel(t('notif.title'))}
         onClick={() => {
           setOpen((o) => !o);
           setRead(true);
         }}
       >
         <Icon name="bell" size={17} />
-        {notices.length > 0 && !read && <span className="op-notif__dot" />}
+        {notices.length > 0 && !read && <span className={`op-notif__dot${lateCount > 0 ? ' op-notif__dot--late' : ''}`} />}
       </button>
       {open && (
         <div className="op-panel op-notif__panel">

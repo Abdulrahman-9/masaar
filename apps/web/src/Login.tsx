@@ -58,10 +58,13 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           <>
             <div className="field" style={{ marginBottom: 16 }}>
               <label>{t('login.role')}</label>
+              {/* ل1 — the seats are DERIVED from the demo mandate, not re-typed beside it. The
+                  hand-written list held three while `DEMO_IDENTITIES` held four, which is exactly
+                  how the joint-committee seat came to exist everywhere except at its own door. */}
               <select value={role} onChange={(e) => setRole(e.target.value as ApiRole)}>
-                <option value="OPERATOR_ADMIN">{t('login.roleOperator')}</option>
-                <option value="MDOC_ADMIN">{t('login.roleMdoc')}</option>
-                <option value="SUPER_ADMIN">{t('login.roleSuper')}</option>
+                {DEMO_IDENTITIES.map((i) => (
+                  <option key={i.role} value={i.role}>{t(i.labelKey)}</option>
+                ))}
               </select>
             </div>
             <button className="op-btn-primary login-sso" onClick={() => setStep('otp')}>

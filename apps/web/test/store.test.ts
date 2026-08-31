@@ -61,6 +61,37 @@ describe('COMPLETE_STAGE guard (docs gate)', () => {
     s = reducer(s, { type: 'COMPLETE_STAGE', tenderId: 't2', stageKey: 'approval', actualTo: '2026-06-13' });
     expect(s.tenders.find((t) => t.id === 't2')!.stages.find((x) => x.key === 'approval')!.actualTo).toBe('2026-06-13');
   });
+
+  // D1 — the wizard collects the start date and the classified reason; the action must CARRY
+  // them and the stage must KEEP them (they used to be gathered and thrown away).
+  it('carries and stores actualFrom + devReason on the closed stage', () => {
+    let s = reducer(fresh(), { type: 'TOGGLE_DOC', tenderId: 't2', stageKey: 'approval', doc: 'stage-report' });
+    s = reducer(s, {
+      type: 'COMPLETE_STAGE', tenderId: 't2', stageKey: 'approval', actualTo: '2026-06-25',
+      actualFrom: '2026-05-30',
+      devReason: { cat: 'publisherDelay', note: 'تأخر جهة النشر عن الموعد المتفق عليه أسبوعاً كاملاً' },
+    });
+    const stage = s.tenders.find((t) => t.id === 't2')!.stages.find((x) => x.key === 'approval')!;
+    expect(stage.actualTo).toBe('2026-06-25');
+    expect(stage.actualFrom).toBe('2026-05-30');
+    expect(stage.devReason).toEqual({ cat: 'publisherDelay', note: 'تأخر جهة النشر عن الموعد المتفق عليه أسبوعاً كاملاً' });
+  });
+
+  it('stays optional — a close without the record stores neither field, inventing nothing', () => {
+    let s = reducer(fresh(), { type: 'TOGGLE_DOC', tenderId: 't2', stageKey: 'approval', doc: 'stage-report' });
+    s = reducer(s, { type: 'COMPLETE_STAGE', tenderId: 't2', stageKey: 'approval', actualTo: '2026-06-13' });
+    const stage = s.tenders.find((t) => t.id === 't2')!.stages.find((x) => x.key === 'approval')!;
+    expect(stage.actualFrom).toBeUndefined();
+    expect(stage.devReason).toBeUndefined();
+  });
+
+  it('refuses a malformed reason whole (unknown category / detail < 15) — mirror of the server DTO', () => {
+    const s0 = reducer(fresh(), { type: 'TOGGLE_DOC', tenderId: 't2', stageKey: 'approval', doc: 'stage-report' });
+    const badCat = reducer(s0, { type: 'COMPLETE_STAGE', tenderId: 't2', stageKey: 'approval', actualTo: '2026-06-25', devReason: { cat: 'invented', note: 'سبب مكتوب بتفصيل كافٍ جداً هنا' } });
+    expect(badCat.tenders.find((t) => t.id === 't2')!.stages.find((x) => x.key === 'approval')!.actualTo).toBeUndefined();
+    const shortNote = reducer(s0, { type: 'COMPLETE_STAGE', tenderId: 't2', stageKey: 'approval', actualTo: '2026-06-25', devReason: { cat: 'forceMajeure', note: 'قصير' } });
+    expect(shortNote.tenders.find((t) => t.id === 't2')!.stages.find((x) => x.key === 'approval')!.actualTo).toBeUndefined();
+  });
 });
 
 describe('CREATE_TENDER', () => {

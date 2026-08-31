@@ -18,9 +18,19 @@ export interface StatusPillProps {
    * head, where every reader gets it.
    */
   title?: string;
+  /**
+   * `'sm'` is the dense-column pill (§4-ج): SIZE ONLY — same six colours, same border, same dot,
+   * on a smaller type step. Registries that stack a status against a name, a code and a figure in
+   * one row pass it so the pill stops setting the row's height; everything else leaves it out.
+   */
+  size?: 'sm';
 }
 
 /** One status language across the whole platform: dot + label + tinted background. */
-export function StatusPill({ status, children, title }: StatusPillProps) {
-  return <span className={`m-pill m-pill--${status}`} title={title}>{children}</span>;
+export function StatusPill({ status, children, title, size }: StatusPillProps) {
+  return (
+    <span className={`m-pill m-pill--${status}${size ? ` m-pill--${size}` : ''}`} title={title}>
+      {children}
+    </span>
+  );
 }

@@ -54,6 +54,16 @@ export function contractsWon(state: State, vendor: VendorState): ContractState[]
  *     «عالية» because a different company won something, which is a report that changes its verdict
  *     without any fact about the subject changing.
  * `none` is its own band — «has been awarded nothing» is a finding, not the bottom of a scale.
+ *
+ * د9 / س4 — IT STAYS ON THE SYSTEM DEFAULT LADDER DELIBERATELY, and this is the one surface in the
+ * §7 inventory that does. Every other place that prints a ladder either describes one tender (and
+ * resolves that tender's operator's ladder) or describes the system (and labels the default as the
+ * default). This does neither: `wonValueUSD` is a vendor's awards AGGREGATED ACROSS OPERATORS, so
+ * there is no single operator whose ladder could be resolved for it. Resolving one anyway — the
+ * first operator, the largest, the most recent — would be a fabricated precision, and splitting the
+ * figure per operator would answer a different question than «how large a contract has this entity
+ * proven it can carry». The default ladder is the one governed scale that applies to all of them,
+ * and `reports.vendorExplainBands` states this in the report itself rather than only here.
  */
 export type CapacityBand = 'none' | ApprovalTier;
 

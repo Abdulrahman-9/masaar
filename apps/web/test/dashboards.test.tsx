@@ -8,9 +8,10 @@ import i18n from '../src/i18n';
 import { Sparkline } from '../src/charts/Sparkline';
 import { complianceSeries } from '../src/admin/dashboardDerive';
 import { allTimeSchedulePct } from '../src/admin/scheduleDerive';
+import { fmtMoney } from '../src/operator/derive';
 import { seedState, todayIso, type State } from '../src/store';
 
-const KEY = 'masaar-operator-v11';
+const KEY = 'masaar-operator-v13';
 
 /**
  * The dashboards wave, end to end (client requests 1, 2, 5, 6, 12, 13).
@@ -139,6 +140,26 @@ describe('#/admin — the follow-up room replaces the list with counts that open
     expect(href('بانتظار موافقة اللجنة المشتركة JMC')).toBe('#/admin/approvals?tier=JMC&pending=1');
     expect(href('بانتظار موافقة نفط الوسط')).toBe('#/admin/approvals?tier=MDOC&pending=1');
   });
+
+  /**
+   * §2-ط — the two ladder tiles are two DIFFERENT authorities, and the row has to say so.
+   *
+   * Their dots used to carry `--tier-jmc` and `--tier-mdoc`; when the tiles were filled, both were
+   * given `brand` and the room stopped distinguishing «ط2» from «ط3» at a glance. They now wear the
+   * same two rungs as a fill. This asserts the NAMES on the elements — the measured half (each tone
+   * resolves to its rung, the two differ, and both clear AA against the ink in either theme) is
+   * gated in visualRefresh.test.tsx.
+   */
+  it('tells the two ladder tiles apart by tone, as their dots used to (§2-ط)', () => {
+    at('#/admin');
+    const toneOf = (label: string) =>
+      (screen.getByText(label).closest('.ad-fill') as HTMLElement).getAttribute('data-tone');
+    expect(toneOf('بانتظار موافقة اللجنة المشتركة JMC')).toBe('jmc');
+    expect(toneOf('بانتظار موافقة نفط الوسط')).toBe('mdoc');
+    // and no tile in the room carries an inline colour — the tone is a name the sheet resolves
+    expect([...room().querySelectorAll('.ad-fill')].every((el) => !el.getAttribute('style')?.includes('color')))
+      .toBe(true);
+  });
 });
 
 /**
@@ -184,7 +205,9 @@ describe('the pending-approval tiles open exactly the signatures they counted', 
     // WITHOUT the gate the destination lists a row the tile no longer counts: the exact defect
     expect(landedRows()).toBe(1);
     expect(screen.getByText('MN-EPC-0305')).toBeTruthy();
-    expect(screen.getByText('مُصادَق')).toBeTruthy();
+    // scoped to the TABLE since د12: «مُصادَق» is now also a decision chip in the toolbar (س‌ل2),
+    // and the assertion is about the ROW's decision pill, not about the count of that word on screen
+    expect(within(document.querySelector('.op-tbl tbody') as HTMLElement).getByText('مُصادَق')).toBeTruthy();
   });
 
   it('says why the registry is short, and widens it in one click', () => {
@@ -385,6 +408,141 @@ describe('#/admin/tenders — the counted queues open exactly what they counted'
     at('#/admin/tenders?op=op-nope&status=exploded');
     expect(screen.getByText('AH-DRL-0212')).toBeTruthy();
     expect(screen.getByText('B7-FAC-0331')).toBeTruthy();
+  });
+});
+
+/* ================================================================== */
+/*  د10 / ق2 — the counting tile IS the filter                        */
+/* ================================================================== */
+
+/** The four filled KPI tiles of `#/admin/tenders`, in the order the screen prints them. */
+const tiles = () => [...document.querySelectorAll('.ad-kpi--fill')] as HTMLButtonElement[];
+const figureOn = (tile: HTMLElement) => tile.querySelector('.ad-kpi__v')!.textContent;
+/** The tender codes the table is currently listing. */
+const listed = () => [...document.querySelectorAll('.op-tbl__code')].map((e) => e.textContent);
+
+describe('#/admin/tenders — a counting tile opens EXACTLY what it counted (ق2 · law P3)', () => {
+  it('renders the four as filled BUTTONS carrying a semantic tone, not decorative cards', () => {
+    at('#/admin/tenders');
+    const row = tiles();
+    expect(row).toHaveLength(4);
+    expect(row.every((el) => el.tagName === 'BUTTON')).toBe(true);
+    expect(row.map((el) => el.getAttribute('data-tone'))).toEqual(['brand', 'risk', 'delayed', 'done']);
+    // every tone is a NAME the stylesheet resolves — no tile carries an inline colour
+    expect(row.every((el) => !el.getAttribute('style')?.includes('color'))).toBe(true);
+  });
+
+  it('lands the rows it printed — the figure and the resulting table are one arithmetic', () => {
+    at('#/admin/tenders');
+    const late = tiles()[2]!;
+    const counted = Number(figureOn(late));
+    fireEvent.click(late);
+    act(() => { window.dispatchEvent(new Event('hashchange')); });
+    expect(window.location.hash).toBe('#/admin/tenders?status=delayed');
+    expect(listed()).toHaveLength(counted);
+    expect(listed()).toContain('BD-MNT-0098');
+  });
+
+  it('keeps counting off the OTHER narrowings, so the tile never promises rows a filter removed', () => {
+    at('#/admin/tenders?op=op-alwaha');
+    const total = Number(figureOn(tiles()[0]!));
+    expect(total).toBe(listed().length);
+    expect(total).toBeLessThan(seedState().tenders.length);
+  });
+
+  it('does NOT count itself — the figure is stable while its own narrowing is on', () => {
+    // the defect this law exists to kill: a tile counting the already-narrowed set prints one
+    // number before the click and a different one after, so it never landed what it showed
+    at('#/admin/tenders');
+    const before = figureOn(tiles()[2]!);
+    follow('#/admin/tenders?status=delayed');
+    expect(figureOn(tiles()[2]!)).toBe(before);
+  });
+
+  it('is a toggle: pressing the active tile widens back, in ONE address rewrite', () => {
+    at('#/admin/tenders?status=delayed');
+    const late = tiles()[2]!;
+    expect(late.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(late);
+    act(() => { window.dispatchEvent(new Event('hashchange')); });
+    expect(window.location.hash).toBe('#/admin/tenders');
+  });
+
+  it('drops the OTHER tile\'s narrowing rather than compounding it', () => {
+    // «متأخرة» pressed while `?pending=1` stands must land the delayed rows it counted — not the
+    // intersection, which is a smaller set than the figure on its face
+    at('#/admin/tenders?pending=1');
+    fireEvent.click(tiles()[2]!);
+    act(() => { window.dispatchEvent(new Event('hashchange')); });
+    expect(window.location.hash).toBe('#/admin/tenders?status=delayed');
+  });
+});
+
+describe('#/admin/tenders — the board is a second rendering, never a second source (ق1)', () => {
+  const board = () => document.querySelector('.kb');
+  const openBoard = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'كانبان' }));
+  };
+
+  it('starts on the table and switches on a pressed control, without touching the address', () => {
+    at('#/admin/tenders');
+    expect(board()).toBeNull();
+    openBoard();
+    expect(board()).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'كانبان' }).getAttribute('aria-pressed')).toBe('true');
+    // a rendering choice is not a filter, so it never reaches the shareable address or the stamp
+    expect(window.location.hash).toBe('#/admin/tenders');
+  });
+
+  it('shows five columns — our four derived statuses plus the lifecycle one', () => {
+    at('#/admin/tenders');
+    openBoard();
+    expect([...board()!.querySelectorAll('.kb__head')].map((h) => h.textContent?.replace(/\d+$/, '')))
+      .toEqual(['قيد التنفيذ', 'تحذير', 'متأخرة', 'مكتملة', 'ملغاة']);
+  });
+
+  it('makes every card a REAL link to the file — never a clickable div', () => {
+    at('#/admin/tenders');
+    openBoard();
+    const cards = [...board()!.querySelectorAll('.kb__card')];
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every((c) => c.tagName === 'A' && /^#\/admin\/review\//.test(c.getAttribute('href') ?? '')))
+      .toBe(true);
+  });
+
+  it('derives from the SAME filtered rows the table would list', () => {
+    at('#/admin/tenders?status=delayed');
+    const fromTable = listed();
+    openBoard();
+    const onBoard = [...board()!.querySelectorAll('.kb__code')].map((e) => e.textContent);
+    expect(onBoard).toEqual(fromTable);
+  });
+});
+
+describe('#/admin/tenders — the tier column reads the ladder, never a printed threshold (ق3)', () => {
+  /** The three labels of the closed tier vocabulary — the ONLY things this column may say. */
+  const PILLS = ['ط1 · المشغّل', 'ط2 · JMC', 'ط3 · MDOC'];
+  const pills = () => [...document.querySelectorAll('.op-tbl__row .ad-tier')] as HTMLElement[];
+
+  it('names the approving body on every row, derived from the value', () => {
+    at('#/admin/tenders');
+    expect(pills()).toHaveLength(listed().length);
+    expect(pills().every((p) => PILLS.includes(p.textContent ?? ''))).toBe(true);
+    // MN-EPC-0305 (7.8M) sits in the joint-committee band on the seeded ladder
+    const row = screen.getByText('MN-EPC-0305').closest('tr')!;
+    expect(within(row).getByText('ط2 · JMC')).toBeTruthy();
+    // …and 4.2M stays inside the operator's own authority
+    expect(within(screen.getByText('AH-DRL-0212').closest('tr')!).getByText('ط1 · المشغّل')).toBeTruthy();
+  });
+
+  it('prints no ceiling of its own — the figures reach the cell only through `tierBand`', () => {
+    at('#/admin/tenders');
+    // a literal «$5,000,000» typed into this column would survive a ladder change (د9) and start
+    // lying on the day the ceilings move. Nothing money-shaped may appear in the cell text…
+    expect(pills().every((p) => !/[$]|,\d{3}/.test(p.textContent ?? ''))).toBe(true);
+    // …while the tooltip DOES carry the band, built from the LIVE ladder in the store
+    const jmc = pills().find((p) => p.textContent === 'ط2 · JMC')!;
+    expect(jmc.getAttribute('title')).toContain(fmtMoney(seedState().approvalTiers.jmcMaxUSD));
   });
 });
 

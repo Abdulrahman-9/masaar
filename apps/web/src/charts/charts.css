@@ -73,9 +73,12 @@
 .ch-donut__svg { inline-size: 100%; block-size: 100%; display: block; }
 .ch-donut__seg {
   pointer-events: stroke;      /* required: fill="none" leaves no hit area without it */
+  cursor: default;             /* لوحة-28: only a band with a destination may promise a click */
   transition: stroke-width var(--dur-fast) var(--ease-out);
 }
 .ch-donut__seg--link { cursor: pointer; }
+/* the printed reason for the ط1 band's inertness — a <p> inside the figure, so its UA margin goes */
+.ch-donut__note { margin: 0; }
 .ch-donut__seg--hot { stroke-width: 26; }
 
 .ch-donut__center {
@@ -100,6 +103,10 @@
   font-size: var(--t-body-sm);
   transition: background var(--dur-fast) var(--ease-out);
 }
+/* لوحة-28 — ط1 has no destination (`tierHref` returns none, by rule), so its row states the arrow
+   cursor OUT LOUD rather than inheriting it by luck: the next hand that wraps this row in an <a>
+   has to delete this line, and deleting it is exactly the review the change deserves. */
+.ch-legend__i--inert { cursor: default; }
 a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { background: var(--bg-muted); }
 /* the key under a stacked bar: marks + names only, the numbers live on each row */
 .ch-legend--inline { flex-direction: row; flex-wrap: wrap; gap: 14px; padding-inline: 10px; }
@@ -147,10 +154,18 @@ a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { backgro
    measure different windows must each say which window they measure */
 .ch-spark__val { display: flex; flex-direction: column; align-items: start; gap: 1px; }
 .ch-spark__vm { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-caption); color: var(--text-3); }
+/* the drawing and its axis move as one block: the two month labels must keep the polyline's own
+   width, or the ends they name stop sitting under the ends they name */
+.ch-spark__plot { display: flex; flex-direction: column; gap: 3px; inline-size: 120px; flex: none; }
 .ch-spark {
   direction: ltr;              /* a time axis is machine-formatted data → an LTR island */
-  inline-size: 120px; block-size: 32px; flex: none; display: block;
+  inline-size: 100%; block-size: 32px; display: block;
 }
+/* لوحة-31 — the axis carries the FIRST and LAST month of the series and nothing between them.
+   Forced LTR with `space-between` (never an inline offset): the polyline runs left-to-right in
+   both languages, so the earlier month belongs at its start in both languages too. */
+.ch-spark__axis { display: flex; justify-content: space-between; gap: var(--space-2); direction: ltr; unicode-bidi: isolate; }
+.ch-spark__ax { font-family: var(--font-mono); font-size: var(--t-micro); color: var(--text-3); }
 .ch-spark__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-h2); font-weight: var(--fw-semibold); color: var(--text-1); }
 .ch-spark__cap { font-size: var(--t-caption); color: var(--text-3); }
 
@@ -173,20 +188,3 @@ a.ch-legend__i:hover, a.ch-legend__i:focus-visible, .ch-legend__i--hot { backgro
 .ch-stat__l { font-size: var(--t-caption); color: var(--text-3); }
 .ch-stat__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-h2); font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--text-1); }
 
-/* ------------------------------------------------------------------ *
- * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
- * A per-selector list is a list that goes stale the next time someone adds a
- * transition; the universal block cannot. Feedback is NOT removed — a hover
- * tint, a border and a shadow still change, they simply arrive at once.
- *
- * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
- * zero-length animation, and the drawer's teardown listens for exactly that.
- * ------------------------------------------------------------------ */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}

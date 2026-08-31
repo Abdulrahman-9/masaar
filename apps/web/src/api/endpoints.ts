@@ -1,7 +1,8 @@
 import { api, ApiError } from './client';
 import { mapAudit, mapContract, mapTender, mapUser, mapVendor } from './mappers';
 import type { ApiAudit, ApiContract, ApiSession, ApiTender, ApiUser, ApiVendor } from './types';
-import type { ApiLoginableRole } from '../session';
+import { CAPABILITIES } from '../admin/capabilities';
+import { normalizeRole, type ApiLoginableRole } from '../session';
 import { SEED_APPROVAL_TIERS, type Action, type State, type Tender } from '../store';
 
 /* ---------------- auth ---------------- */
@@ -24,15 +25,34 @@ export function apiMe() {
 /* ---------------- reads ---------------- */
 
 /**
- * Roles whose session actually passes the `/vendors`, `/contracts` and `/audit` guards. It is a
- * fetch plan, not a permission: a role missing here is a role the server would refuse anyway.
+ * Whether this session's role would pass the guard on ONE registry read — the fetch plan, DERIVED
+ * (ل3) instead of hand-kept.
  *
- * JMC_APPROVER is deliberately ABSENT (request 19ب). Its @Roles lists name only the two ratify
- * rows, so those three calls would each 403 — and each refusal is audited ROLE_REFUSED, which
- * would write three spurious refusal rows into the trail on every page load by a body that has
- * no such right and never claimed one. Add it here the day a decorator actually grants it.
+ * It replaces a literal `ADMIN_ROLES` list that stood beside the capability register saying nearly
+ * the same thing in different words, and drifted from it: the list admitted EVALUATION to
+ * `/contracts` and `/audit`, whose decorators name only SUPER_ADMIN/MDOC_ADMIN/AUDITOR, so every
+ * evaluation-committee page load fired two doomed calls and wrote two ROLE_REFUSED rows before
+ * settling on the same empty array. The register mirrors the real `@Roles(...)` sets, so asking it
+ * makes «what we fetch» and «what the server grants» one fact with one place to change.
+ *
+ * VERIFIED against the controllers on 2026-08-31 (ل3's own precondition — «read the guards
+ * first»): JMC_APPROVER is named by neither `/vendors` (READ_ROLES), `/contracts`, `/audit` nor
+ * `/users`, and it stays out of all four here as a CONSEQUENCE of those decorators rather than as
+ * a decision restated next to them. It reaches `/tenders` and `/holidays`, which are undecorated
+ * and fetched for every session — so the joint-committee seat hydrates exactly the state its
+ * screens argue from, and asks for nothing that would be refused and audited.
+ *
+ * An unknown or retired role string normalizes first, then fails closed: a role that names nothing
+ * is granted nothing, exactly as `roles.guard.ts` treats it.
  */
-const ADMIN_ROLES = ['SUPER_ADMIN', 'MDOC_ADMIN', 'AUDITOR', 'EVALUATION'];
+function mayRead(capId: string, role: string): boolean {
+  const normalized = normalizeRole(role);
+  const cap = CAPABILITIES.find((c) => c.id === capId);
+  if (!cap) return false;
+  // an undecorated handler passes for any authenticated session (roles.guard.ts, empty metadata)
+  if (cap.guard !== 'roles') return true;
+  return !!normalized && cap.roles.includes(normalized);
+}
 
 /** store guarantee kinds → the API's uppercase enum (Prisma GuaranteeKind). */
 const GUARANTEE_KIND_API: Record<'bid-bond' | 'performance' | 'advance', string> = {
@@ -44,15 +64,13 @@ const GUARANTEE_KIND_API: Record<'bid-bond' | 'performance' | 'advance', string>
 /** Fetch and assemble the full client State. Registries are admin-only, so an
  *  operator session simply gets empty arrays for them (handled by 403 → []). */
 export async function loadFullState(role: string): Promise<State> {
-  const isAdmin = ADMIN_ROLES.includes(role);
-  // /api/users carries a class-level @Roles('SUPER_ADMIN'); anything else 403s → []
-  const isSuper = role === 'SUPER_ADMIN';
   const [tenders, vendors, contracts, audit, users, holidays] = await Promise.all([
     api<ApiTender[]>('/tenders'),
-    isAdmin ? api<ApiVendor[]>('/vendors').catch((e) => empty<ApiVendor>(e)) : Promise.resolve<ApiVendor[]>([]),
-    isAdmin ? api<ApiContract[]>('/contracts').catch((e) => empty<ApiContract>(e)) : Promise.resolve<ApiContract[]>([]),
-    isAdmin ? api<ApiAudit[]>('/audit').catch((e) => empty<ApiAudit>(e)) : Promise.resolve<ApiAudit[]>([]),
-    isSuper ? api<ApiUser[]>('/users').catch((e) => empty<ApiUser>(e)) : Promise.resolve<ApiUser[]>([]),
+    mayRead('listVendors', role) ? api<ApiVendor[]>('/vendors').catch((e) => empty<ApiVendor>(e)) : Promise.resolve<ApiVendor[]>([]),
+    mayRead('listContracts', role) ? api<ApiContract[]>('/contracts').catch((e) => empty<ApiContract>(e)) : Promise.resolve<ApiContract[]>([]),
+    mayRead('listAuditLog', role) ? api<ApiAudit[]>('/audit').catch((e) => empty<ApiAudit>(e)) : Promise.resolve<ApiAudit[]>([]),
+    // /api/users carries a class-level @Roles('SUPER_ADMIN'); anything else 403s → []
+    mayRead('listUsers', role) ? api<ApiUser[]>('/users').catch((e) => empty<ApiUser>(e)) : Promise.resolve<ApiUser[]>([]),
     // open endpoint — every role reads it so the client calendar matches the server's (calendar.service),
     // else the pre-submit late check in the bidder dialog would judge against a stale/empty calendar
     api<{ date: string; name: string }[]>('/holidays').catch((e) => empty<{ date: string; name: string }>(e)),
@@ -68,10 +86,15 @@ export async function loadFullState(role: string): Promise<State> {
     operators: [],
     fields: [],
     serviceContracts: [],
-    // NAMED DEBT: the approval ladder (ق1) is global configuration with no server model yet, so
-    // both modes read the same single constant. When a /config route exists this reads it instead;
+    // NAMED DEBT: the approval ladder (ق1) is configuration with no server model yet, so both
+    // modes read the same single constant. When a /config route exists this reads it instead;
     // until then this is the configuration of record, not a per-mode guess.
     approvalTiers: SEED_APPROVAL_TIERS,
+    // ALWAYS EMPTY in api-mode, and that is the honest value rather than a gap: the server has no
+    // per-operator ladder model and `assertTierAuthority` rules by the default alone, so hydrating
+    // an override here would show an authority the 403 does not honour. The editor is withheld on
+    // the same grounds (Operators.tsx); this reads the server's ladder the day the route lands.
+    operatorTiers: {},
     holidays: holidays.map((h) => ({ date: h.date.slice(0, 10), ...(h.name ? { name: h.name } : {}) })).sort((a, b) => a.date.localeCompare(b.date)),
   };
 }
@@ -129,7 +152,17 @@ export async function runAction(action: Action): Promise<{ tender?: Tender; relo
     case 'TOGGLE_DOC':
       return { tender: mapTender(await api<ApiTender>(`/tenders/${action.tenderId}/document`, { method: 'PATCH', body: { stageKey: action.stageKey, doc: action.doc } })) };
     case 'COMPLETE_STAGE':
-      return { tender: mapTender(await api<ApiTender>(`/tenders/${action.tenderId}/complete-stage`, { method: 'POST', body: { stageKey: action.stageKey, actualTo: action.actualTo } })) };
+      // D1 — the collected start date and classified deviation reason ride to the server
+      // (optional; the DTO validates the same bounds the wizard enforced)
+      return { tender: mapTender(await api<ApiTender>(`/tenders/${action.tenderId}/complete-stage`, {
+        method: 'POST',
+        body: {
+          stageKey: action.stageKey,
+          actualTo: action.actualTo,
+          ...(action.actualFrom ? { actualFrom: action.actualFrom } : {}),
+          ...(action.devReason ? { devReasonCat: action.devReason.cat, devReasonNote: action.devReason.note } : {}),
+        },
+      })) };
     // The actor's immutable oid rides along on every governance call (whitelisted by the
     // DTOs). The server persists the JWT principal as the authoritative identity; the oid is
     // an audit-correlation hint, never trusted for attribution.

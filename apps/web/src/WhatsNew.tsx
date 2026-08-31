@@ -12,7 +12,7 @@ import './whatsnew.css';
  *
  * ── THE KEY LIVES OUTSIDE THE BUSINESS STORE ────────────────────────────────────────────────────
  * `masaar.whatsnew.w1` follows the `masaar.nav.sec` precedent: a chrome preference must never
- * travel with — or be wiped by — a data migration of `masaar-operator-v11`. The wave number is IN
+ * travel with — or be wiped by — a data migration of `masaar-operator-v13`. The wave number is IN
  * the key, so the next wave's strip is a new key rather than a reset of this one, and nobody's
  * dismissal is silently revoked by a deploy.
  *

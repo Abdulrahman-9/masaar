@@ -108,7 +108,3 @@
   to   { opacity: 0; transform: translateY(8px); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tv2-toast,
-  .tv2-toast--out { animation: none; }
-}

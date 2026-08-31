@@ -50,8 +50,11 @@ function mapStage(s: ApiStage): StageState {
     key: s.key,
     plannedFrom: date(s.plannedFrom),
     plannedTo: date(s.plannedTo),
+    actualFrom: date(s.actualFrom ?? null),
     actualTo: date(s.actualTo),
     uploadedDocs: s.documents.map((d) => d.kind),
+    // D1 — both halves or nothing, the same pairing the server enforces on write
+    ...(s.devReasonCat && s.devReasonNote ? { devReason: { cat: s.devReasonCat, note: s.devReasonNote } } : {}),
   };
 }
 

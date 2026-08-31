@@ -3,7 +3,7 @@ import { Buffer as NodeBuffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
   fonts as TS_FONTS,
   motion as TS_MOTION,
@@ -18,8 +18,9 @@ import { useCountUp } from '@masaar/ui';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/i18n';
 import App from '../src/App';
-import { NAV_SEC_KEY } from '../src/admin/AdminShell';
 import { saveSession } from '../src/session';
+import { NAV_MIN_KEY, NAV_SEC_KEY } from '../src/shellNav';
+import { seedState } from '../src/store';
 import { THEME_KEY } from '../src/theme';
 
 /**
@@ -560,17 +561,339 @@ describe.each(THEMES)('§1 [%s] — status colours clear AA against their own so
   });
 });
 
+/**
+ * Every token whose ROLE is ink, in both themes — the role the four dead values failed at.
+ *
+ * The four bans below used to be spelled as `TOKENS_CODE.not.toContain(hex)`, i.e. «this string may
+ * never appear in the file». That was the right INTENT expressed one level too coarsely, and §2-ط
+ * proved it: three of the four values are perfectly sound as a FILL under `--status-on-fill`
+ * (#B45309 → 5.022, #15803D → 5.016, #A78BFA → 7.413 measured below), and the file-wide grep would
+ * have refused them for a failure they never committed in that role. It was also weaker than it
+ * looked in the other direction — it could not see the value arriving as `--st-pending-fg:
+ * var(--something-that-resolves-to-B45309)`, which is the same defect wearing a name.
+ *
+ * The ban is therefore on the ROLE and it RESOLVES: no ink token, under either theme, may hold one
+ * of the four again — by literal or by alias.
+ */
+const INK_NAMES = [...new Set([...Object.keys(DECLS), ...Object.keys(DARK_DECLS)])].filter((n) => n.endsWith('-fg'));
+
+function expectRetiredAsInk(dead: string) {
+  for (const theme of THEMES) {
+    for (const name of INK_NAMES) {
+      expect(resolveVar(declOf(name, theme) ?? '', theme).toUpperCase(), `${dead} is back as ${name} (${theme})`)
+        .not.toBe(dead);
+    }
+  }
+}
+
 describe('§1 — the four contrast corrections v2 needed are actually in the sheet', () => {
   it('darkens the two light foregrounds that failed on --bg-inset', () => {
     expect(DECLS['--st-pending-fg']).toBe('#A84D08');   // v2 #B45309 → 4.073
     expect(DECLS['--st-approved-fg']).toBe('#147739');  // v2 #15803D → 4.069
-    for (const dead of ['#B45309', '#15803D']) expect(TOKENS_CODE, `${dead} is back`).not.toContain(dead);
+    for (const dead of ['#B45309', '#15803D']) expectRetiredAsInk(dead);
   });
 
   it('lightens the two dark foregrounds that failed on --bg-inset', () => {
     expect(DARK_DECLS['--st-preparing-fg']).toBe('#C4B5FD');   // v2 #A78BFA → 3.805
     expect(DARK_DECLS['--st-cancelled-fg']).toBe('#FCA5A5');   // v2 #F87171 → 3.743
-    for (const dead of ['#A78BFA', '#F87171']) expect(TOKENS_CODE, `${dead} is back`).not.toContain(dead);
+    for (const dead of ['#A78BFA', '#F87171']) expectRetiredAsInk(dead);
+    // #F87171 has no second role: it is not a fill either, so the file-wide ban still holds for it
+    expect(TOKENS_CODE, '#F87171 is back').not.toContain('#F87171');
+  });
+});
+
+/* ================================================================== */
+/*  §2-ط — the measured fill palette for statistic tiles               */
+/* ================================================================== */
+
+/**
+ * CSS specificity as (ids, classes, types), counted the way the cascade counts it.
+ *
+ * Deliberately small — it understands the grammar these sheets actually use (types, classes,
+ * attributes, pseudo-classes and -elements, combinators) and nothing more. It exists because a
+ * measured palette is worth nothing if a rule written EARLIER in the sheet quietly out-specifies
+ * the one that paints the ink, which is exactly the defect the test below was written for.
+ *
+ * The functional pseudo-classes take their specificity from their ARGUMENT, not from being a
+ * pseudo-class, and a counter that quietly got that wrong would mis-rank the cascade while
+ * reporting success — the very failure mode this helper is here to end. It therefore refuses them
+ * out loud instead of guessing; today no sheet uses one.
+ */
+function specificity(selector: string): [number, number, number] {
+  if (/:(not|is|where|has)\(/.test(selector)) {
+    throw new Error(`specificity() cannot rank «${selector}» — a functional pseudo-class needs its argument counted`);
+  }
+  let s = ` ${selector.trim()} `;
+  let cls = 0;
+  let type = 0;
+  s = s.replace(/\[[^\]]*\]/g, () => { cls++; return ' '; });          // [attr] counts as a class
+  s = s.replace(/::[\w-]+/g, () => { type++; return ' '; });           // ::pseudo-element as a type
+  s = s.replace(/:[\w-]+(\([^)]*\))?/g, () => { cls++; return ' '; }); // :pseudo-class as a class
+  const id = (s.match(/#[\w-]+/g) ?? []).length;
+  s = s.replace(/#[\w-]+/g, ' ');
+  cls += (s.match(/\.[\w-]+/g) ?? []).length;
+  s = s.replace(/\.[\w-]+/g, ' ');
+  type += (s.match(/[a-zA-Z][\w-]*/g) ?? []).length;
+  return [id, cls, type];
+}
+
+/** `a` beats `b` in the cascade at equal origin: higher specificity, or a tie broken by order. */
+const outranks = (a: [number, number, number], b: [number, number, number]): boolean =>
+  a[0] !== b[0] ? a[0] > b[0] : a[1] !== b[1] ? a[1] > b[1] : a[2] >= b[2];
+
+/**
+ * The declaration a browser would actually apply for `property` on `el`, from one sheet.
+ *
+ * Every rule is asked `el.matches(...)` — jsdom's own selector engine, so a resting element does
+ * not match `:hover` and a descendant selector does not match the element itself — and the survivor
+ * is the highest-specificity match, last one wins on a tie. Returns the value AND the selector, so
+ * a failure can name the rule that took the decision away.
+ */
+function winningDeclaration(path: string, el: Element, property: string): { selector: string; value: string } | null {
+  let best: { selector: string; value: string; spec: [number, number, number] } | null = null;
+  for (const rule of sheetOf(path).all) {
+    const value = rule.style.getPropertyValue(property);
+    if (!value) continue;
+    for (const part of rule.selector.split(',')) {
+      const sel = part.trim();
+      let hit = false;
+      try { hit = el.matches(sel); } catch { continue; }   // a selector jsdom cannot parse decides nothing
+      if (!hit) continue;
+      const spec = specificity(sel);
+      if (!best || outranks(spec, best.spec)) best = { selector: sel, value, spec };
+    }
+  }
+  return best && { selector: best.selector, value: best.value };
+}
+
+/**
+ * The families of §2-ط, in the order the table declares them.
+ *
+ * `jmc`/`mdoc` are the two LADDER tones. They are not a seventh and eighth improvised shade: each
+ * is a second name for the rung of the authority ladder its tile has always spoken (`--tier-jmc`,
+ * `--tier-mdoc` — the colour the dot wore before the fill), so «بانتظار ط2» and «بانتظار ط3» read
+ * apart again without a new colour entering the system. They are measured here exactly like the
+ * six, on every gate: ink, separation, inversion, satin, and the tone map.
+ */
+const FILLS = ['brand', 'risk', 'delayed', 'progress', 'done', 'planned', 'jmc', 'mdoc'] as const;
+const fillName = (f: (typeof FILLS)[number]) => `--status-${f}-fill`;
+
+/**
+ * WHERE the one filled-tile family lives. It was authored in `admin.css` while all six of its
+ * consumers were admin screens; د15-م2 made the operator's own register the seventh, so the whole
+ * family — anatomy, tone map, filled variants, the pulse — moved to the sheet BOTH shells load
+ * (the one that already owns `.op-side, .ad-side` and `.ad-modal`). Every gate below reads it
+ * here, so the address is stated once: a future move updates this line and nothing else, and the
+ * §2-ط cascade, satin geometry and tone-map gates keep measuring the very same rules.
+ */
+const TILE_SHEET = 'apps/web/src/operator/operator.css';
+
+describe('§2-ط — the statistic tile fills are measured, not chosen', () => {
+  it('declares every family in BOTH themes — a fill that only exists in one is half a decision', () => {
+    for (const f of FILLS) {
+      expect(DECLS[fillName(f)], `${fillName(f)} is missing from :root`).toBeTruthy();
+      expect(DARK_DECLS[fillName(f)], `${fillName(f)} is missing from the dark block`).toBeTruthy();
+    }
+    expect(DECLS['--satin'], '--satin is missing').toBeTruthy();
+  });
+
+  /**
+   * THE GATE the batch exists to install (§2-ط-و).
+   *
+   * The reference's own filled tiles are the reason: `#16A34A` measures 3.296 against white and
+   * `#D97706` 3.186 — a palette that looks professional and cannot be read. Every value here is
+   * checked against the ink that ACTUALLY lands on it in that theme, unrounded, and any drop below
+   * AA fails the build rather than shipping.
+   */
+  describe.each(THEMES)('[%s] every fill carries its ink at AA', (theme) => {
+    const ink = () => tokenRgba('--status-on-fill', theme);
+    it.each(FILLS)('%s', (f) => {
+      expectRatio(ink(), tokenRgba(fillName(f), theme), 4.5, `--status-on-fill on ${fillName(f)} (${theme})`);
+    });
+  });
+
+  /**
+   * The tile must also be a TILE — a filled block that does not separate from the paper it sits on
+   * is a wash, and the active-filter ring is drawn in this very colour (`.ad-kpi--fill[aria-pressed]`
+   * halos with `--tile-fill`), so this is the ring's contrast too, not only the tile's.
+   * The dark floor is 3.7 rather than 4.5 deliberately: on a dark ground a bright block is a
+   * non-text graphical object under 1.4.11, whose floor is 3:1 — 3.7 keeps real headroom over it.
+   */
+  describe.each(THEMES)('[%s] every fill separates from the surfaces it sits on', (theme) => {
+    const floor = theme === 'light' ? 4.5 : 3.7;
+    it.each(FILLS)('%s', (f) => {
+      for (const surface of ['--bg-page', '--bg-card'] as const) {
+        expectRatio(tokenRgba(fillName(f), theme), tokenRgba(surface, theme), floor, `${fillName(f)} on ${surface} (${theme})`);
+      }
+    });
+  });
+
+  it('inverts between the modes on purpose — light fills are DARKER than their dark twins', () => {
+    // «فاتح = ملء غامق بحبر أبيض · داكن = ملء ساطع بحبر شبه أسود». Stated in the plan, and only
+    // true if the arithmetic says so: a family that forgot to flip would still pass the AA gate
+    // above (against the WRONG ink) and read as a hole punched in the page.
+    for (const f of FILLS) {
+      expect(luminance(tokenRgba(fillName(f), 'light')), `${fillName(f)} did not invert`)
+        .toBeLessThan(luminance(tokenRgba(fillName(f), 'dark')));
+    }
+    // and the ink inverts with them — the premise the whole gate rests on
+    expect(luminance(tokenRgba('--status-on-fill', 'light')))
+      .toBeGreaterThan(luminance(tokenRgba('--status-on-fill', 'dark')));
+  });
+
+  /**
+   * The two ladder tones exist to carry a DISTINCTION, so the distinction is what is asserted.
+   *
+   * Before the fill, «بانتظار ط2» and «بانتظار ط3» were told apart by their dots (`--tier-jmc` /
+   * `--tier-mdoc`); filling both with `brand` erased that, and a row of identical blue tiles is a
+   * quieter regression than a broken one. Each fill is pinned to the ladder rung it claims — so it
+   * can never drift into an eighth invented shade — and the two are required to differ in both
+   * themes, which is the property that was actually lost.
+   */
+  it.each(THEMES)('[%s] keeps the two ladder tones distinct and anchored to the ladder', (theme) => {
+    const seen = (name: string) => resolveVar(declOf(name, theme) ?? '', theme);
+    expect(seen('--status-jmc-fill'), `--status-jmc-fill left the ladder (${theme})`).toBe(seen('--tier-jmc'));
+    expect(seen('--status-mdoc-fill'), `--status-mdoc-fill left the ladder (${theme})`).toBe(seen('--tier-mdoc'));
+    expect(seen('--status-jmc-fill'), `ط2 and ط3 wear one colour again (${theme})`)
+      .not.toBe(seen('--status-mdoc-fill'));
+  });
+
+  it('is defined in tokens.css and NOWHERE else — one palette, not one per screen', () => {
+    for (const path of CONSUMER_SHEETS) {
+      const css = code(path);
+      for (const f of FILLS) {
+        expect(css, `${path} re-declares ${fillName(f)}`).not.toMatch(new RegExp(`${fillName(f)}\\s*:`));
+      }
+      expect(css, `${path} re-declares --satin`).not.toMatch(/--satin\s*:/);
+    }
+  });
+
+  /**
+   * The ONE class that spends them (§2-ط-ج). A screen that wants a filled tile writes a tone NAME;
+   * it cannot write a colour, because the map from name to fill lives here and only here.
+   */
+  it('spends them through a single `.ad-fill[data-tone]` map that names no colour', () => {
+    const admin = sheetOf(TILE_SHEET);
+    const tones = admin.all.filter((r) => /^\.ad-fill\[data-tone=/.test(r.selector.replace(/\s+/g, '')));
+    expect(tones.length, `the tone map is not ${FILLS.length} rules long`).toBe(FILLS.length);
+    for (const rule of tones) {
+      const decls = declarationsOf(rule.style);
+      // exactly one declaration, and it is a `var()` into the palette — never a literal
+      expect(Object.keys(decls), `${rule.selector} does more than pick a fill`).toEqual(['--tile-fill']);
+      expect(decls['--tile-fill'], `${rule.selector} names a colour instead of a family`)
+        .toMatch(new RegExp(`^var\\(--status-(${FILLS.join('|')})-fill\\)$`));
+    }
+    // every family the palette declares is actually reachable by NAME, and no tone maps twice
+    expect(tones.map((r) => /data-tone=['"]?([\w-]+)/.exec(r.selector)?.[1]).sort())
+      .toEqual([...FILLS].sort());
+    // and the surface itself takes the satin from the token rather than re-writing the gradient
+    expect(declarationsOf(admin.rule('.ad-fill'))['background-image']).toBe('var(--satin)');
+  });
+
+  /**
+   * §2-ط-د — hierarchy inside a fully-filled row is carried by MOTION, not by a louder colour, and
+   * the frame it uses is the one tokens.css already owns (د1). A local `@keyframes` here would be a
+   * second definition of one animation, and — worse — one the reduced-motion block in tokens.css
+   * was written to cover.
+   */
+  it('pulses the late tile with the shared frame and defines no second copy of it', () => {
+    const tiles = code(TILE_SHEET);
+    expect(tiles).toMatch(/\.ad-kpi__dot--alert\s*\{[^}]*animation:\s*pulse-soft/);
+    // the frame itself belongs to tokens.css: NO consumer sheet may declare a second `pulse-soft`,
+    // or the reduced-motion block written to freeze it would be freezing the wrong copy
+    for (const sheet of CONSUMER_SHEETS) {
+      expect(code(sheet), `${sheet} declares a second pulse-soft`).not.toMatch(/@keyframes\s+pulse-soft/);
+    }
+    expect(code('apps/web/src/admin/admin.css'), 'admin.css defines its own keyframes').not.toContain('@keyframes');
+  });
+
+  /**
+   * THE CASCADE GATE — the defect this test was written for actually shipped.
+   *
+   * The follow-up room's seven tiles are `<a>`, and `a.ad-kpi--link { color: inherit }` (0,1,1) is
+   * declared EARLIER in admin.css than `.ad-fill { color: var(--status-on-fill) }` (0,1,0). Earlier
+   * did not matter: the qualified selector simply out-specifies the class, so the element's colour
+   * stayed the page ink — and `.ad-kpi__dot { background: currentColor }` painted the status dot in
+   * `--text-1` on a measured fill, at 2.36–3.56 instead of 5.0–7.6. Every gate above passed while
+   * it did, because every gate above measures the PALETTE and none of them measured the cascade.
+   *
+   * So this one resolves the cascade. It fails if `a.ad-fill` is deleted, if it is moved above
+   * `a.ad-kpi--link`, or if anything is ever added that out-specifies it — which is the whole point.
+   */
+  it('lets the FILL win the ink on a link tile — the rule that paints `color` is the measured one', () => {
+    const tile = document.createElement('a');
+    tile.className = 'ad-kpi ad-fill ad-kpi--fill ad-kpi--link';
+    tile.setAttribute('data-tone', 'delayed');
+    tile.setAttribute('href', '#/admin/tenders?status=delayed');
+
+    const won = winningDeclaration(TILE_SHEET, tile, 'color');
+    expect(won, `nothing in ${TILE_SHEET} sets a colour on the filled link tile`).toBeTruthy();
+    expect(won?.value, `\`${won?.selector}\` takes the ink away from the fill`).toBe('var(--status-on-fill)');
+    // and it wins WITHOUT the sledgehammer — a measured palette that needs !important to land is
+    // a palette one more rule away from losing again. Asserted on the tile family's own rules, so
+    // the gate keeps measuring the block itself wherever the block lives.
+    for (const rule of sheetOf(TILE_SHEET).all.filter((r) => /\.ad-(kpi|fill)/.test(r.selector))) {
+      for (const prop of Object.keys(declarationsOf(rule.style))) {
+        expect(rule.style.getPropertyPriority(prop), `\`${rule.selector}\` reaches for !important`).toBe('');
+      }
+    }
+    expect(code('apps/web/src/admin/admin.css'), 'admin.css reaches for !important').not.toContain('!important');
+
+    // the dot is `currentColor`, so the ink the cascade just settled IS the dot's fill: proving the
+    // ratio for the ink proves it for the dot, in both themes and on every tone the room spends
+    expect(declarationsOf(sheetOf(TILE_SHEET).rule('.ad-kpi--fill .ad-kpi__dot')).background)
+      .toBe('currentColor');
+  });
+
+  /**
+   * §2-ط-ب — the satin, brought INSIDE the measured gate instead of being argued for in prose.
+   *
+   * The gradient lays white over the fill, so the ratio the gate above proves is not the ratio a
+   * glyph actually sits on. The geometry that makes it safe is real and checkable: the white decays
+   * to its second stop within 6px, `.ad-kpi`'s block padding is 14px, so no text pixel is above
+   * that stop and below it the white only fades further. That second stop's alpha is therefore the
+   * honest CEILING on how much the satin can lighten the ground under any ink — and it is that
+   * composite, not the flat fill, that has to clear AA.
+   */
+  describe('the satin cannot lighten a fill out of AA', () => {
+    const admin = () => sheetOf(TILE_SHEET);
+    /** Every colour stop of `--satin`, in order, as (colour, position). */
+    const stops = (): { colour: Rgba; at: string }[] => {
+      const raw = DECLS['--satin'] ?? '';
+      const out: { colour: Rgba; at: string }[] = [];
+      const re = /(rgba?\([^)]*\))\s*([\d.]+(?:px|%)?)/g;
+      for (let m = re.exec(raw); m; m = re.exec(raw)) out.push({ colour: toRgba(m[1], 'light'), at: m[2] });
+      return out;
+    };
+
+    it('keeps its highlight above the first line of ink — the geometry the ceiling rests on', () => {
+      const s = stops();
+      expect(s.length, '--satin declares fewer than two stops').toBeGreaterThanOrEqual(2);
+      // the tile's own block padding, read off the rule rather than assumed
+      const padTop = /^(\d+)px/.exec(declarationsOf(admin().rule('.ad-kpi')).padding ?? '');
+      expect(padTop, '.ad-kpi no longer states its block padding in px').toBeTruthy();
+      const decayAt = /^(\d+)px$/.exec(s[1].at);
+      expect(decayAt, `--satin's second stop is at ${s[1].at}, not a px offset the padding can clear`).toBeTruthy();
+      expect(Number(decayAt?.[1]), 'the highlight reaches past the first line of ink')
+        .toBeLessThanOrEqual(Number(padTop?.[1]));
+      // and it is DECAYING there: a second stop no lighter than the first would move the ceiling
+      expect(s[1].colour[3], '--satin does not fade its highlight').toBeLessThan(s[0].colour[3]);
+      // nothing further down re-lightens past that ceiling (the tail is the darkening half)
+      for (const later of s.slice(2)) {
+        expect(luminance(later.colour) * later.colour[3], `--satin re-lightens at ${later.at}`)
+          .toBeLessThanOrEqual(luminance(s[1].colour) * s[1].colour[3]);
+      }
+    });
+
+    /**
+     * The measured floor, light mode only and deliberately: white over a light fill lightens it
+     * TOWARDS the white ink, which is the direction that loses contrast. In dark mode the same
+     * white moves a bright fill AWAY from near-black ink, so the highlight can only help there.
+     */
+    it.each(FILLS)('%s survives the highlight in light mode', (f) => {
+      const ground = over(stops()[1].colour, tokenRgba(fillName(f), 'light'));
+      expectRatio(tokenRgba('--status-on-fill', 'light'), ground, 4.5, `--status-on-fill on satined ${fillName(f)}`);
+    });
   });
 });
 
@@ -837,7 +1160,12 @@ describe('§4-ب — one button shape, four kinds, and the six copies are gone',
   it('spends the busy state and the disabled state once, across the family', () => {
     const css = code(OP);
     expect(css).toMatch(/\[aria-busy='true'\]::before[\s\S]{0,400}animation:\s*spin/);
-    expect(css).toMatch(/\.op-btn-danger:disabled\s*\{[^}]*opacity:\s*0\.45/);
+    // one appearance, reached two ways: `:disabled` for a button nothing can say anything about,
+    // and `[aria-disabled='true']` for a gate that must EXPLAIN itself when pressed (D1-4)
+    expect(css).toMatch(/\.op-btn-danger:disabled, \.op-btn-danger\[aria-disabled='true'\]\s*\{[^}]*opacity:\s*0\.45/);
+    for (const kind of ['primary', 'secondary', 'ghost', 'danger']) {
+      expect(css, `op-btn-${kind} answers only one of the two`).toContain(`.op-btn-${kind}[aria-disabled='true']`);
+    }
     // the keyframe is defined in tokens.css and nowhere else
     expect(css).not.toContain('@keyframes spin');
     expect(TOKENS_CODE).toContain('@keyframes spin');
@@ -1018,23 +1346,63 @@ describe('§3 — the dark palette is a screen concern, by construction', () => 
 /*  §2 — motion                                                        */
 /* ================================================================== */
 
-describe('§2-0 — every portal stylesheet answers prefers-reduced-motion', () => {
-  const PORTALS = [
-    'apps/web/src/operator/operator.css',
-    'apps/web/src/admin/admin.css',
-    'apps/web/src/registry/registry.css',
-    'apps/web/src/charts/charts.css',
-  ];
+/**
+ * D1-1/2 — reduced motion used to be answered SEVEN times: four identical universal blocks
+ * (operator · admin · registry · charts) and three hand-kept selector lists (ui · toast ·
+ * whatsnew) that were already going stale. One decision, one place, and the authority now comes
+ * from measured specificity rather than from `!important`.
+ */
+describe('§2-0 — reduced motion is ONE decision, stated once, without !important', () => {
+  /** Every sheet in the product, including the one the token audit list does not carry. */
+  const ALL_SHEETS = [...SHEETS, 'apps/web/src/whatsnew.css'];
 
-  it.each(PORTALS)('%s carries the universal 0.01ms block', (path) => {
-    const css = read(path);
-    const block = /@media \(prefers-reduced-motion: reduce\) \{\s*\*, \*::before, \*::after \{([^}]*)\}/.exec(css);
-    expect(block, `${path} has no universal reduced-motion block`).not.toBeNull();
+  it('answers the preference in tokens.css and NOWHERE else — the six copies are retired', () => {
+    const carriers = ALL_SHEETS.filter((p) => read(p).includes('prefers-reduced-motion'));
+    expect(carriers, 'a second sheet still answers the preference').toEqual([TOKENS_PATH]);
+  });
+
+  it('states it exactly once inside that sheet, with selectors and no !important', () => {
+    const css = read(TOKENS_PATH);
+    expect((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length).toBe(1);
+    const block = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css);
+    expect(block, 'the block is not a parseable at-rule').not.toBeNull();
     const body = block![1];
-    expect(body).toContain('animation-duration: 0.01ms !important');
-    expect(body).toContain('transition-duration: 0.01ms !important');
+    // authority by specificity — `!important` is a blunt instrument nothing downstream can undo
+    expect(body, 'the unified block reintroduced !important').not.toContain('!important');
+    // (0,3,1) — one step above the highest-specificity animated rule measured in the repo,
+    // `.op-btn-danger[aria-busy='true']::before` at (0,2,1). A bare `*` would be (0,0,0) and lose
+    // to every class rule, because tokens.css is the FIRST sheet main.tsx imports.
+    expect(body).toMatch(/:root:root:root \*/);
+    expect(body).toContain('animation-duration: 0.01ms');
+    expect(body).toContain('transition-duration: 0.01ms');
     // 0 would suppress transitionend/animationend, and the drawer teardown listens for exactly that
-    expect(body).not.toMatch(/duration:\s*0(ms)?\s*!/);
+    expect(body).not.toMatch(/duration:\s*0(ms)?\s*;/);
+  });
+
+  it('defines pulse-soft in tokens.css only, and BELOW the block that covers it', () => {
+    const css = read(TOKENS_PATH);
+    expect((css.match(/@keyframes pulse-soft/g) ?? []).length).toBe(1);
+    // §٧-أ-1: the ordering is the point — a keyframe written above the block would be the one
+    // animation in the system born outside any reduced-motion coverage.
+    expect(css.indexOf('@media (prefers-reduced-motion: reduce)'))
+      .toBeLessThan(css.indexOf('@keyframes pulse-soft'));
+    // opacity + scale only: a horizontal offset would reverse itself in English (§٧-أ-7)
+    const kf = /@keyframes pulse-soft \{([^}]*\}[^}]*)\}/.exec(css)![1];
+    expect(kf).not.toMatch(/translateX|margin-left|left:/);
+    for (const p of ALL_SHEETS.filter((x) => x !== TOKENS_PATH)) {
+      expect(read(p), `${p} defines a second pulse-soft`).not.toContain('@keyframes pulse-soft');
+    }
+  });
+
+  it('spends the pulse only where a REAL overdue notice can light it', () => {
+    expect(read('apps/web/src/operator/operator.css'))
+      .toMatch(/\.op-notif__dot--late \{ animation: pulse-soft/);
+    const bell = read('apps/web/src/NoticeBell.tsx');
+    // the modifier is gated on the delayed subset of computeNotices, not on «any notice»
+    expect(bell).toMatch(/lateCount = notices\.filter\(\(n\) => n\.severity === 'delayed'\)\.length/);
+    expect(bell).toMatch(/lateCount > 0 \? ' op-notif__dot--late' : ''/);
+    // and the figure reaches a screen reader, which an aria-label of the bare title had replaced
+    expect(bell).toMatch(/aria-label=\{bellLabel\(/);
   });
 
   it('the drawer exit is a real animation the teardown can hear', () => {
@@ -1049,6 +1417,142 @@ describe('§2-0 — every portal stylesheet answers prefers-reduced-motion', () 
     // logical direction: one variable flips the offset, never a second keyframe block
     expect(css).toMatch(/html\[dir='ltr'\]\s*\{\s*--dr-dir:\s*-1;/);
     expect(css).not.toMatch(/@keyframes dr-in-ltr/);
+  });
+});
+
+/**
+ * D1-3 — the compact pill. A size modifier that also recoloured would hand the six closed
+ * statuses a seventh reading, which is why this test is about what the rule does NOT say.
+ */
+describe('§4-ج — .m-pill--sm is a SIZE modifier, and nothing else', () => {
+  const UI = 'packages/ui/src/ui.css';
+
+  it('states no colour of its own — not a hex, not a status token, not a border', () => {
+    const rule = /\.m-pill--sm \{([^}]*)\}/.exec(read(UI));
+    expect(rule, '.m-pill--sm is not defined').not.toBeNull();
+    const body = rule![1];
+    expect(body).not.toMatch(/(^|[\s;])(color|background|background-color|border|border-color)\s*:/);
+    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(body).not.toMatch(/--(status|st|tier|mark|primary|secondary|surface)-/);
+  });
+
+  it('turns only the three knobs the base rule declares', () => {
+    const body = /\.m-pill--sm \{([^}]*)\}/.exec(read(UI))![1];
+    const props = (body.match(/--[\w-]+(?=\s*:)/g) ?? []).sort();
+    expect(props).toEqual(['--pill-fs', '--pill-pb', '--pill-pi']);
+  });
+
+  it('sizes the dot and the gap in em, so ONE modifier scales the whole pill', () => {
+    const css = read(UI);
+    expect(css).toMatch(/\.m-pill::before \{[^}]*inline-size: 0\.5em/);
+    expect(css).toMatch(/\.m-pill \{[^}]*gap: 0\.58em/);
+    // the px pair that used to be written twice is gone
+    expect(css).not.toMatch(/\.m-pill::before \{[^}]*inline-size: 6px/);
+  });
+
+  it('is dispensed where the plan says — the dense registry columns', () => {
+    for (const p of [
+      'apps/web/src/operator/TendersList.tsx',
+      'apps/web/src/admin/AdminTenders.tsx',
+      'apps/web/src/admin/Schedule.tsx',
+      'apps/web/src/operator/FileBidders.tsx',
+    ]) {
+      expect(read(p), `${p} keeps the full-size pill in a table column`).toMatch(/<StatusPill size="sm"/);
+    }
+  });
+});
+
+/**
+ * D1-4 — a refused form used to say what was missing at the FOOTER and leave the field that
+ * caused it looking exactly like the fields that did not. The refusal is now an event: the field
+ * is marked, it says why beside itself, and the caret is moved to it.
+ */
+describe('§4-هـ — a refused wizard marks the field and moves the focus to it', () => {
+  const KEY = 'masaar-operator-v13';
+
+  beforeEach(() => {
+    localStorage.clear();
+    saveSession({
+      name: 'كرار محسن', role: 'OPERATOR_USER', oid: 'oid-opuser-01',
+      company: 'مشروع بدرة', companyId: 'op-badra',
+    });
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    localStorage.clear();
+  });
+
+  /** t2 sitting on its `approval` stage — the closing wizard's first step asks for two dates. */
+  function seedClosable() {
+    const s = seedState();
+    s.tenders.find((x) => x.id === 't2')!.stages.find((x) => x.key === 'approval')!.uploadedDocs = ['stage-report'];
+    localStorage.setItem(KEY, JSON.stringify(s));
+  }
+
+  it('refuses, names the field, describes the reason and takes the caret there', () => {
+    seedClosable();
+    const { container } = at('#/operator/t/t2/w/complete');
+
+    const to = container.querySelector('#wizco-to') as HTMLInputElement;
+    expect(to, 'the end-date field carries no id to point at').not.toBeNull();
+    // before the attempt nothing is red: an error shown before the user acted is noise
+    expect(to.getAttribute('aria-invalid')).toBeNull();
+    expect(to.className).not.toContain('op-in--bad');
+
+    fireEvent.click(screen.getByRole('button', { name: 'التالي' }));
+
+    expect(to.getAttribute('aria-invalid')).toBe('true');
+    expect(to.className).toContain('op-in--bad');
+    expect(document.activeElement, 'the caret was left where it was').toBe(to);
+    // the reason is TIED to the field, not only printed in the footer gate
+    const errId = to.getAttribute('aria-describedby');
+    expect(errId).toBe('wizco-to-err');
+    const err = container.querySelector(`#${errId}`)!;
+    expect(err.className).toContain('op-in__err');
+    expect(err.textContent?.trim().length).toBeGreaterThan(0);
+  });
+
+  it('clears the mark when the edit that answers it lands', () => {
+    seedClosable();
+    const { container } = at('#/operator/t/t2/w/complete');
+    fireEvent.click(screen.getByRole('button', { name: 'التالي' }));
+
+    const to = container.querySelector('#wizco-to') as HTMLInputElement;
+    expect(to.getAttribute('aria-invalid')).toBe('true');
+    fireEvent.change(to, { target: { value: '2026-06-24' } });
+    expect(container.querySelector('#wizco-to')!.getAttribute('aria-invalid')).toBeNull();
+    expect(container.querySelector('#wizco-to-err')).toBeNull();
+  });
+
+  it('keeps the gate CLOSED — aria-disabled says so, and the step does not advance', () => {
+    seedClosable();
+    const { container } = at('#/operator/t/t2/w/complete');
+    const nextBtn = screen.getByRole('button', { name: 'التالي' });
+    // `disabled` would swallow the click, so the one moment the form has something to say never
+    // happens and the control leaves the tab order; `aria-disabled` keeps both.
+    expect(nextBtn.getAttribute('aria-disabled')).toBe('true');
+    expect((nextBtn as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(nextBtn);
+    // still on step 1 of 4: the refusal explained itself, it did not let anything through
+    expect(container.querySelector('#wizco-to')).not.toBeNull();
+  });
+
+  it('gives every wizard the same wiring — no screen invents its own error shape', () => {
+    for (const p of [
+      'apps/web/src/operator/wizard/CompleteWizard.tsx',
+      'apps/web/src/operator/wizard/RequestWizard.tsx',
+      'apps/web/src/operator/wizard/AdvertiseWizard.tsx',
+    ]) {
+      const src = read(p);
+      expect(src, `${p} does not hand its refusals back`).toContain('onReject={setBad}');
+      expect(src, `${p} names no field on any condition`).toMatch(/field: '/);
+      expect(src).toMatch(/FieldError rejected=\{bad\}/);
+    }
+    // and the red edge is a border swap on a fixed box, so a rejection moves nothing beside it
+    expect(read('apps/web/src/operator/operator.css'))
+      .toMatch(/\.op-in--bad \{ border-width: 1\.5px; border-color: var\(--st-cancelled-base\); \}/);
   });
 });
 
@@ -1265,16 +1769,170 @@ describe('§4 — «أدوات ومراجع» is a real disclosure over a real p
       .toBe('#/operator/tenders');
   });
 
-  it('leaves the operator shell FLAT — one secondary item is below the disclosure threshold', () => {
+  /**
+   * ق8 — the breadcrumb's ancestor link is DERIVED, in both shells.
+   *
+   * The admin shell reads its ancestor off `PRIMARY.find(...)`; the operator shell hand-wrote
+   * `#/operator/tenders` beside it, so one shell obeyed the routing contract and the other kept a
+   * copy of it. The invariant is deliberately NOT «the href is that string» — pinning the literal
+   * is what created the problem. It is that the crumb links to the SAME address as the sidebar
+   * entry it names, which is a property only a derivation can hold once either address moves.
+   */
+  it.each([
+    ['admin', '#/admin/review/t1', 'a.ad-nav__btn'],
+    ['operator', '#/operator/t/t1', 'a.op-nav__btn'],
+  ])('links the %s file crumb at the nav entry it names, not at a copy of its address', (shell, hash, navSel) => {
+    localStorage.clear();
+    saveSession(shell === 'admin' ? MDOC : OPERATOR);
+    at(hash);
+    const link = document.querySelector('.op-crumb .op-crumb__a') as HTMLAnchorElement;
+    expect(link, `${shell}: the file crumb has no ancestor link`).toBeTruthy();
+    const named = link.textContent?.trim() ?? '';
+    expect(named.length, `${shell}: the ancestor segment is unlabelled`).toBeGreaterThan(0);
+    const entry = [...document.querySelectorAll(navSel)].find((a) => a.textContent?.includes(named));
+    expect(entry, `${shell}: the crumb names «${named}», which is not a sidebar destination`).toBeTruthy();
+    expect(link.getAttribute('href'), `${shell}: the crumb and the sidebar disagree about «${named}»`)
+      .toBe(entry?.getAttribute('href'));
+  });
+
+  it('leaves the operator shell FLAT — two secondary items are still below the disclosure threshold', () => {
     localStorage.clear();
     saveSession(OPERATOR);
     at('#/operator');
     expect(document.querySelector('.op-nav__disc')).toBeNull();
-    // a static heading instead, with the one secondary destination under it and nothing hidden
+    // a static heading instead, with both secondary destinations under it and nothing hidden.
+    // د9 added «سلّم الموافقات»: the threshold in §4-ب is THREE, so two still print flat.
     expect(document.querySelector('.op-nav__group')).not.toBeNull();
     expect(
       Array.from(document.querySelectorAll('a.op-nav__btn')).map((a) => a.getAttribute('href')),
-    ).toEqual(['#/operator', '#/operator/tenders', '#/operator/new', '#/operator/reports']);
+    ).toEqual(['#/operator', '#/operator/tenders', '#/operator/new', '#/operator/approvals', '#/operator/reports']);
+  });
+});
+
+/* ================================================================== */
+/*  د3 — the rail folds 260 → 72 and keeps its meaning                 */
+/* ================================================================== */
+
+/**
+ * The collapse is the one change in this wave that can REMOVE information, so the guards are
+ * written against exactly that: an icon-only rail is a compact rail if every row is still named
+ * and every live counter is still announced, and an accessibility regression the moment it is not
+ * (§7-أ-5). The three invariants below are the plan's own, in its own order.
+ */
+describe('د3 — the collapsed rail keeps every name, every count and «أين أنا»', () => {
+  const shell = () => document.querySelector('.op-shell') as HTMLElement;
+  const minBtn = () => document.querySelector('.op-side__min') as HTMLButtonElement;
+  const rows = (sel: string) => Array.from(document.querySelectorAll(sel));
+  /** what assistive tech would call the row: its `aria-label` if it has one, else its own text */
+  const accName = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim();
+
+  beforeEach(() => { localStorage.clear(); });
+  afterEach(() => {
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    localStorage.clear();
+  });
+
+  it.each([
+    ['admin', MDOC, '#/admin', 'a.ad-nav__btn', '.ad-nav__count'],
+    ['operator', OPERATOR, '#/operator', 'a.op-nav__btn', '.op-nav__count'],
+  ])('%s: collapsing drops no accessible name and no count', (name, who, hash, sel, countSel) => {
+    saveSession(who);
+    at(hash);
+    expect(shell().classList.contains('op-shell--min')).toBe(false);
+
+    // what the OPEN rail says, keyed by the row's tooltip (which is the plain label in both states)
+    const before = new Map(
+      rows(sel).map((a) => [a.getAttribute('title') ?? '', a.querySelector(countSel)?.textContent ?? '']),
+    );
+    expect(before.size).toBeGreaterThan(0);
+    expect([...before.keys()].every((k) => k.length > 0)).toBe(true);
+    // at least one row is actually carrying a live counter, or this test proves nothing about counts
+    expect([...before.values()].some((v) => Number(v) > 0)).toBe(true);
+
+    act(() => { fireEvent.click(minBtn()); });
+    expect(shell().classList.contains('op-shell--min')).toBe(true);
+
+    const after = rows(sel);
+    expect(after.length, `${name}: the rail lost a destination on the way down`).toBe(before.size);
+    for (const a of after) {
+      const label = a.getAttribute('title') ?? '';
+      expect(label.length, `${name}: an icon row lost its tooltip`).toBeGreaterThan(0);
+      const said = accName(a);
+      expect(said, `${name}: «${label}» is an unnamed icon on the shelf`).toContain(label);
+
+      const was = before.get(label) ?? '';
+      if (Number(was) > 0) {
+        // the pill became a dot — and the number it used to print moved into the row's own name
+        expect(said, `${name}: «${label}» folded its count away instead of announcing it`).toContain(was);
+        const dot = a.querySelector(`${countSel}--dot`);
+        expect(dot, `${name}: «${label}» lost the visible mark that it has something owed`).not.toBeNull();
+        expect(dot!.getAttribute('aria-hidden')).toBe('true'); // the name says it; the dot must not repeat it
+        expect(dot!.textContent).toBe(''); // digits do not fit, and a clipped digit is worse than none
+      }
+    }
+  });
+
+  it('folds the disclosure without swallowing what it hides', () => {
+    // `hiddenCount` is the sum of the alarms the closed group is sitting on. On the shelf the
+    // header has no room to print it, so it becomes a dot and the number moves into the button's
+    // name — the same trade every row makes, and for the same reason (§2-ب/6: a live counter must
+    // never degrade into decoration).
+    saveSession(MDOC);
+    at('#/admin');
+    expect(disc().getAttribute('aria-expanded')).toBe('false');
+    const printed = disc().querySelector('.ad-nav__count')?.textContent ?? '';
+    expect(Number(printed)).toBeGreaterThan(0);
+
+    act(() => { fireEvent.click(minBtn()); });
+    expect(disc().querySelector('.ad-nav__count--dot')).not.toBeNull();
+    expect(accName(disc())).toContain(printed);
+    expect(accName(disc())).toContain(disc().getAttribute('title') ?? '');
+  });
+
+  it('keeps «أين أنا» on the shelf: activeInSecondary still forces its group open', () => {
+    localStorage.setItem(NAV_MIN_KEY, '1');
+    localStorage.setItem(NAV_SEC_KEY, '0'); // the reader's own choice is «closed»
+    saveSession(MDOC);
+    at('#/admin/audit');
+
+    expect(shell().classList.contains('op-shell--min')).toBe(true);
+    expect(sec().hasAttribute('hidden'), 'the collapsed rail hid the page the reader is on').toBe(false);
+    expect(sec().querySelector('a[aria-current="page"]')?.getAttribute('href')).toBe('#/admin/audit');
+    expect(disc().getAttribute('aria-expanded')).toBe('true');
+    // …and the forced open is still only a display decision, exactly as it is on the open rail
+    expect(localStorage.getItem(NAV_SEC_KEY)).toBe('0');
+  });
+
+  it('keeps the preference OUTSIDE the business store key, and remembers it across a remount', () => {
+    expect(NAV_MIN_KEY).toBe('masaar.nav.min');
+    expect(NAV_MIN_KEY.startsWith('masaar-operator')).toBe(false);
+    expect(NAV_MIN_KEY).not.toBe(NAV_SEC_KEY);
+
+    saveSession(MDOC);
+    at('#/admin');
+    const store = localStorage.getItem('masaar-operator-v13');
+    act(() => { fireEvent.click(minBtn()); });
+
+    expect(localStorage.getItem(NAV_MIN_KEY)).toBe('1');
+    // a chrome preference must not travel with — or be wiped by — a data migration
+    expect(localStorage.getItem('masaar-operator-v13')).toBe(store);
+    expect(store ?? '').not.toContain('nav.min');
+
+    // read back before the first paint of the next mount: the rail comes up folded, not flashing
+    document.body.innerHTML = '';
+    at('#/admin');
+    expect(shell().classList.contains('op-shell--min')).toBe(true);
+    expect(minBtn().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('spends the named --side-w-min debt: the shelf width is the token, not a literal', () => {
+    const sheet = sheetOf('apps/web/src/operator/operator.css');
+    expect(sheet.rule('.op-shell--min .op-side, .op-shell--min .ad-side').getPropertyValue('inline-size'))
+      .toBe('var(--side-w-min)');
+    expect(sheet.rule('.op-side, .ad-side').getPropertyValue('inline-size')).toBe('var(--side-w)');
+    expect(DECLS['--side-w-min']).toBe('72px');
+    expect(DECLS['--side-w']).toBe('260px');
   });
 });
 
@@ -1382,5 +2040,200 @@ describe('§2-1 — a KPI tile that is never revealed still shows the truth', ()
     vi.stubGlobal('IntersectionObserver', NeverFires);
     at('#/admin');
     expect(kpiValues()).toEqual(revealed);
+  });
+});
+
+/* ================================================================== */
+/*  د٢ — the search shortcuts, the listbox, and what Escape closes     */
+/* ================================================================== */
+
+/**
+ * The reference deck answers `Ctrl+K` with a second surface — a command palette whose
+ * «إجراءات» section has no endpoint behind any row. Nothing of the kind is built (plan §٧-ب):
+ * the two shortcuts focus the LIVE field that already searches and already jumps deep into a
+ * record. The three tests the plan names are here, each guarding a way that behaviour rots
+ * silently into a nuisance.
+ */
+describe('د٢ — «/» and Ctrl+K focus the live search, and never steal a keystroke', () => {
+  const field = () => document.querySelector('.op-search__in') as HTMLInputElement;
+  const options = () => Array.from(document.querySelectorAll('.op-result')) as HTMLElement[];
+  const panel = () => document.querySelector('.op-search__panel');
+  /** matches the seeded codes (AH-DRL-0212 …) in either language, so this is not a translation test */
+  const QUERY = '-0';
+
+  const SHELLS: Array<[string, typeof MDOC | typeof OPERATOR, string]> = [
+    ['admin', MDOC, '#/admin'],
+    ['operator', OPERATOR, '#/operator'],
+  ];
+
+  /**
+   * The seed gives each operating company exactly ONE tender, and the operator shell searches
+   * only its own company (D4 scoping, `sessionScopedTenders`). Arrowing needs two rows, so a
+   * second one is added for the same company — a copy of a real record, not an invented shape.
+   */
+  const STORE_KEY = 'masaar-operator-v13';
+  function seedSecondRow() {
+    const s = seedState();
+    const first = JSON.parse(JSON.stringify(s.tenders.find((x) => x.id === 't1'))) as typeof s.tenders[number];
+    first.id = 't1b';
+    first.code = 'AH-DRL-0213';
+    s.tenders.push(first);
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+  }
+
+  const openResults = () => {
+    const el = field();
+    act(() => { fireEvent.change(el, { target: { value: QUERY } }); });
+    act(() => { el.focus(); });
+    expect(options().length, 'the fixture must yield at least two rows to arrow between')
+      .toBeGreaterThan(1);
+    return el;
+  };
+
+  beforeEach(() => { localStorage.clear(); });
+  afterEach(() => {
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    localStorage.clear();
+  });
+
+  it.each(SHELLS)('%s: «/» from the page focuses the field', (_name, who, hash) => {
+    saveSession(who);
+    at(hash);
+    expect(document.activeElement).not.toBe(field());
+    const ev = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+    act(() => { document.body.dispatchEvent(ev); });
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(field());
+  });
+
+  it.each(SHELLS)('%s: Ctrl+K does the same — one field, not a second palette', (_name, who, hash) => {
+    saveSession(who);
+    at(hash);
+    const ev = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => { document.body.dispatchEvent(ev); });
+    expect(document.activeElement).toBe(field());
+    // nothing new was opened: no dialog, and still exactly one search field on the screen
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelectorAll('.op-search__in').length).toBe(1);
+  });
+
+  /** §٧-أ-4 — the guard. A «/» typed into a date or a path is DATA, and stays where it was typed. */
+  it.each(SHELLS)('%s: «/» while typing in another field does NOT hijack the focus', (_name, who, hash) => {
+    saveSession(who);
+    at(hash);
+    for (const tag of ['input', 'textarea', 'select'] as const) {
+      const el = document.createElement(tag);
+      document.body.appendChild(el);
+      act(() => { el.focus(); });
+      const ev = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+      act(() => { el.dispatchEvent(ev); });
+      expect(document.activeElement, `${tag}: the caret moved`).toBe(el);
+      expect(ev.defaultPrevented, `${tag}: the «/» was swallowed`).toBe(false);
+      el.remove();
+    }
+    // a rich-text host is the same case, and its target is a DESCENDANT of the editable element
+    const host = document.createElement('div');
+    host.setAttribute('contenteditable', 'true');
+    const inner = document.createElement('span');
+    host.appendChild(inner);
+    document.body.appendChild(host);
+    const ev = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+    act(() => { inner.dispatchEvent(ev); });
+    expect(ev.defaultPrevented).toBe(false);
+    expect(document.activeElement).not.toBe(field());
+    host.remove();
+  });
+
+  /** قانون الصدق §٦ — a printed shortcut hint may not exist before the listener that answers it. */
+  it.each(SHELLS)('%s: the «/» chip is rendered only once the listener is planted', (_name, who, hash) => {
+    saveSession(who);
+    at(hash);
+    const chip = document.querySelector('.op-search__kbd');
+    expect(chip?.textContent).toBe('/');
+    expect(chip?.getAttribute('aria-hidden')).toBe('true'); // the field says it via aria-keyshortcuts
+    expect(field().getAttribute('aria-keyshortcuts')).toBe('/ Control+K');
+    // the SHAPE is stated once, in the token sheet; the shells only position it
+    expect(sheetOf('packages/tokens/css/tokens.css').rule('kbd').getPropertyValue('font-size'))
+      .toBe('var(--t-micro)'); // 11px — not the 10px of the deck, which is below our scale
+    expect(read('apps/web/src/operator/operator.css')).not.toMatch(/\.op-search__kbd \{[^}]*font-size/);
+  });
+
+  it.each(SHELLS)('%s: ↑↓ moves aria-activedescendant along the listbox', (_name, who, hash) => {
+    seedSecondRow();
+    saveSession(who);
+    at(hash);
+    const el = openResults();
+    const ids = options().map((o) => o.id);
+    expect(new Set(ids).size).toBe(ids.length); // every option is addressable
+    expect(panel()?.getAttribute('role')).toBe('listbox');
+    expect(el.getAttribute('aria-expanded')).toBe('true');
+    expect(el.getAttribute('aria-activedescendant')).toBeNull(); // nothing pre-selected
+
+    act(() => { fireEvent.keyDown(el, { key: 'ArrowDown' }); });
+    expect(el.getAttribute('aria-activedescendant')).toBe(ids[0]);
+    expect(options()[0].getAttribute('aria-selected')).toBe('true');
+
+    act(() => { fireEvent.keyDown(el, { key: 'ArrowDown' }); });
+    expect(el.getAttribute('aria-activedescendant')).toBe(ids[1]);
+    expect(options()[0].getAttribute('aria-selected')).toBe('false');
+
+    act(() => { fireEvent.keyDown(el, { key: 'ArrowUp' }); });
+    expect(el.getAttribute('aria-activedescendant')).toBe(ids[0]);
+    // ↑ from the top wraps to the end rather than dropping the reader out of the list
+    act(() => { fireEvent.keyDown(el, { key: 'ArrowUp' }); });
+    expect(el.getAttribute('aria-activedescendant')).toBe(ids[ids.length - 1]);
+    // and the focus never left the field — which is the whole point of activedescendant
+    expect(document.activeElement).toBe(el);
+  });
+
+  it.each(SHELLS)('%s: Enter on the highlighted row makes the jump the click makes', (_name, who, hash) => {
+    seedSecondRow();
+    saveSession(who);
+    at(hash);
+    const el = openResults();
+    act(() => { fireEvent.keyDown(el, { key: 'ArrowDown' }); });
+    act(() => { fireEvent.keyDown(el, { key: 'Enter' }); });
+    expect(window.location.hash).not.toBe(hash);
+    expect(window.location.hash.length).toBeGreaterThan(hash.length);
+  });
+
+  it.each(SHELLS)('%s: Escape closes the list and KEEPS the focus in the field', (_name, who, hash) => {
+    seedSecondRow();
+    saveSession(who);
+    at(hash);
+    const el = openResults();
+    expect(panel()).not.toBeNull();
+
+    act(() => { fireEvent.keyDown(el, { key: 'Escape' }); });
+    expect(panel(), 'the list is still open').toBeNull();
+    expect(document.activeElement, 'Escape threw the reader out of the field').toBe(el);
+    expect(el.value, 'Escape wiped what was typed').toBe(QUERY);
+    expect(el.getAttribute('aria-expanded')).toBe('false');
+    expect(el.getAttribute('aria-activedescendant')).toBeNull();
+
+    // typing again revives it — the dismissal was about THIS answer, not about searching
+    act(() => { fireEvent.change(el, { target: { value: `${QUERY}zzz` } }); });
+    act(() => { fireEvent.change(el, { target: { value: QUERY } }); });
+    expect(panel()).not.toBeNull();
+  });
+
+  it.each(SHELLS)('%s: ↑↓ stay ordinary caret keys while the list is closed', (_name, who, hash) => {
+    saveSession(who);
+    at(hash);
+    const el = field();
+    act(() => { el.focus(); });
+    const notPrevented = fireEvent.keyDown(el, { key: 'ArrowDown' });
+    expect(notPrevented, 'the arrow was hijacked with no list on screen').toBe(true);
+    expect(el.getAttribute('aria-activedescendant')).toBeNull();
+  });
+
+  it('carries the same contract in both shells from ONE definition', () => {
+    // two copies of a keyboard contract is how two surfaces start disagreeing about Escape
+    for (const p of ['apps/web/src/operator/OperatorShell.tsx', 'apps/web/src/admin/AdminShell.tsx']) {
+      expect(read(p), `${p} does not use the shared contract`).toMatch(/useShellSearch\(/);
+      expect(read(p), `${p} plants a second document keydown listener`)
+        .not.toMatch(/addEventListener\('keydown'/);
+    }
   });
 });

@@ -167,7 +167,7 @@ export default function EntityProfile({ id }: { id: string }) {
                   <tr key={p.tender.id} className="op-tbl__row" onClick={() => { window.location.hash = `#/admin/review/${p.tender.id}`; }}>
                     <td><div className="op-tbl__name" dir="auto">{p.tender.title[lang]}</div><div className="op-tbl__code">{p.tender.code}</div></td>
                     <td><PathChip id={p.tender.methodId} lang={lang} /></td>
-                    <td>{p.technicalResult === 'pass' ? <StatusPill status="done">{t('filebidders.techPass')}</StatusPill> : p.technicalResult === 'fail' ? <StatusPill status="delayed">{t('filebidders.techFail')}</StatusPill> : <span className="op-dev op-dev--none">—</span>}</td>
+                    <td>{p.technicalResult === 'pass' ? <StatusPill size="sm" status="done">{t('filebidders.techPass')}</StatusPill> : p.technicalResult === 'fail' ? <StatusPill size="sm" status="delayed">{t('filebidders.techFail')}</StatusPill> : <span className="op-dev op-dev--none">—</span>}</td>
                     <td>{p.priceUSD != null ? <span className="op-code">{fmtMoney(p.priceUSD)}</span> : <span className="file-locked"><Icon name="lock" size={12} />12.4.2</span>}</td>
                     <td>
                       {p.won ? <StatusPill status="done">{t('entity.won')}</StatusPill>

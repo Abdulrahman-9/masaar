@@ -276,7 +276,7 @@ function mount() {
   window.location.hash = '#/admin/operators';
   const utils = render(<App />);
   fireEvent.click(screen.getByRole('button', { name: 'إضافة مشغّل وحقوله' }));
-  return { ...utils, read: (): State => JSON.parse(localStorage.getItem('masaar-operator-v11')!) as State };
+  return { ...utils, read: (): State => JSON.parse(localStorage.getItem('masaar-operator-v13')!) as State };
 }
 
 const type = (label: string, value: string) => {
@@ -415,9 +415,15 @@ describe('the merged wizard commits the chain of EXISTING governed actions', () 
     expect(screen.queryByRole('button', { name: 'احذف هذا الصف' })).toBeNull();
   });
 
-  it('states the global approval ladder while the company is being registered (ق1 / request 4)', () => {
+  it('states the SYSTEM DEFAULT ladder, tagged as such, while the company is being registered', () => {
     mount();
-    expect(screen.getByText('سلّم الموافقات العام — يسري على هذه الشركة كما يسري على غيرها')).toBeTruthy();
+    // د9 — ق1's «one ladder for all» was superseded on 2026-08-25: what a company under
+    // registration is measured by is the default, and the tag says that rather than implying
+    // it is the only ladder there is
+    expect(screen.getByText('سلّم الموافقات الافتراضي النظامي — يسري على هذه الشركة ما لم يُعتمد لها سلّم خاص')).toBeTruthy();
+    const ladderTag = document.querySelector('.wz-field__l .ad-ladder__src');
+    expect(ladderTag?.textContent).toBe('الافتراضي النظامي');
+    expect(ladderTag?.classList.contains('ad-ladder__src--own')).toBe(false);
     expect(screen.getByText('≤ $5,000,000')).toBeTruthy();
     expect(screen.getByText('> $10,000,000')).toBeTruthy();
   });

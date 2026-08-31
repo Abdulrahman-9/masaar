@@ -60,21 +60,41 @@ export function Sparkline({ points, lang }: { points: CompliancePoint[]; lang: '
         <span className="ch-spark__v">{fmtCount(last.pct, lang)}%</span>
         <span className="ch-spark__vm">{last.month}</span>
       </span>
-      {/* the drawing is decoration for a number that is already printed: aria-hidden, no axes,
-          no grid, no fill under the curve (an area would claim a cumulative quantity) */}
-      <svg className="ch-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        <polyline
-          points={path}
-          fill="none"
-          stroke="var(--text-2)"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          // paired with preserveAspectRatio="none": the box stretches, the stroke must not
-          vectorEffect="non-scaling-stroke"
-        />
-        <circle cx={x(last, points.length - 1)} cy={y(last.pct)} r="2.5" fill={endColor(last.pct)} />
-      </svg>
+      <span className="ch-spark__plot">
+        {/* the drawing is decoration for a number that is already printed: aria-hidden, no grid,
+            no fill under the curve (an area would claim a cumulative quantity) */}
+        <svg className="ch-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <polyline
+            points={path}
+            fill="none"
+            stroke="var(--text-2)"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            // paired with preserveAspectRatio="none": the box stretches, the stroke must not
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle cx={x(last, points.length - 1)} cy={y(last.pct)} r="2.5" fill={endColor(last.pct)} />
+        </svg>
+        {/*
+          لوحة-31 — the time axis, and ONLY its two ends.
+          The reference prints six fixed month names under its strip; six labels under a line whose
+          point count is whatever `complianceSeries` could measure is a caption that contradicts its
+          own drawing the first time a month closes no stage. The two ends are the only labels the
+          data always has: they are read straight off `points[0]` and `points.at(-1)`, so the axis
+          names the span the polyline actually covers and can never name a month that is not in it.
+          It is NOT aria-hidden — unlike the svg it decorates, the opening month is information that
+          appears nowhere else on the screen. (`ch-spark__vm` beside the big figure answers a
+          different question: which month that ONE percentage belongs to.)
+          The strip is an LTR island like every other machine-formatted axis here, so `space-between`
+          puts the earlier month at the line's start in both languages — the polyline is drawn
+          left-to-right whatever the page direction, and an axis that mirrored would lie about it.
+        */}
+        <span className="ch-spark__axis">
+          <span className="ch-spark__ax">{points[0]!.month}</span>
+          <span className="ch-spark__ax">{last.month}</span>
+        </span>
+      </span>
       <span className="ch-spark__cap">{t('ch.spark.cap', { n: fmtCount(points.length, lang) })}</span>
     </div>
   );

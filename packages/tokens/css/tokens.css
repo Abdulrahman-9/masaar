@@ -7,11 +7,9 @@
    غير مقرَّبة، ومقابلَة بأسوأ سطح تهبط عليه — لا بأفضلها.
 
    ── ديون BUILD-2 المسمّاة (ما بقي بلا مستهلك بعد كنس الأسطح) ──
-     --side-w-min     ↦ رفّ 72px المطويّ (§4-ط). سلوك لا سطح: يحتاج زرّاً جديداً
-                        وتفضيلاً مخزَّناً `masaar.nav.min`، وهما خارج «مرئي فقط».
-                        العرضان زوج واحد لمكوّن واحد، فيبقيان معاً.
-                        الدَّين مقيَّد باسمه في `ops/POST-V2-IMPROVEMENTS.md` §ب —
-                        وهو الوجهة الوحيدة، فلا يُقيَّد في مكان ثانٍ.
+     [مسدَّد · د3] --side-w-min ↦ صار مصروفاً: الرفّ المطويّ 72px بُني في
+                        `operator.css` بزرّ تذييل وتفضيل `masaar.nav.min`،
+                        فخرج التوكن من قائمة الديون ولم يعد اسماً بلا مستهلك.
      --st-delivered-* ↦ شاشات الطلبيات — مراجعة الغروب 2026-12-31
      --st-preparing-base ↦ العائلة السداسية تُكتب كاملة ويحرسها اختبار الاكتمال؛
                         الخمس الأخريات مصروفة (التنبيه + اشتقاق fg/bg)، وهذه
@@ -132,6 +130,58 @@
      #FFFFFF هنا و في --btn-*-fg ليسا مصدرَي حقيقة بل دوران مستقلّان: زرّ الخطر
      الداكن يبقى معتم التعبئة أبيض الحبر، بينما شارة الحالة الداكنة تنعكس. */
   --status-on-fill:#FFFFFF;
+
+  /* ---------- تعبئات البلاطة الإحصائية (§2-ط · قرار العميل 2026-08-30) ----------
+     ثماني عائلات لا ثماني نسخ: بلاطة ممتلئة تقرأ **درجة واحدة** أعتم من درجة
+     الحالة كي يجتاز الحبر --status-on-fill عليها AA، فالعائلة تُسمّى هنا مرّة
+     ويصرفها `.ad-fill[data-tone]` وحدها. المنطق مقلوب بين الوضعين عمداً — نفس
+     اتفاقية الزرّ الأساسي الداكن: فاتح = ملء غامق + حبر أبيض · داكن = ملء ساطع +
+     حبر شبه أسود. كل نسبة أدناه محسوبة على الحبر في وضعها، غير مقرَّبة، ويحرسها
+     اختبار CSSOM يكسر البناء تحت 4.5 (بند و من §2-ط).
+       brand    6.702 فاتحاً · 7.934 داكناً   (المحايد البارز)
+       risk     5.022 · 9.393
+       delayed  6.285 · 7.495
+       progress 5.699 · 7.413
+       done     5.016 · 8.853
+       planned  7.578 · 7.868
+       jmc      6.702 · 11.187   ← var(--tier-jmc)
+       mdoc     14.695 · 16.534  ← var(--tier-mdoc)
+     العائلتان الأخيرتان **ليستا** لوناً تاسعاً وعاشراً: كل منهما اسم ثانٍ لدرجة
+     السلّم نفسها التي ترتديها رقاقة الطبقة، فبلاطتا «بانتظار ط2/ط3» تستعيدان
+     التمايز الذي كان تحمله نقطتاهما قبل الملء بلا أي hex جديد. السلّم ينقلب مع
+     الوضع بنفسه، فالتعبير واحد في الكتلتين — تكرار **الاسم** الذي يفرضه عقد
+     §2-ط-أ (كل تعبئة مسمّاة في كتلتي الوضعين)، لا قيمة ثانية.
+     وانفصال البلاطة عن أرضية الصفحة: أدناه 4.794 فاتحاً و6.560 داكناً — فالحلقة
+     الخارجية للمرشِّح النشط ترتدي --tile-fill نفسه وتُقاس بهذه النسبة، وحلقتها
+     الداخلية ترتدي الحبر وتُقاس بنسبة الحبر. لا حلقة بلون ثالث بلا قياس. */
+  --status-brand-fill: var(--primary-700);
+  --status-risk-fill:#B45309;
+  --status-delayed-fill: var(--st-late-base);
+  --status-progress-fill: var(--st-preparing-base);
+  --status-done-fill:#15803D;
+  --status-planned-fill: var(--surface-600);
+  --status-jmc-fill: var(--tier-jmc);
+  --status-mdoc-fill: var(--tier-mdoc);
+
+  /* الساتان: توكن **واحد** للوضعين (§2-ط-ب) — الإبراز العلوي الذي يجعل الملء
+     يبدو مصقولاً لا مسطّحاً. الإبراز الأبيض يهبط من 14% إلى 4% خلال أوّل 6px،
+     ثم يذوب تدريجياً حتى يصفر عند 42%؛ ومن 42% نزولاً يُعتِم فقط. سبب مقيس لا
+     ذوق: نسخة المرجع تسكب 20% أبيض على كامل الارتفاع، فتهبط أسوأ تعبئة فاتحة من
+     5.022 إلى 3.532 على حبرها — أي أنّ التدرّج نفسه كان يُسقط AA الذي تُصحّحه
+     اللوحة.
+     **هندسة أسوأ نقطة نصّ، بالحشوة الفعلية:** حشوة `.ad-kpi` العلوية 14px، فأوّل
+     بكسل حبر يجلس عند y=14px — أي **بعد** وقفة الـ6px، حيث لم يبقَ من الأبيض
+     أكثر من 4% (والباقي يتناقص نزولاً). فالحدّ الأعلى الصادق للتفتيح تحت أيّ نصّ
+     هو 4% أبيض فوق أفتح تعبئة فاتحة (--status-done-fill #15803D): **4.666** على
+     حبرها — فوق 4.5 بهامش حقيقي. الرقم المطبوع سابقاً (4.786) لا تسنده هذه
+     الهندسة: كان أجمل من الحساب بـ0.12، ولا مقدار تفتيح يقع تحت نصّ يعطيه.
+     المركَّب نفسه يقيسه اختبار الحراسة على كل تعبئة فاتحة، فالساتان داخل البوابة
+     المقيسة لا خارجها. */
+  --satin: linear-gradient(180deg,
+    rgba(255,255,255,0.14) 0,
+    rgba(255,255,255,0.04) 6px,
+    rgba(2,6,23,0) 42%,
+    rgba(2,6,23,0.10) 100%);
 
   /* ---------- الشريط الجانبي ---------- */
   --side-bg: linear-gradient(180deg,var(--primary-900) 0%,var(--primary-950) 70%);
@@ -269,6 +319,24 @@
     --btn-danger-bg:#B91C1C; --btn-danger-hover:#DC2626; --btn-danger-active:#991B1B;
     --status-on-fill:var(--surface-950);
 
+    /* الوجه الداكن من عائلة §2-ط: التعبئة تسطع والحبر يعتم. ثلاث منها **هي**
+       درجة الأساس الداكنة نفسها (risk/delayed/done) فتُشار إليها بلا hex ثانٍ؛
+       والاثنتان الباقيتان درجة أفتح من أساسها: --st-preparing-base #8B5CF6 يعطي
+       4.764 مع الحبر شبه الأسود — فوق AA بلا هامش يحتمل حافّة الساتان، فرُفِع إلى
+       #A78BFA = 7.413. وbrand يتبع --btn-primary-bg الداكن (وهو نفس منطقه: تعبئة
+       ساطعة بحبر شبه أسود) لا --link. */
+    --status-brand-fill: var(--primary-400);
+    --status-risk-fill: var(--st-pending-base);
+    --status-delayed-fill: var(--st-late-base);
+    --status-progress-fill:#A78BFA;
+    --status-done-fill: var(--st-approved-base);
+    --status-planned-fill: var(--surface-400);
+    /* التعبيران نفساهما في الكتلتين: السلّم ينقلب في هذه الكتلة (operator/jmc/mdoc
+       أعلاه)، فالاسمان يتبعانه بلا قيمة ثانية — والسطران هنا هما ما يفي بعقد
+       §2-ط-أ «كل تعبئة مسمّاة في كتلتي الوضعين». 11.187 و16.534 على الحبر الداكن. */
+    --status-jmc-fill: var(--tier-jmc);
+    --status-mdoc-fill: var(--tier-mdoc);
+
     --side-bg: linear-gradient(180deg,#111C36 0%,var(--surface-900) 70%);
     --side-fg:var(--primary-100); --side-fg-2:rgba(219,234,254,0.6);
     --side-active:rgba(96,165,250,0.16); --side-hover:rgba(148,163,184,0.09);
@@ -312,7 +380,9 @@ h4, .h4 { font-size: var(--t-h4); font-weight: var(--fw-semibold); line-height: 
 p, .body { font-size: var(--t-body); line-height: var(--lh-normal); color: var(--text-2); margin: 0; }
 .body-sm { font-size: var(--t-body-sm); line-height: var(--lh-normal); color: var(--text-2); }
 .caption { font-size: var(--t-caption); line-height: var(--lh-snug); color: var(--text-3); }
-.micro { font-size: var(--t-micro); line-height: var(--lh-snug); color: var(--text-3); letter-spacing: 0.02em; }
+/* Micro carries 500, not 400: at 11px the regular weight loses its Arabic stroke on a
+   non-retina panel, and every surface that uses `.micro` uses it for a LABEL. */
+.micro { font-size: var(--t-micro); font-weight: var(--fw-medium); line-height: var(--lh-snug); color: var(--text-3); letter-spacing: 0.02em; }
 .eyebrow {
   font-size: var(--t-micro);
   font-weight: var(--fw-semibold);
@@ -321,18 +391,54 @@ p, .body { font-size: var(--t-body); line-height: var(--lh-normal); color: var(-
   color: var(--text-3);
 }
 
-/* Numeric / code blocks — always LTR, mono */
+/* Numeric / code blocks — always LTR, mono.
+   `isolate`, not `embed`: both force the run LTR, but `embed` leaves the run INSIDE the
+   surrounding bidi paragraph, so an Arabic sentence that ends with a code span re-orders the
+   punctuation around it (the trailing «.» jumps to the wrong edge). `isolate` treats the run as
+   a neutral object, which is what a code, a count or an ISO date actually is. The rest of the
+   product already spells `unicode-bidi: isolate` at every call site (`.op-crumb__c`, `.wz-kv b`,
+   `.m-kpi__v`, `.wz-done__audit`); this line makes the base rule agree with them instead of
+   being the one place that says something else. */
 .mono, code, kbd, samp {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
   direction: ltr;
-  unicode-bidi: embed;
+  unicode-bidi: isolate;
 }
 .num {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
   font-variant-numeric: tabular-nums;
 }
+
+/* رقاقة الاختصار — شكلٌ واحد لكل مفتاح يُطبع في الواجهة (د٢-2).
+   الخطّ الأحادي والعزل البِيدي أتَيا من القاعدة أعلاه؛ هنا الصندوق وحده: حافّة سفلى
+   أثخن تعطي إيحاء المفتاح المضغوط بلا ظلّ جديد ولا مصدر لون ثانٍ. المقاس --t-micro
+   (11px) لا 10px التي في المرجع — تلك تحت أدنى درجة في سلّمنا الطباعي، وحبرها
+   --text-3 يقيس فوق AA على --bg-muted في الوضعين.
+   لا مقاس محلّي في أي ورقة: من أراد رقاقة كتب <kbd>. */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 18px;
+  padding-block: 1px;
+  padding-inline: 5px;
+  border: 1px solid var(--border-1);
+  border-block-end-width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--bg-muted);
+  color: var(--text-3);
+  font-size: var(--t-micro);
+  line-height: var(--lh-tight);
+}
+
+/* Placeholder — ONE rule for every field in the product, both themes.
+   `--text-muted` is the quiet ink that still reads: 5.409/5.659/5.165/4.590 on
+   page/card/muted/inset in light, and in dark it resolves to `--text-3` (4.591 on --bg-inset).
+   `opacity: 1` is not decoration: Firefox ships a UA default of 0.54 on ::placeholder, which
+   would multiply the measured ratio by roughly half and put the hint under AA everywhere. */
+::placeholder { color: var(--text-muted); opacity: 1; }
 
 ::selection { background: var(--primary-200); color: var(--primary-950); }
 :root[data-theme='dark'] ::selection { background: var(--primary-800); color: var(--primary-50); }
@@ -357,11 +463,47 @@ p, .body { font-size: var(--t-body); line-height: var(--lh-normal); color: var(-
 .op-side :focus-visible, .ad-side :focus-visible { outline-color: var(--focus-color-on-dark); }
 
 /* ========================================================================
+   الحركة المخفَّضة — تعريف واحد للنظام كلّه (§2-0)
+   ------------------------------------------------------------------------
+   كانت الكتلة مكرَّرة في سبع أوراق (operator · admin · registry · charts ·
+   ui · toast · whatsnew): سبع نسخ لقرار واحد، وثلاث منها بقوائم محدِّدات
+   مكتوبة باليد تبيت قديمةً في اللحظة التي يضيف فيها أحدهم انتقالاً جديداً.
+   هنا نسخة واحدة، والورقة التي تُعرِّف التوكنات هي مالكة قرار الحركة.
+
+   لماذا محدِّدات لا `*` + `!important` (خلافاً لكتلة المرجع):
+   `!important` سُلطة عمياء تُورَّث إلى كل قاعدة لاحقة ويصعب التراجع عنها.
+   البديل خصوصية مقيسة: أعلى محدِّد يحمل `transition`/`animation` في المستودع
+   هو `.op-btn-danger[aria-busy='true']::before` = (0,2,1)، فثلاث `:root`
+   تعطي (0,3,1) وتكسبه في كل الحالات بلا كلمة واحدة `!important`.
+   (`tokens.css` تُحمَّل أولاً في `main.tsx`، فالخصوصية — لا الترتيب — هي
+   ما يحسم؛ ولهذا لا تكفي `*` وحدها بخصوصية صفر.)
+
+   و0.01ms أبداً لا 0: `transitionend`/`animationend` لا يقعان على حركة
+   صفرية، وتفكيك الدُرج والتوست يستمع إليهما بالضبط. الأثر يبقى — الحدّ
+   والظل والصبغة كلها تتغيّر، لكنها تصل دفعةً واحدة.
+   ======================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root:root:root *,
+  :root:root:root *::before,
+  :root:root:root *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+}
+
+/* ========================================================================
    إطارات الحركة — تعيش هنا لأنّ الصدفتين والمكتبة تستهلكها جميعاً، وتُكتب مرّة
    واحدة كي لا يعرّفها كل ملفّ لنفسه (وهو ما ولّد مصدرَي حقيقة في dr-in/dr-out).
-     spin    ↦ [aria-busy='true'] على عائلة الأزرار (§4-ب)
-     fade-in ↦ ستارة النافذة والدُرج وفتح شريط «الجديد» (§4-ح)
-     pop-in  ↦ بطاقة النافذة والقوائم العائمة (§4-ح)
+   وهي تُكتب **بعد** كتلة الحركة المخفَّضة أعلاه عمداً: لا يُولد إطار حركة في
+   هذا الملف خارج تغطيتها.
+     spin       ↦ [aria-busy='true'] على عائلة الأزرار (§4-ب)
+     fade-in    ↦ ستارة النافذة والدُرج وفتح شريط «الجديد» (§4-ح)
+     pop-in     ↦ بطاقة النافذة والقوائم العائمة (§4-ح)
+     pulse-soft ↦ نقطة الجرس حين يحوي `computeNotices` متأخراً فعلاً (د١-8).
+                  شفافية ومقياس فقط — لا إزاحة أفقية تنعكس خطأً بالإنجليزية
+                  (§٧-أ-7)، فتصلح للوضعين وللاتجاهين بتعريف واحد.
    حُذِف `shimmer`: مستهلكه الوحيد كان الهيكل العظمي .sk*، ولا حالة جلب معلَنة
    في المنتج — حتى في وضع الـAPI يبدأ المتجر من `emptyState()` ثم يُرطَّب بلا راية
    «قيد التحميل» تقرأها شاشة، فلا سطح يستهلك هيكلاً اليوم. بقاؤه إطارٌ ميت في
@@ -371,3 +513,4 @@ p, .body { font-size: var(--t-body); line-height: var(--lh-normal); color: var(-
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.985) translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.45); } }

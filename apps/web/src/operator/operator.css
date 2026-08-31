@@ -5,9 +5,12 @@
    one sheet and neither is a "mode" bolted onto the other.
    ======================================================================== */
 
-/* the sidebar width is declared ONCE, on the grid track that actually sizes it —
-   an inline-size on .op-side as well would be a second place to change it */
-.op-shell { display: grid; grid-template-columns: var(--side-w) 1fr; min-height: 100vh; background: var(--bg-page); }
+/* د3 — the sidebar width is declared ONCE, and it moved: it is now on the sidebar itself and the
+   grid track follows it (`auto`). A track cannot be animated between two widths — neither
+   `grid-template-columns` nor an unregistered custom property interpolates — and the collapse
+   (260 → 72) is a transition, not a jump. So the track reads the element instead of the element
+   reading the track; there is still exactly one place the width is written. */
+.op-shell { display: grid; grid-template-columns: auto 1fr; min-height: 100vh; background: var(--bg-page); }
 
 /* ---------- Sidebar (§4-ط) ----------
    The two shells are now the SAME navy gradient. This deliberately overturns
@@ -28,10 +31,17 @@
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  /* nothing may spill sideways while the rail is mid-collapse */
+  overflow-x: hidden;
   box-sizing: border-box;
+  inline-size: var(--side-w);
+  transition: inline-size var(--dur-base) var(--ease-out), padding var(--dur-base) var(--ease-out);
 }
-.op-side__logo, .ad-side__logo { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; border-bottom: 1px solid var(--side-border); }
+/* the release mark wraps onto its own line inside the brand block (flex-basis 100%), so the header
+   stays one element and the mark sits under the wordmark rather than fighting it for the row */
+.op-side__logo, .ad-side__logo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 6px 12px; border-bottom: 1px solid var(--side-border); }
 .op-side__logo img, .ad-side__logo img { height: 32px; }
+.op-side__rev { flex-basis: 100%; font-family: var(--font-mono); font-size: var(--t-micro); color: var(--side-fg-2); }
 /* the nav absorbs the free space, so the operator + credit blocks stay bottom-anchored even
    when the operating company cannot be resolved and its block is omitted entirely */
 .op-nav { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
@@ -75,6 +85,22 @@
      The ink is white in both themes because the sidebar is navy in both — one value, one name. */
   color: var(--side-count-fg);
 }
+/* د15-م5 — the visible cap on «طلبية جديدة».
+   The SHAPE of a key cap is stated once, in the `kbd` rule of tokens.css (padding, border, radius,
+   size, line-height) — exactly as `.op-search__kbd` leaves it. Only what the NAVY panel forces is
+   overridden here: the token's page-ground wash and muted ink would sink into the sidebar, so the
+   cap wears the count pill's MEASURED pair (--side-count / --side-count-fg). One wash serves both
+   affordances with no second reading to learn, and they never share a row anyway — «طلبية جديدة»
+   is the one primary destination with nothing to count. The glyph is a Latin key name, isolated
+   LTR so it reads the same under an RTL row. */
+.op-nav__kbd {
+  margin-inline-start: auto;
+  background: var(--side-count);
+  color: var(--side-count-fg);
+  border-color: var(--side-border);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
 .op-side__op { margin-block-start: auto; padding: 12px 10px; background: var(--side-hover); border-radius: var(--r-sm); }
 .op-side__op-l { font-size: var(--t-micro); color: var(--side-fg-2); }
 .op-side__op-name { font-size: var(--t-body-sm); font-weight: var(--fw-semibold); color: var(--side-fg); margin-block-start: 2px; }
@@ -83,6 +109,75 @@
 .op-side__credit-l, .ad-side__credit-l { font-size: var(--t-micro); color: var(--side-fg-2); letter-spacing: 0.08em; font-weight: var(--fw-semibold); }
 .op-side__credit-n, .ad-side__credit-n { font-size: var(--t-caption); color: var(--side-fg); margin-block-start: 3px; font-weight: var(--fw-medium); }
 
+/* ---------- الرفّ المطويّ 260 → 72 (§4-ط · د3 · معرض-14 · لوحة-2) ----------
+   يصرف `--side-w-min` المقيَّد ديناً مسمّى في رأس `tokens.css`، فيسقط الدَّين بصرفه.
+   الانتقال على `--dur-base` وتغطّيه كتلة الحركة المخفَّضة الموحّدة (محدِّد `*` في
+   `tokens.css`) تلقائياً — لا كتلة محلية هنا ولا استثناء.
+
+   القاعدة الحاكمة: **الطيّ يخفي النصّ لا المعنى.** كل رابط يبقى حاملاً `title` واسماً
+   وصولياً (`aria-label` من الصدفتين)، وشارة العدّ الحيّ تصير نقطة مرئية بينما عددها
+   ينتقل إلى ذلك الاسم — لا عدّ يُحذف ولا إنذار يُبتلع. والفتح القسري
+   `activeInSecondary` يبقى عاملاً كما هو، فلا يضيع «أين أنا» على الرفّ.
+
+   ما يُطوى كاملاً بدل أن يُقصّ: كتل النثر (الجهة، الإصدار، الإشراف، التطوير) وعنوان
+   المجموعة — قصّ سطر عربي على 56px يقرأ كعطب، وإخفاؤه يقرأ كقرار. */
+.op-shell--min .op-side, .op-shell--min .ad-side { inline-size: var(--side-w-min); padding-inline: var(--space-2); }
+.op-shell--min .op-side__logo, .op-shell--min .ad-side__logo { justify-content: center; padding-inline: 0; }
+.op-shell--min .op-side__logo img, .op-shell--min .ad-side__logo img { height: 30px; }
+.op-shell--min .op-side__rev,
+.op-shell--min .ad-side__badge,
+.op-shell--min .op-nav__group,
+.op-shell--min .op-side__op,
+.op-shell--min .op-side__credit,
+.op-shell--min .ad-side__sup,
+.op-shell--min .ad-side__credit,
+.op-shell--min .op-nav__lbl { display: none; }
+.op-shell--min .op-nav__btn,
+.op-shell--min .ad-nav__btn,
+.op-shell--min .ad-nav__disc,
+.op-shell--min .op-side__min { position: relative; justify-content: center; gap: 0; padding-inline: 0; }
+/* الشارة تصير نقطة: السماوي مقيس على النيلي في الوضعين (4.84/6.86 فاتحاً · 7.89/8.33 داكناً)
+   وهو الحبر نفسه الذي تحمله شارة البيئة، فلا مصدر لون ثانٍ. النقطة `aria-hidden` لأنّ
+   عددها صار جزءاً من اسم الرابط — لا يُنطق مرّتين. */
+.op-nav__count--dot, .ad-nav__count--dot {
+  position: absolute;
+  inset-block-start: 5px;
+  inset-inline-end: 9px;
+  margin-inline-start: 0;
+  inline-size: 7px;
+  block-size: 7px;
+  padding: 0;
+  background: var(--secondary-400);
+}
+
+/* زرّ الطيّ في تذييل الشريط: كاريت يدور و`aria-expanded` يقول أيّهما الحال */
+.op-side__min {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  box-sizing: border-box;
+  padding-block: 8px;
+  padding-inline: 10px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--side-fg-2);
+  font: inherit;
+  font-size: var(--t-micro);
+  font-weight: var(--fw-semibold);
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.op-side__min:hover { background: var(--side-hover); color: var(--side-fg); }
+/* الرمز الأساس (chevronStart) يشير إلى بداية السطر = جهة الطيّ، فالعربية بلا دوران
+   والإنجليزية بمرآتها؛ ومطويّاً ينقلب الاتجاهان معاً لأنّ الفعل صار بسطاً. */
+.op-side__min-caret { flex: none; transition: transform var(--dur-base) var(--ease-out); }
+html[dir='ltr'] .op-side__min-caret { transform: scaleX(-1); }
+.op-shell--min .op-side__min-caret { transform: scaleX(-1); }
+html[dir='ltr'] .op-shell--min .op-side__min-caret { transform: none; }
+
 /* ---------- Main + topbar ---------- */
 .op-main { min-width: 0; display: flex; flex-direction: column; }
 .op-topbar {
@@ -90,7 +185,10 @@
   /* the glass is the CARD colour at 80%, so it frosts white on paper and slate in the dark
      — rgba(255,255,255,.92) was a light-theme literal that could never follow the theme */
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
-  backdrop-filter: blur(12px);
+  /* د٢/لوحة-11 — `saturate` هو كل ما يُؤخذ من زجاج المرجع: الضبابية وحدها تُبهت ما يمرّ
+     تحتها، فترتدّ رقاقات الحالة رماديةً باهتة أثناء التمرير. و`.op-topbar` صنف واحد
+     تصرفه الصدفتان معاً (AdminShell يرتديه حرفياً)، فلا نسخة ثانية في admin.css. */
+  backdrop-filter: blur(12px) saturate(1.15);
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
@@ -103,7 +201,11 @@
 .op-crumb { display: flex; align-items: center; gap: var(--space-2); font-size: var(--t-body-sm); color: var(--text-3); flex-wrap: wrap; }
 .op-crumb__sep { color: var(--text-muted); }
 .op-crumb__b { color: var(--text-1); font-weight: var(--fw-medium); }
-.op-crumb__b--muted { color: var(--text-3); font-weight: var(--fw-regular); }
+/* ق8 — an ANCESTOR segment that is a real destination. `--b--muted` retired with it: it existed
+   to grey out «المناقصات» on a file page, which is precisely the segment that is now a link back
+   to the registry — a quieter version of an unreachable label, replaced by a reachable one. */
+.op-crumb__a { color: var(--link); text-decoration: none; }
+.op-crumb__a:hover, .op-crumb__a:focus-visible { text-decoration: underline; }
 .op-crumb__c { color: var(--text-1); font-weight: var(--fw-medium); font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-body-sm); }
 
 /* ---------- Fields (§4-هـ) — one shape: 36px · --r-sm · 13px · control edge ----------
@@ -111,6 +213,10 @@
    in the layout moves. The scattered `:focus { outline: var(--focus-ring) }` rules are gone
    — `:focus-visible` in tokens.css is the single definition. */
 .op-search { position: relative; margin-inline-start: auto; inline-size: 260px; }
+/* the admin shell searches three registers at once, so its field is wider. It used to say so
+   with `style={{ width: 300 }}` on the element — a physical literal in TSX, outside the sheet
+   and outside the narrow-screen rule below, which then could not shrink it. */
+.op-search--wide { inline-size: 300px; }
 .op-search__in,
 .wz-in,
 .wz-ta,
@@ -125,7 +231,12 @@
   box-sizing: border-box;
 }
 .op-search__in, .wz-in, .bidderadd-in { block-size: 36px; padding-block: 0; padding-inline: 12px; }
-.op-search__in { padding-inline: 12px 36px; }
+/* د٢-1 — the glass sits at the START of the field now (المعرض 6): a search box is read as such
+   from its icon, and the icon belongs where reading begins — the same edge in both directions,
+   which is what a LOGICAL inset buys and what the reference's `0 32px 0 46px` could never do. */
+.op-search__in { padding-inline: 34px 12px; }
+/* only the two shells print a shortcut chip, so only they pay the end padding for it */
+.op-search--k .op-search__in { padding-inline-end: 32px; }
 .wz-ta { padding: 10px 12px; resize: vertical; }
 .wz-in--mono { font-family: var(--font-mono); direction: ltr; }
 /* «opacity on the ink, never on the box» (§4-هـ) */
@@ -134,7 +245,32 @@
   color: var(--text-disabled);
   border-color: var(--border-1);
 }
-.op-search__icon { position: absolute; inset-inline-end: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.op-search__icon { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+/* the «/» chip — shape from the one `kbd` rule in tokens.css, position only here. It is
+   `aria-hidden`: the field itself carries `aria-keyshortcuts`, and announcing the key twice is
+   noise. It renders only after the listener is planted (`armed`), never before it. */
+.op-search__kbd { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+/* ---------- The refused field (§4-هـ) ----------
+   Until now a refusal was said only at the end of the form: the gate line named what was missing
+   and the field that caused it looked exactly like the fields that did not. This closes that loop
+   — the edge says WHICH, the line says WHY, and `aria-describedby` ties them together so the
+   sentence is not a sighted-only fact.
+
+   1.5px and a colour swap, never 1px→2px: the box keeps its 36px, so a rejection landing on a
+   row moves nothing beside it. `--st-cancelled-base` is the red that means REFUSED — never
+   `--st-late-*`, which is reserved for a deadline that actually passed. Placed AFTER the field
+   shape above so the modifier wins on order at equal specificity, with no `!important`. */
+.op-in--bad { border-width: 1.5px; border-color: var(--st-cancelled-base); }
+.op-in__err {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--t-micro);
+  line-height: var(--lh-snug);
+  color: var(--status-blocked);
+}
+.op-in__err svg { flex-shrink: 0; margin-block-start: 1px; }
 
 /* ---------- Floating surfaces (§4-ح) ----------
    A menu sits lower than a modal: --shadow-3, not --shadow-pop. */
@@ -149,7 +285,10 @@
   z-index: 30;
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
-.op-search__panel { inset-inline: 0; }
+/* د٢-4 — the panel is the listbox the field points `aria-activedescendant` at. It is capped and
+   scrolls on the BLOCK axis only: `scrollIntoView({ block: 'nearest' })` then follows the
+   highlight without ever sliding the list sideways in either direction. */
+.op-search__panel { inset-inline: 0; max-block-size: 320px; overflow-y: auto; }
 .op-panel__empty { padding: 12px 14px; font-size: var(--t-caption); color: var(--text-3); }
 .op-result {
   display: flex;
@@ -166,7 +305,10 @@
   font-family: inherit;
 }
 .op-result:last-child { border-bottom: none; }
-.op-result:hover { background: var(--bg-muted); }
+/* one highlight, three ways of arriving at it: the pointer, ↑↓, and the row the pointer last
+   passed over (the hover handler writes the active index, so the two can never disagree). */
+.op-result:hover,
+.op-result[aria-selected='true'] { background: var(--bg-muted); }
 .op-result__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .op-result__name { font-size: var(--t-body-sm); font-weight: var(--fw-medium); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .op-result__sub { font-size: var(--t-micro); color: var(--text-3); margin-block-start: 1px; }
@@ -240,6 +382,11 @@
 /* a 7px dot is a graphical MARK carrying «there is something unread» — 3:1 floor, so it takes
    --mark-accent rather than an identity hue it would have to borrow */
 .op-notif__dot { position: absolute; top: 7px; inset-inline-end: 7px; inline-size: 7px; block-size: 7px; border-radius: var(--r-pill); background: var(--mark-accent); border: 2px solid var(--bg-card); }
+/* The dot moves ONLY when `computeNotices` actually holds an overdue stage. A bell that always
+   pulses is a bell nobody looks at, and the reference sheet says as much before contradicting
+   itself. `pulse-soft` lives in tokens.css, under the one reduced-motion block, so a reader who
+   asked for stillness gets a plain dot with no local rule needed here. */
+.op-notif__dot--late { animation: pulse-soft 2s var(--ease-out) infinite; }
 .op-notif__panel { inset-inline-end: 0; inline-size: 340px; }
 .op-notif__head { padding: 11px 14px; border-bottom: 1px solid var(--border-1); display: flex; align-items: center; gap: var(--space-2); }
 .op-notif__title { font-size: var(--t-body-sm); font-weight: var(--fw-semibold); }
@@ -277,10 +424,20 @@
 .op-page__head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); margin-block-end: var(--space-2); flex-wrap: wrap; }
 .op-page__title { margin: 0; font-size: var(--t-h1); font-weight: var(--fw-semibold); letter-spacing: -0.01em; line-height: var(--lh-tight); }
 .op-page__sub { font-size: var(--t-body-sm); color: var(--text-3); margin-block-start: 4px; }
+/* د15-م3 — the scope sentence. It sits between the sub-line and the definition and is toned like
+   the sub-line, because it is the same KIND of fact: a property of the list below, not a warning
+   about it. Deliberately no chip, no icon and no colour — the narrowing is normal for an operator
+   session, and dressing a normal condition as an alert is how a portal starts shouting at its own
+   user. `dir="auto"` on the element lets the company name settle in its own script. */
+.op-page__scope { font-size: var(--t-body-sm); color: var(--text-3); margin-block-start: 4px; }
 /* One-line definition of a term the screen's columns use (client request 8 / ق4 «المطابقة»):
    darker than the sub-line because it is read, not skimmed, and measure-capped so it stays one
    sentence rather than a paragraph. */
 .op-page__def { font-size: var(--t-body-sm); line-height: var(--lh-loose); color: var(--text-2); margin-block-start: 6px; max-inline-size: 92ch; }
+/* The head's action side once a screen owns MORE than one act (view switch · export · print):
+   a single button needed no wrapper, three loose ones would have been spaced by the head's own
+   `space-between` and drifted apart across the row. */
+.op-page__actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 
 /* ---------- Inbox ---------- */
 .op-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -427,10 +584,14 @@
 .op-btn-danger:hover, .op-btn-danger:focus-visible { background: var(--btn-danger-hover); box-shadow: var(--elev-hover); transform: translateY(var(--lift)); }
 .op-btn-danger:active { background: var(--btn-danger-active); box-shadow: none; transform: none; }
 
-.op-btn-primary:disabled,
-.op-btn-secondary:disabled,
-.op-btn-ghost:disabled,
-.op-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+/* `[aria-disabled='true']` reads the same as `:disabled` on purpose. A gate that must EXPLAIN
+   itself when pressed cannot use the hard attribute (the click never arrives and the control
+   leaves the tab order), but it must still look unavailable — one appearance, two mechanisms
+   for two different jobs, and the hover/active rules above are cancelled for both. */
+.op-btn-primary:disabled, .op-btn-primary[aria-disabled='true'],
+.op-btn-secondary:disabled, .op-btn-secondary[aria-disabled='true'],
+.op-btn-ghost:disabled, .op-btn-ghost[aria-disabled='true'],
+.op-btn-danger:disabled, .op-btn-danger[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
 
 /* the busy state the showcase specifies: a 13px spinner in the gap, and a cursor that says
    «this is running», not «this is broken». The keyframe lives in tokens.css — one definition. */
@@ -478,6 +639,8 @@
 .op-tbl__row:focus-within { background: var(--bg-muted); }
 .op-tbl__name { font-weight: var(--fw-medium); color: var(--text-1); }
 .op-tbl__code { font-family: var(--font-mono); direction: ltr; text-align: start; font-size: var(--t-caption); color: var(--text-muted); margin-block-start: 2px; }
+/* the stage cell carries the NAME and, under it, the rail that places that name in the path */
+.op-tbl__stage { margin-block-end: 5px; }
 
 .op-pathchip {
   display: inline-flex;
@@ -587,12 +750,39 @@ html[dir='ltr'] { --dr-dir: -1; }
 .op-drawer__close:hover { background: var(--bg-inset); }
 .op-drawer__body { flex: 1; overflow-y: auto; padding: 18px var(--space-5); display: flex; flex-direction: column; gap: 18px; }
 .op-drawer__label { font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--text-3); margin-block-end: var(--space-2); }
-.op-segs { display: flex; gap: 3px; }
+/* معرض-29 — the shape is read, the NAME confirms it. A browser tooltip is the slowest affordance
+   in the product; the stage the ringed slot points at is written in words directly under the band
+   instead, so nobody has to hover eleven boxes to learn where the request stands. */
+.op-drawer__now { font-size: var(--t-caption); color: var(--text-2); margin-block-start: var(--space-2); }
+.op-drawer__now b { font-weight: var(--fw-semibold); color: var(--text-1); }
+/* ---- Stage rail (د4 — معرض-20 «المسار المصغّر» مدموجاً فوق `.op-segs`) ----
+   One primitive, three surfaces: the drawer's wide band and the two registries' mini rail
+   (`registry/StageRail.tsx`). It lives in THIS sheet, beside the band it merges onto and beside
+   the unified `.op-side, .ad-side` rule — the admin registry wears it exactly as it already wears
+   `.op-tbl` and the button family. */
+.op-segs { display: flex; align-items: center; gap: 3px; }
 .op-seg { flex: 1; block-size: 8px; border-radius: var(--r-pill); }
 .op-seg--planned { background: var(--status-planned-bg); }
 .op-seg--progress { background: var(--status-progress); }
 .op-seg--done { background: var(--status-done); }
 .op-seg--delayed { background: var(--status-delayed); }
+/* «الحالية» is said by SIZE and a RING, never by a borrowed hue: the slot grows and takes a ring
+   in its OWN status colour. The ring flips to `--status-delayed` only because `stageViewStatus`
+   returned `delayed`, and that function returns it for exactly one condition — a planned end that
+   passed with no `actualTo`. So red on this rail is a measurement, not a decoration (س7). */
+.op-seg--now { box-shadow: 0 0 0 2px var(--status-progress-bd); }
+.op-seg--delayed.op-seg--now { box-shadow: 0 0 0 2px var(--status-delayed-bd); }
+.op-segs:not(.op-segs--mini) .op-seg--now { block-size: 12px; }
+
+/* the registry-row dress: fixed slots that read as a PATH with a position, not as one stretched
+   progress bar (that column already exists, and says a different thing) */
+.op-railwrap { display: inline-flex; align-items: center; }
+/* 3px, not 2: the current slot's 2px ring has to clear its neighbours, or a dense eleven-stage
+   rail reads as one smeared bar instead of a countable path */
+.op-segs--mini { gap: 3px; }
+.op-segs--mini .op-seg { flex: none; inline-size: 5px; block-size: 5px; border-radius: 2px; }
+.op-segs--mini .op-seg--now { inline-size: 12px; border-radius: var(--r-pill); }
+.op-segs__n { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-micro); color: var(--text-muted); margin-inline-start: 6px; }
 .op-drawer__items { display: flex; flex-direction: column; gap: 6px; }
 .op-drawer__item { display: flex; align-items: center; gap: 10px; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-1); border-radius: var(--r-sm); background: var(--bg-muted); }
 .op-drawer__iname { font-size: var(--t-body-sm); font-weight: var(--fw-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -665,6 +855,83 @@ html[dir='ltr'] { --dr-dir: -1; }
 .file-meta { display: flex; align-items: center; gap: 18px; font-size: var(--t-body-sm); color: var(--text-3); flex-wrap: wrap; }
 .file-meta b { color: var(--text-1); font-weight: var(--fw-semibold); }
 .file-meta .op-code { color: var(--text-1); font-weight: var(--fw-semibold); }
+
+/* ت6 — the copy control rides WITH the code, so the pair reads as one object: the chip states
+   the number and the button next to it hands the number over. Sized as the §4-هـ compact-group
+   exception (like `.file-doc__up`): a 34px button beside a 24px chip would out-weigh the code. */
+.file-code { display: inline-flex; align-items: center; gap: 4px; }
+.file-copy {
+  display: inline-flex; align-items: center; justify-content: center;
+  inline-size: 26px; block-size: 26px;
+  padding: 0; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent;
+  color: var(--text-3); cursor: pointer; font-family: inherit;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.file-copy:hover { color: var(--text-1); background: var(--bg-muted); border-color: var(--border-1); }
+
+/* ت2 — the facts strip. A quiet line of derived figures, NOT the filled §2-ط tile board: those
+   tiles are counters that open what they counted, and none of these four numbers has a
+   destination. Hairline dividers instead of four cards, so the strip reads as one sentence
+   about the file rather than four objects competing with the file's own title. */
+.file-kpi {
+  margin-block: 18px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--border-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.file-kpi__cell { background: var(--bg-card); padding: 10px var(--space-4); min-inline-size: 0; }
+.file-kpi__l { font-size: var(--t-micro); font-weight: var(--fw-semibold); color: var(--text-muted); letter-spacing: 0.04em; }
+.file-kpi__v { margin-block: 4px 0; font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--text-1); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.file-kpi__v.op-code { font-variant-numeric: tabular-nums; }
+
+/* ت3 · ت4 · ت5 — the side column. It collapses UNDER the main column before the timeline's own
+   fixed columns start to crush, so the gantt never has to reflow to make room for a card. */
+.file-body { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: var(--space-4); align-items: start; }
+.file-main { min-inline-size: 0; }
+.file-side { display: flex; flex-direction: column; gap: var(--space-3); margin-block-start: var(--space-5); }
+.file-sidecard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-rest);
+  padding: var(--space-3) var(--space-4);
+}
+.file-sidecard__h { margin-block: 0 10px; font-size: var(--t-micro); font-weight: var(--fw-bold); color: var(--text-muted); letter-spacing: 0.04em; }
+.file-sidecard__org { display: flex; flex-direction: column; gap: 2px; min-inline-size: 0; }
+.file-sidecard__name { font-size: var(--t-body-sm); font-weight: var(--fw-semibold); color: var(--text-1); overflow-wrap: anywhere; }
+.file-sidecard__sub { font-size: var(--t-micro); color: var(--text-3); overflow-wrap: anywhere; }
+.file-sidecard__rows { display: flex; flex-direction: column; gap: 7px; }
+.file-sidecard__org + .file-sidecard__rows { margin-block-start: 10px; padding-block-start: 10px; border-block-start: 1px dashed var(--border-1); }
+.file-sidecard__empty { margin: 0; font-size: var(--t-caption); color: var(--text-3); }
+/* ت4's standing gate, printed rather than implied: a reader must be able to see WHY the card
+   carries no names. --text-muted is the smallest ink that still clears AA on the card. */
+.file-sidecard__note { margin-block: 10px 0; font-size: var(--t-micro); color: var(--text-muted); line-height: var(--lh-normal); }
+
+.file-siderow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--t-caption); }
+.file-siderow--wrap { flex-wrap: wrap; }
+.file-siderow__l { color: var(--text-3); flex: none; }
+.file-siderow__v { font-weight: var(--fw-semibold); color: var(--text-1); text-align: end; overflow-wrap: anywhere; }
+
+/* the funnel: a bar that DECORATES a printed count, never one that replaces it */
+.file-funnel { display: flex; flex-direction: column; gap: 7px; }
+.file-funnel__row { display: flex; align-items: center; gap: 10px; }
+.file-funnel__l { flex: 1; min-inline-size: 0; font-size: var(--t-caption); color: var(--text-2); }
+.file-funnel__track { flex: 0 0 62px; block-size: 5px; border-radius: var(--r-pill); background: var(--chart-track); overflow: hidden; }
+.file-funnel__fill { display: block; block-size: 100%; border-radius: var(--r-pill); background: var(--chart-neutral); }
+.file-funnel__v { flex: none; inline-size: 22px; text-align: center; font-family: var(--font-mono); font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* ت1 — the log table is the audit record READ, so its two machine columns stay mono and LTR */
+.file-log__ts, .file-log__act { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; text-align: start; font-size: var(--t-micro); color: var(--text-2); }
+
+@media (max-width: 1100px) {
+  .file-body { grid-template-columns: minmax(0, 1fr); }
+  .file-side { margin-block-start: 0; }
+}
 
 .file-here {
   margin-block-start: 18px;
@@ -760,19 +1027,65 @@ html[dir='ltr'] { --dr-dir: -1; }
   text-align: start;
   inline-size: 100%;
   font-family: inherit;
+  position: relative;   /* ت7 — the rail below is drawn against this box */
 }
 .file-tl__row:hover { background: var(--bg-muted); }
 .file-tl__row--on { background: var(--btn-secondary-bg); box-shadow: inset 3px 0 0 var(--status-progress); }
+/* ت7 — THE RAIL. One hairline down the bubbles' own inline centre, drawn per row so it grows and
+   shrinks with the stage list instead of being a second, fixed drawing beside it. It stops at the
+   first bubble and at the last one, because a line running off a list promises a stage that is not
+   there. `inset-block: 0 -1px` swallows the row hairline so the rail reads as one stroke. */
+.file-tl__row::before {
+  content: '';
+  position: absolute;
+  inset-block: 0 -1px;
+  inset-inline-start: calc(var(--space-5) + 11px);
+  margin-inline-start: -1px;
+  inline-size: 2px;
+  background: var(--border-2);
+}
+.file-tl__row:first-of-type::before { inset-block-start: 50%; }
+.file-tl__row:last-of-type::before { inset-block-end: 50%; }
 .file-tl__stage { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.file-tl__dot { inline-size: 10px; block-size: 10px; border-radius: var(--r-pill); flex-shrink: 0; }
-.file-tl__dot--done { background: var(--status-done); }
-.file-tl__dot--progress { background: var(--status-progress); box-shadow: 0 0 0 3px var(--status-progress-bd); }
-.file-tl__dot--planned { background: var(--status-planned); }
-.file-tl__dot--delayed { background: var(--status-delayed); box-shadow: 0 0 0 3px var(--status-delayed-bd); }
+/* the dot GREW into the numbered bubble (ت7) — the same four status names, now legible.
+   Ink/wash/edge is the measured `--status-*` / `-bg` / `-bd` triple the pill already proves
+   (ت14: never the composited `--st-*-fg` on a light surface). It sits ABOVE the rail. */
+.file-tl__dot {
+  position: relative;
+  z-index: 1;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.file-tl__dot--done { color: var(--status-done); background: var(--status-done-bg); border-color: var(--status-done-bd); }
+.file-tl__dot--progress { color: var(--status-progress); background: var(--status-progress-bg); border-color: var(--status-progress-bd); box-shadow: 0 0 0 3px var(--status-progress-bd); }
+.file-tl__dot--planned { color: var(--status-planned); background: var(--status-planned-bg); border-color: var(--status-planned-bd); }
+.file-tl__dot--delayed { color: var(--status-delayed); background: var(--status-delayed-bg); border-color: var(--status-delayed-bd); box-shadow: 0 0 0 3px var(--status-delayed-bd); }
 .file-tl__name { font-size: var(--t-body-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file-tl__name--muted { color: var(--text-3); font-weight: var(--fw-medium); }
 .file-tl__name--active { color: var(--text-1); font-weight: var(--fw-semibold); }
 .file-tl__sub { font-size: var(--t-micro); color: var(--text-muted); margin-block-start: 1px; }
+/* د4 — the craft the reference put into its twelve-box StageRail, poured onto the row that is
+   actually FED (معرض-19 «صيغة الدمج»): the running stage keeps its ringed dot and gains a pulsing
+   tag. The tag renders only for the stage `stageViewStatus` reports as running, so nothing pulses
+   on a closed or a not-yet-started row; and its colour flips to `--status-delayed` only on the
+   same measured lateness the dot flips on. `pulse-soft` is defined once in tokens.css, under the
+   one reduced-motion block (د1) — a reader who asked for stillness gets a still dot with no local
+   rule needed here. */
+.file-tl__now { display: inline-flex; align-items: center; gap: 5px; margin-block-start: 2px; font-size: var(--t-micro); font-weight: var(--fw-semibold); color: var(--status-progress); }
+.file-tl__now--delayed { color: var(--status-delayed); }
+.file-tl__now-dot { inline-size: 6px; block-size: 6px; border-radius: var(--r-pill); background: currentColor; flex-shrink: 0; animation: pulse-soft 2s var(--ease-out) infinite; }
 .file-tl__bars { position: relative; block-size: 26px; }
 .file-tl__planned { position: absolute; inset-block-start: 3px; block-size: 7px; border-radius: var(--r-pill); background: var(--status-planned-bg); border: 1px solid var(--status-planned-bd); box-sizing: border-box; }
 .file-tl__actual { position: absolute; inset-block-start: 15px; block-size: 7px; border-radius: var(--r-pill); }
@@ -896,7 +1209,7 @@ html[dir='ltr'] { --dr-dir: -1; }
 .wz-crumb__sep { color: var(--text-muted); }
 .wz-crumb__title { color: var(--text-1); font-weight: var(--fw-semibold); white-space: nowrap; }
 .wz-crumb__step { color: var(--status-progress); font-weight: var(--fw-semibold); white-space: nowrap; }
-.wz-save { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-caption); color: var(--status-done); background: var(--status-done-bg); padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
+/* .wz-save removed (D2): the «مسودة تُحفظ تلقائيًا» badge asserted a mechanism that does not exist */
 
 .wz-body { flex: 1; max-inline-size: 1160px; inline-size: 100%; box-sizing: border-box; margin: 0 auto; padding: var(--space-6) 28px 80px; display: grid; grid-template-columns: 292px 1fr; gap: 18px; align-items: start; }
 .wz-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 82px; }
@@ -950,7 +1263,8 @@ html[dir='ltr'] { --dr-dir: -1; }
 
 /* wizard form primitives */
 .wz-field { display: flex; flex-direction: column; gap: 6px; }
-.wz-field__l { font-size: var(--t-body-sm); font-weight: var(--fw-semibold); color: var(--text-2); }
+/* the label voice itself lives in `styles.css` (one definition for `.field label` and this class
+   together); only the inline-hint variant is a wizard concern */
 .wz-field__l small { font-weight: var(--fw-regular); color: var(--text-muted); }
 .wz-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); align-items: start; }
 .wz-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
@@ -1014,29 +1328,12 @@ html[dir='ltr'] .op-chev-fwd { transform: scaleX(-1); }
 .op-drawer__close:focus-visible,
 .wz-exit:focus-visible { background: var(--bg-inset); }
 
-/* ------------------------------------------------------------------ *
- * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
- * A per-selector list is a list that goes stale the next time someone adds a
- * transition; the universal block cannot. Feedback is NOT removed — a hover
- * tint, a border and a shadow still change, they simply arrive at once.
- *
- * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
- * zero-length animation, and the drawer's teardown listens for exactly that.
- * ------------------------------------------------------------------ */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
 
 @media (max-width: 860px) {
   .op-shell { grid-template-columns: 1fr; }
   .op-side, .ad-side { display: none; }
   .op-page, .op-legacy { padding-inline: var(--space-4); }
-  .op-search { inline-size: 180px; }
+  .op-search, .op-search--wide { inline-size: 180px; }
 }
 
 /* ===== Batch 3 (م٤): shared Modal in the operator skin (§4-ح) =====
@@ -1074,3 +1371,164 @@ html[dir='ltr'] .op-chev-fwd { transform: scaleX(-1); }
 .bidderadd-free { display: flex; flex-direction: column; gap: var(--space-2); }
 .bidderadd-free__l { font-size: var(--t-caption); font-weight: var(--fw-medium); color: var(--text-2); }
 .bidderadd-gate { margin-inline-start: auto; text-align: end; }
+
+
+/* ============================================================
+   بلاطات الإحصاء + السطح الممتلئ §2-ط — الدار المشتركة (د15-م2)
+   ------------------------------------------------------------
+   هذه العائلة عاشت في `admin.css` حين كان مستهلكوها الستة كلهم إداريين. سجلّ
+   المشغّل صار السابع (م2)، و`admin.css` ورقة الإدارة وحدها — فانتقلت العائلة
+   **كاملةً وبترتيبها** إلى الورقة التي تحمّلها الصدفتان، هي نفسها التي تملك
+   `.op-side, .ad-side` وعائلة `.ad-modal` لنفس السبب. لا نسخة ثانية في أي مكان:
+   النقل حذفَ الأصل (قانون «الأقدم يُحذف»)، وترتيب المصدر داخل الكتلة محفوظ
+   حرفياً كي تبقى بوابة التتالي (`a.ad-kpi--link` ثم `a.ad-fill`) هي هي.
+   ============================================================ */
+/* ---- Follow-up room ---- */
+.ad-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+/* a three-question strip fills its row instead of leaving a fourth column of paper */
+.ad-kpis--3 { grid-template-columns: repeat(3, 1fr); }
+/* The room asks seven questions (client requests 1 + 5). A fixed column count would either
+   crush them on a laptop or leave a hole on a wide screen, so the row sizes itself: at the
+   1240px page width this settles on seven columns, and it sheds columns gracefully below. */
+.ad-kpis--wrap { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
+.ad-kpi { background: var(--bg-card); border: 1px solid var(--border-1); border-radius: var(--r-md); padding: 14px var(--space-4); box-shadow: var(--elev-rest); display: flex; flex-direction: column; gap: 6px; }
+/* a KPI that IS a queue: the tile opens the registry listing exactly what it counted.
+   Height changes ONLY on an interaction state — no tile is born elevated.
+   The FILLED status KPI of dashboard.dc.html is not adopted (§4-ي / §5-هـ). */
+a.ad-kpi--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow   var(--dur-base) var(--ease-out),
+    transform    var(--dur-base) var(--ease-out);
+}
+a.ad-kpi--link:hover,
+a.ad-kpi--link:focus-visible {
+  border-color: var(--border-control);
+  box-shadow: var(--elev-hover);
+  transform: translateY(var(--lift));
+}
+a.ad-kpi--link:hover .ad-kpi__go, a.ad-kpi--link:focus-visible .ad-kpi__go { color: var(--text-1); }
+/* The click affordance, printed in the RESTING state — a hint that appears only under a pointer
+   does not exist for a touch or keyboard reader. A tile with no destination never renders it. */
+.ad-kpi__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-block-start: auto;
+  padding-block-start: 2px;
+  font-size: var(--t-micro);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+/* The same slot as `.ad-kpi__go`, on the one tile that has no registry to open: a ratio over
+   closed-stages-ever has no rows to list, so the tile states the WINDOW it measures instead of
+   an affordance it cannot honour. No hover colour change — nothing here responds to a pointer. */
+.ad-kpi__win {
+  margin-block-start: auto;
+  padding-block-start: 2px;
+  font-size: var(--t-micro);
+  color: var(--text-3);
+}
+.ad-kpi__head { display: flex; align-items: center; gap: 7px; }
+.ad-kpi__dot { inline-size: 8px; block-size: 8px; border-radius: var(--r-pill); }
+.ad-kpi__l { font-size: var(--t-caption); color: var(--text-3); }
+.ad-kpi__row { display: flex; align-items: baseline; gap: var(--space-2); }
+/* tabular figures are not optional here: the value counts up frame by frame (§2-1), and
+   proportional digits would make the whole tile twitch sideways for 600ms */
+.ad-kpi__v { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-size: var(--t-display-2); font-weight: var(--fw-semibold); letter-spacing: -0.02em; color: var(--text-1); }
+.ad-kpi__delta { font-size: var(--t-caption); font-weight: var(--fw-semibold); }
+
+/* ============================================================
+   §2-ط — السطح الممتلئ المعمَّم
+   ------------------------------------------------------------
+   صنف واحد لكل ما يُملأ بلون دلالي (بلاطة إحصاء، رأس عمود كانبان، وما تصرفه
+   دفعات الشاشات لاحقاً)، ونغمته تُنتقى بـ`data-tone` — فالخريطة نغمة↦تعبئة
+   مكتوبة **مرّة** هنا، والتعبئات نفسها معرَّفة في tokens.css وحدها.
+   الحبر --status-on-fill ينقلب مع الوضع كما تنقلب التعبئة، ونسبته على كل نغمة
+   يحرسها اختبار CSSOM (§2-ط-و). لا لون حرفي، ولا نسخة محلية لأي منها. */
+.ad-fill {
+  /* a tone that does not resolve must still paint a TILE: without this the custom property is
+     invalid at computed-value time and the surface renders as an unreadable transparent block.
+     The neutral is the safe answer — never a colour that would claim a state. */
+  --tile-fill: var(--status-planned-fill);
+  background-color: var(--tile-fill);
+  background-image: var(--satin);
+  /* الحدّ هو التعبئة نفسها: يحفظ صندوق الـ1px الذي يحمله السطح غير الممتلئ
+     فلا يقفز التخطيط بين الحالتين، وبلا لون ثالث بلا قياس. */
+  border-color: var(--tile-fill);
+  color: var(--status-on-fill);
+}
+/* البلاطة-الرابط تحتاج نفس الحبر بخصوصية تكفي لتغلب `a.ad-kpi--link{color:inherit}`
+   أعلاه: تلك (0,1,1) تهزم `.ad-fill` (0,1,0)، فكان `currentColor` على العنصر يبقى
+   حبر الصفحة --text-1، وترتديه نقطة `.ad-kpi__dot` فوق تعبئة مقيسة — 2.36 إلى 3.56
+   بدل 5.0 إلى 7.6. أدنى قوة كافية: **نفس** الخصوصية (0,1,1) وبعدها في ترتيب المصدر
+   — لا !important، ولا رفع لمحدِّد النقطة (فذلك يصلح النقطة ويترك كل مستهلك
+   `currentColor` آخر على السطح الممتلئ مكسوراً). */
+a.ad-fill { color: var(--status-on-fill); }
+.ad-fill[data-tone='brand']    { --tile-fill: var(--status-brand-fill); }
+.ad-fill[data-tone='risk']     { --tile-fill: var(--status-risk-fill); }
+.ad-fill[data-tone='delayed']  { --tile-fill: var(--status-delayed-fill); }
+.ad-fill[data-tone='progress'] { --tile-fill: var(--status-progress-fill); }
+.ad-fill[data-tone='done']     { --tile-fill: var(--status-done-fill); }
+.ad-fill[data-tone='planned']  { --tile-fill: var(--status-planned-fill); }
+/* نغمتا السلّم: بلاطة «بانتظار ط2» ليست بلاطة «بانتظار ط3»، وقد كانتا تُميَّزان
+   بنقطتيهما (--tier-jmc/--tier-mdoc) قبل الملء. التعبئتان اسمان لدرجتَي السلّم
+   نفسيهما، فالتمييز يعود بلا لون جديد — والقياس في tokens.css ويحرسه الاختبار. */
+.ad-fill[data-tone='jmc']      { --tile-fill: var(--status-jmc-fill); }
+.ad-fill[data-tone='mdoc']     { --tile-fill: var(--status-mdoc-fill); }
+
+/* ---- البلاطة الممتلئة: نفس تشريح `.ad-kpi`، حبرها فقط ينقلب ----
+   التسمية والقيمة والأفوردانس ترث `--status-on-fill` بلا شفافية: تخفيت حبر
+   فوق تعبئة مقيسة هو غسل تباين، والقاعدة القائمة تمنعه. */
+.ad-kpi--fill .ad-kpi__l,
+.ad-kpi--fill .ad-kpi__v,
+.ad-kpi--fill .ad-kpi__go,
+.ad-kpi--fill .ad-kpi__win { color: var(--status-on-fill); }
+.ad-kpi--fill .ad-kpi__dot { background: currentColor; }
+
+/* ---- البلاطة-الزرّ: مرشِّح يفتح ما عدّه بالضبط (ق2) ----
+   `button` مُعاد ضبطه إلى تشريح البلاطة نفسه كي لا يُولد شكل ثانٍ لنفس المكوّن. */
+button.ad-kpi--fill {
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    box-shadow var(--dur-base) var(--ease-out),
+    transform  var(--dur-base) var(--ease-out),
+    filter     var(--dur-base) var(--ease-out);
+}
+/* محدِّدات مؤهَّلة بالعنصر (0,2,1) وبعد كتلة `a.ad-kpi--link` عمداً: بلاطة الغرفة
+   رابط ممتلئ، وقاعدة التحويم القديمة تحاول إعادة حدّها إلى --border-control. */
+a.ad-kpi--fill:hover, a.ad-kpi--fill:focus-visible,
+button.ad-kpi--fill:hover, button.ad-kpi--fill:focus-visible {
+  border-color: var(--tile-fill);
+  box-shadow: var(--elev-hover);
+  transform: translateY(var(--lift));
+  /* الإضاءة تصنع التمييز بلا لون جديد — والتعبئة تبقى هي التي قِيست */
+  filter: brightness(1.06);
+}
+button.ad-kpi--fill:active { transform: none; filter: brightness(0.96); }
+/* أفوردانس التحويم القديم كان يغمق النصّ إلى --text-1؛ فوق تعبئة مقيسة يبقى الحبر */
+a.ad-kpi--fill:hover .ad-kpi__go, a.ad-kpi--fill:focus-visible .ad-kpi__go { color: var(--status-on-fill); }
+
+/* ---- حلقة المرشِّح النشط ----
+   حلقتان لا واحدة، وكلتاهما مقيستان بالقياسين اللذين يحرسهما اختبار §2-ط:
+   الداخلية بالحبر (≥4.5 على التعبئة في الوضعين)، والخارجية بالتعبئة نفسها
+   (≥4.5 على الورق فاتحاً و≥3.7 داكناً) — فالحالة النشطة تُقرأ في الوضعين بلا
+   لون ثالث غير مقيس، وتبقى مقروءة لمن لا يرى فرق التشبّع. */
+button.ad-kpi--fill[aria-pressed='true'] {
+  box-shadow:
+    inset 0 0 0 2px var(--status-on-fill),
+    0 0 0 2px var(--tile-fill),
+    var(--elev-hover);
+}
+
+/* ---- الهرمية داخل الملء الشامل (§2-ط-د) ----
+   حين يمتلئ الجميع، الصراخ لا يكون بالتعبئة: بلاطة «متأخرة» **وحدها** تنبض،
+   وبشرط أن يكون لها ما تنبض عليه (عدّ > 0 — الشرط في الشيفرة، فنبضة على صفر
+   إنذار كاذب). الإطار `pulse-soft` معرَّف في tokens.css وحدها (د1)، وكتلة
+   الحركة المخفَّضة هناك تجمّده تلقائياً — فلا كتلة ثانية هنا. */
+.ad-kpi__dot--alert { animation: pulse-soft 2s var(--ease-out) infinite; }

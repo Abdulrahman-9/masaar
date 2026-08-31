@@ -3,7 +3,8 @@ import { StatusPill } from '@masaar/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDialogA11y } from '../useDialogA11y';
-import { calendarOf, expectedAwardDate, todayIso, useStore } from '../store';
+import { StageRail } from '../registry/StageRail';
+import { calendarOf, currentStage, expectedAwardDate, todayIso, useStore } from '../store';
 import { DevChip } from './DevChip';
 import { fmtMoney, stageDevWd, stageViewStatus, tenderStatus } from './derive';
 import { Icon } from './Icon';
@@ -62,7 +63,10 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
   if (!tender) return null;
 
   const method = METHODS.find((m) => m.id === tender.methodId);
+  // the SAME derivation the registry row prints, from the same tender and the same calendar — the
+  // head badge and the row's pill cannot disagree because there is one function, not two readings
   const status = tenderStatus(tender, today, cal);
+  const cur = currentStage(tender);
   const award = expectedAwardDate(tender);
 
   return (
@@ -81,7 +85,7 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
           <div className="op-drawer__main">
             <div className="op-drawer__namerow">
               <span className="op-drawer__name" id={titleId}>{tender.title[lang]}</span>
-              <StatusPill status={status}>{t(`status.${status}`)}</StatusPill>
+              <StatusPill status={status} title={t(`match.status.${status}`)}>{t(`status.${status}`)}</StatusPill>
             </div>
             <div className="op-drawer__sub">
               <span className="op-code">{tender.code}</span> · {method ? method[lang] : ''} · {fmtMoney(tender.estimatedValueUSD)}
@@ -101,11 +105,17 @@ export default function QuickLook({ tenderId, onClose }: { tenderId: string; onC
         <div className="op-drawer__body">
           <div>
             <div className="op-drawer__label">{t('ql.segs')}</div>
-            <div className="op-segs">
-              {tender.stages.map((s) => {
-                const st = stageViewStatus(tender, s, today);
-                return <span key={s.key} className={`op-seg op-seg--${st}`} />;
-              })}
+            {/* د4 — the one rail component, in its wide dress. Merging it here retires the local
+                copy of the band and, with it, the slots that carried a colour and no name (م1). */}
+            <StageRail tender={tender} today={today} lang={lang} size="wide" />
+            <div className="op-drawer__now">
+              {cur ? (
+                <>
+                  {t('ql.now')} <b>{stageByKey(cur.key)?.[lang] ?? cur.key}</b>
+                </>
+              ) : (
+                t('ql.nowDone')
+              )}
             </div>
           </div>
 

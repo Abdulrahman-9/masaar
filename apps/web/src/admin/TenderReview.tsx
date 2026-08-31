@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { fmtCount, fmtMoney } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { loadSession } from '../session';
-import { accreditedEstimate, byName, byOid, calendarOf, currentStage, govReasonValid, singleBidStatus, tenderApprovalTier, todayIso, useStore, type Actor, type Tender } from '../store';
+import { accreditedEstimate, byName, byOid, calendarOf, currentStage, govReasonValid, resolveTiersFor, singleBidStatus, tenderApprovalTier, todayIso, useStore, type Actor, type Tender } from '../store';
 import { roleKey } from './access';
 import { useAdminUi } from './AdminShell';
 import { Modal } from './Modal';
@@ -163,7 +163,10 @@ export default function TenderReview({ id }: { id: string }) {
     : tr(`tier.body.${tier}`);
   const tierLine = (
     <div className="rv-tier">
-      <TierPill tier={tier} tiers={state.approvalTiers} />
+      {/* د9 — this describes ONE tender, so the tooltip must state the bands of the ladder that
+          tender was actually judged by: its operator's own if one is approved, else the default.
+          Passing `state.approvalTiers` here printed a range the gate may not have used. */}
+      <TierPill tier={tier} tiers={resolveTiersFor(state, tender.operatorId)} />
       <span className="rv-tier__s">{tr('tier.sentence', { tier: tr(`tier.name.${tier}`), body: decisionBody })}</span>
     </div>
   );

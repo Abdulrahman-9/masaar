@@ -8,7 +8,11 @@ export interface ApiStage {
   order: number;
   plannedFrom: string | null;
   plannedTo: string | null;
+  /** D1 — optional: absent on stages closed before the deviation record existed */
+  actualFrom?: string | null;
   actualTo: string | null;
+  devReasonCat?: string | null;
+  devReasonNote?: string | null;
   documents: { kind: string }[];
 }
 

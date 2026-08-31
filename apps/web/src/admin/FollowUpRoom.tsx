@@ -9,14 +9,14 @@ import { fmtCount, fmtMoney, fmtMoneyShort, tenderStatus } from '../operator/der
 import { Icon } from '../operator/Icon';
 import { orgName } from '../orgIdentity';
 import { EmptyState } from '../registry/EmptyState';
-import { calendarOf, currentStage, tenderApprovalTier, todayIso, useStore } from '../store';
+import { calendarOf, currentStage, resolveTiersFor, tenderApprovalTier, todayIso, useStore } from '../store';
 import { WhatsNew } from '../WhatsNew';
 import { approvalChain, awaitingTier, decisionQueue } from './adminDerive';
 import {
   companyStats, complianceSeries, completionBuckets, contractsAtStage, SCOPES, tierCountsOf,
 } from './dashboardDerive';
 import { allTimeSchedulePct } from './scheduleDerive';
-import { TierPill } from './TierPill';
+import { OverrideCaveat, TierPill } from './TierPill';
 
 /**
  * The counting figure inside a KPI tile (spec §2-1).
@@ -40,6 +40,20 @@ function KpiCount({ value, format }: { value: number; format: (n: number) => str
    * the animation is unchanged; what changed is that the pre-reveal state is now a fact.
    */
   return <span className="ad-kpi__v" ref={ref}>{format(value)}</span>;
+}
+
+/**
+ * د17 — ONE spelling of «nothing» for the company table.
+ *
+ * The room used to say the same absence two ways: «—» in the scope, late and value columns and a
+ * bare `0` in fields, tenders and contracts. Read across a row that is a typographic accident, not
+ * a distinction — the reader is invited to look for a meaning that is not there — and it disagreed
+ * with the operators registry, which spells nothing as «—» in every numeric cell of the row that
+ * carries THE SAME FIGURES (the parity law of د14). The two screens now say it identically, and
+ * they say it in one place rather than six, so the next column added cannot drift back.
+ */
+function Fig({ n, fmt }: { n: number; fmt: (n: number) => string }) {
+  return n === 0 ? <span className="op-dev op-dev--none">—</span> : <>{fmt(n)}</>;
 }
 
 export default function FollowUpRoom() {
@@ -108,29 +122,54 @@ export default function FollowUpRoom() {
   const fmtN = useCallback((n: number) => fmtCount(n, lang), [lang]);
   const fmtPct = useCallback((n: number) => `${fmtCount(n, lang)}%`, [lang]);
 
+  /**
+   * §2-ط — the same seven questions, now answered on a FILLED tile.
+   *
+   * Nothing about the row's behaviour moves: every destination, every count and the two tiles that
+   * carry a window or a different affordance are exactly what they were. What changes is that the
+   * quiet dot becomes the whole surface — the client's own request, and the reference's intent
+   * corrected: its fills failed AA, ours are measured in `tokens.css` and guarded by test.
+   *
+   * `tone` REPLACES `dot` rather than joining it: the dot's colour and the tile's fill would be two
+   * declarations of one decision, and the dot now inherits the tile's ink. The mapping is exactly
+   * the one the dots already carried, so no tile makes a claim it did not make yesterday — and that
+   * includes the two LADDER tiles: their dots were `--tier-jmc` and `--tier-mdoc`, two different
+   * rungs of the authority ladder, and collapsing both onto `brand` erased a distinction the room
+   * used to draw. `jmc`/`mdoc` are those same two rungs worn as a fill (§2-ط, tokens.css), so «ط2»
+   * and «ط3» are told apart again — by the ladder's own vocabulary, not by a lifecycle state and
+   * not by a new colour. The compliance ratio keeps the reading its dot has always had.
+   */
   const kpis: {
     l: string; v: number; fmt: (n: number) => string;
-    dot: string; href?: string; go?: string; window?: string;
+    tone: 'brand' | 'risk' | 'delayed' | 'progress' | 'done' | 'planned' | 'jmc' | 'mdoc';
+    href?: string; go?: string; window?: string;
   }[] = [
-    { l: t('admin.kpiOpen'), v: open.length, fmt: fmtN, dot: 'var(--status-progress)', href: '#/admin/tenders?status=open' },
-    { l: t('admin.kpiRatify'), v: decisions.length, fmt: fmtN, dot: 'var(--status-risk)', href: '#/admin/tenders?pending=1' },
-    { l: t('adroom.kpiLate'), v: late, fmt: fmtN, dot: 'var(--status-delayed)', href: '#/admin/tenders?status=delayed' },
-    { l: t('adroom.kpiExecuting'), v: inExecution, fmt: fmtN, dot: 'var(--status-done)', href: '#/admin/contracts?stage=execute' },
+    { l: t('admin.kpiOpen'), v: open.length, fmt: fmtN, tone: 'progress', href: '#/admin/tenders?status=open' },
+    { l: t('admin.kpiRatify'), v: decisions.length, fmt: fmtN, tone: 'risk', href: '#/admin/tenders?pending=1' },
+    { l: t('adroom.kpiLate'), v: late, fmt: fmtN, tone: 'delayed', href: '#/admin/tenders?status=delayed' },
+    { l: t('adroom.kpiExecuting'), v: inExecution, fmt: fmtN, tone: 'done', href: '#/admin/contracts?stage=execute' },
     {
-      l: t('admin.kpiCompliance'), v: compliance, fmt: fmtPct, dot: 'var(--status-done)',
+      l: t('admin.kpiCompliance'), v: compliance, fmt: fmtPct, tone: 'done',
       href: '#/admin/schedule', go: t('adroom.openSchedule'), window: t('adroom.windowAllTime'),
     },
-    { l: t('admin.kpiAwaitJmc'), v: awaitingJmc, fmt: fmtN, dot: 'var(--tier-jmc)', href: '#/admin/approvals?tier=JMC&pending=1' },
-    { l: t('admin.kpiAwaitMdoc'), v: awaitingMdoc, fmt: fmtN, dot: 'var(--tier-mdoc)', href: '#/admin/approvals?tier=MDOC&pending=1' },
+    { l: t('admin.kpiAwaitJmc'), v: awaitingJmc, fmt: fmtN, tone: 'jmc', href: '#/admin/approvals?tier=JMC&pending=1' },
+    { l: t('admin.kpiAwaitMdoc'), v: awaitingMdoc, fmt: fmtN, tone: 'mdoc', href: '#/admin/approvals?tier=MDOC&pending=1' },
   ];
 
+  /**
+   * د9 — the donut's sub-line describes THE SYSTEM, so it prints the SYSTEM DEFAULT ceilings and
+   * the sentence now says so (`ch.donut.sub`) instead of announcing them as the only ladder there
+   * is. The donut's own SLICES need no change: they are counted by `tierCounts`, which routes
+   * through `tenderApprovalTier` and therefore already places each tender in the band its own
+   * company's ladder puts it in — the same is true of the «بانتظار موافقة» tiles above.
+   */
   const ladderSub = t('ch.donut.sub', {
     op: fmtMoney(state.approvalTiers.operatorMaxUSD),
     jmc: fmtMoney(state.approvalTiers.jmcMaxUSD),
   });
 
   return (
-    <div className="op-page" style={{ maxWidth: 1240 }}>
+    <div className="op-page ad-room">
       {/* The update strip (spec §2), admin variant — the same three facts as the operator's, with
           the two links this role can actually open: the A4 brief and the compliance registry. */}
       <WhatsNew audience="admin" />
@@ -153,7 +192,9 @@ export default function FollowUpRoom() {
           const body = (
             <>
               <span className="ad-kpi__head">
-                <span className="ad-kpi__dot" style={{ background: k.dot }} />
+                {/* §2-ط-د — the one carrier of hierarchy inside a fully-filled row: «مراحل متأخرة»
+                    pulses, and only while it counts something. Everything else stays still. */}
+                <span className={`ad-kpi__dot${k.tone === 'delayed' && k.v > 0 ? ' ad-kpi__dot--alert' : ''}`} />
                 <span className="ad-kpi__l">{k.l}</span>
               </span>
               <span className="ad-kpi__row">
@@ -170,9 +211,10 @@ export default function FollowUpRoom() {
               )}
             </>
           );
+          const skin = 'ad-kpi ad-fill ad-kpi--fill';
           return k.href
-            ? <a key={k.l} className="ad-kpi ad-kpi--link" href={k.href}>{body}</a>
-            : <div key={k.l} className="ad-kpi">{body}</div>;
+            ? <a key={k.l} className={`${skin} ad-kpi--link`} data-tone={k.tone} href={k.href}>{body}</a>
+            : <div key={k.l} className={skin} data-tone={k.tone}>{body}</div>;
         })}
       </div>
 
@@ -181,7 +223,7 @@ export default function FollowUpRoom() {
           honestly draw. `Sparkline` returns null below two derivable points, so a store that
           cannot support a series prints no series, and never a line through a single number. */}
       {series.length >= 2 && (
-        <div className="ad-panel ad-panel--fig" style={{ marginBlockStart: 14 }}>
+        <div className="ad-panel ad-panel--fig ad-panel--stacked">
           {/* the same `<figure>` skeleton the other three charts use — one anatomy per surface
               class, and it is what spaces the caption, the strip and the note evenly */}
           <figure className="ch">
@@ -221,7 +263,8 @@ export default function FollowUpRoom() {
                     <span className="op-code">{d.code}</span>
                     {/* whose signature this queue entry is actually waiting on (ق1) — the queue is
                         read at a glance, and «who decides» is the first thing it should answer */}
-                    <TierPill tier={tenderApprovalTier(state, d)} tiers={state.approvalTiers} />
+                    {/* د9 — this row describes ONE tender: its own company's ladder, not the default */}
+                    <TierPill tier={tenderApprovalTier(state, d)} tiers={resolveTiersFor(state, d.operatorId)} />
                     <span className="op-scpp">SCPP 6.6</span>
                   </span>
                 </span>
@@ -235,6 +278,10 @@ export default function FollowUpRoom() {
         {/* (ب) the ladder split — the figure lives directly in the panel, never in a card inside it */}
         <div className="ad-panel ad-panel--fig">
           <TierDonut counts={tierCounts} lang={lang} sub={ladderSub} />
+          {/* د9 §7-7 — the sub-line above says the ceilings are the DEFAULT, but a tag alone does
+              not say how far the exception reaches. This is the SAME component and the SAME key
+              the role card uses, so the room and the card can never quote two different N. */}
+          <OverrideCaveat state={state} className="ad-ladder__note" />
         </div>
       </div>
 
@@ -262,7 +309,9 @@ export default function FollowUpRoom() {
           <span className="ad-panel__count">{fmtCount(companies.length, lang)}</span>
           <Icon name="chevronEnd" size={14} strokeWidth={2} className="ad-disc__caret" />
         </summary>
-        <div style={{ overflowX: 'auto' }}>
+        {/* the widest table in the room (four fixed columns + one per scope): it scrolls INSIDE its
+            own box, so the page itself never gains a horizontal scrollbar */}
+        <div className="ad-tblwrap">
           <table className="op-tbl">
             <thead>
               <tr>
@@ -285,20 +334,18 @@ export default function FollowUpRoom() {
                       <Icon name="chevronEnd" size={12} strokeWidth={2} className="op-chev-fwd" />
                     </a>
                   </td>
-                  <td className="op-end mono">{fmtCount(r.fields, lang)}</td>
+                  <td className="op-end mono"><Fig n={r.fields} fmt={fmtN} /></td>
                   {SCOPES.map((s) => (
-                    <td key={s} className="op-end mono">
-                      {r.scopes[s] === 0 ? <span className="op-dev op-dev--none">—</span> : fmtCount(r.scopes[s], lang)}
-                    </td>
+                    <td key={s} className="op-end mono"><Fig n={r.scopes[s]} fmt={fmtN} /></td>
                   ))}
-                  <td className="op-end mono">{fmtCount(r.tenders, lang)}</td>
-                  <td className="op-end mono" style={r.late > 0 ? { color: 'var(--status-delayed)' } : undefined}>
-                    {r.late === 0 ? <span className="op-dev op-dev--none">—</span> : fmtCount(r.late, lang)}
+                  <td className="op-end mono"><Fig n={r.tenders} fmt={fmtN} /></td>
+                  {/* the ONE cell in the table that changes ink, and it changes it for the one
+                      reason the room's alarm vocabulary allows: a real count of late stages */}
+                  <td className={`op-end mono${r.late > 0 ? ' ad-num--late' : ''}`}>
+                    <Fig n={r.late} fmt={fmtN} />
                   </td>
-                  <td className="op-end mono">{fmtCount(r.contracts, lang)}</td>
-                  <td className="op-end mono">
-                    {r.contractValueUSD === 0 ? <span className="op-dev op-dev--none">—</span> : fmtMoneyShort(r.contractValueUSD)}
-                  </td>
+                  <td className="op-end mono"><Fig n={r.contracts} fmt={fmtN} /></td>
+                  <td className="op-end mono"><Fig n={r.contractValueUSD} fmt={fmtMoneyShort} /></td>
                 </tr>
               ))}
             </tbody>
@@ -307,7 +354,7 @@ export default function FollowUpRoom() {
         {/* the one thing a reader cannot infer from the zeros: a contract is attributed to a
             company only through its originating tender, and a contract signed without one is
             attributed to nobody rather than guessed at */}
-        <div className="ad-empty-inline" style={{ textAlign: 'start' }}>{t('adroom.companiesNote')}</div>
+        <div className="ad-note">{t('adroom.companiesNote')}</div>
       </details>
     </div>
   );

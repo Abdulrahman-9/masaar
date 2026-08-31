@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { pageWindow } from '../src/registry/PaginationBar';
 import { buildCsv, type ReportColumn } from '../src/registry/report';
 import { arCompare, nextSortState, sortRows, useTableSort } from '../src/registry/useTableSort';
 import {
@@ -277,5 +278,47 @@ describe('usePagination — hook behaviour', () => {
     rerender({ rows: rowsOf(5) });
     expect(result.current.page).toBe(1);
     expect(result.current.pageRows).toEqual([0, 1, 2, 3, 4]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  PaginationBar — the numbered window (ق6)                           */
+/* ------------------------------------------------------------------ */
+describe('pageWindow', () => {
+  it('elides nothing while the whole run fits — an ellipsis over one page costs a click, saves none', () => {
+    expect(pageWindow(1, 1)).toEqual([1]);
+    expect(pageWindow(4, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('keeps both ENDS and the current page with a neighbour either side', () => {
+    expect(pageWindow(10, 40)).toEqual([1, null, 9, 10, 11, null, 40]);
+  });
+
+  it('slides inward near an edge instead of shrinking, so the strip keeps its width', () => {
+    expect(pageWindow(1, 40)).toEqual([1, 2, 3, 4, null, 40]);
+    expect(pageWindow(40, 40)).toEqual([1, null, 37, 38, 39, 40]);
+  });
+
+  it('never emits a gap that hides a single page — the number is shorter than the «…»', () => {
+    // page 2 alone sits between 1 and 3, so it is PRINTED rather than hidden behind an ellipsis
+    // that is no narrower and cannot be clicked
+    expect(pageWindow(4, 8)).toEqual([1, 2, 3, 4, 5, null, 8]);
+    expect(pageWindow(6, 8)).toEqual([1, null, 5, 6, 7, 8]);
+    for (const last of [8, 9, 20, 100]) {
+      for (let p = 1; p <= last; p++) {
+        const w = pageWindow(p, last);
+        const nums = w.filter((n): n is number => n !== null);
+        // every printed page is real, in order, and the current one is always reachable
+        expect(nums).toEqual([...nums].sort((a, b) => a - b));
+        expect(new Set(nums).size).toBe(nums.length);
+        expect(nums).toContain(p);
+        expect(nums[0]).toBe(1);
+        expect(nums[nums.length - 1]).toBe(last);
+        // a gap must always stand for MORE than one page
+        w.forEach((v, i) => {
+          if (v === null) expect((w[i + 1] as number) - (w[i - 1] as number)).toBeGreaterThan(2);
+        });
+      }
+    }
   });
 });

@@ -363,7 +363,7 @@ export default function Schedule() {
                     <td className="op-end">
                       {r.status === 'unplanned' ? <span className="op-dev op-dev--none">—</span> : <DevChip wd={r.devWd} />}
                     </td>
-                    <td><StatusPill status={PILL[r.status]} title={t(`sched.statusHint.${r.status}`)}>{t(`sched.status.${r.status}`)}</StatusPill></td>
+                    <td><StatusPill size="sm" status={PILL[r.status]} title={t(`sched.statusHint.${r.status}`)}>{t(`sched.status.${r.status}`)}</StatusPill></td>
                     <td className="op-end">
                       <a className="acc-open" href={`#/admin/review/${r.tender.id}`}>
                         {t('reg.atenders.openReview')}
@@ -420,7 +420,7 @@ export default function Schedule() {
                   <td className="op-end mono" style={r.variancePct < 0 ? { color: 'var(--status-delayed)' } : undefined}>
                     {r.variancePct > 0 ? '+' : ''}{fmtCount(r.variancePct, lang)}
                   </td>
-                  <td><StatusPill status={PILL[r.status]} title={t(`sched.statusHint.${r.status}`)}>{t(`sched.status.${r.status}`)}</StatusPill></td>
+                  <td><StatusPill size="sm" status={PILL[r.status]} title={t(`sched.statusHint.${r.status}`)}>{t(`sched.status.${r.status}`)}</StatusPill></td>
                   <td className="op-end">
                     <a className="acc-open" href={`#/admin/contracts/${r.contract.id}`}>
                       {t('reg.contracts.openFile')}

@@ -9,10 +9,22 @@
  *   ط2  operatorMaxUSD < value ≤ jmcMaxUSD     → JMC — the Joint Management Committee gate.
  *   ط3  value > jmcMaxUSD                      → MDOC — the parent company (نفط الوسط) gate.
  *
- * The ladder is GLOBAL (ق1: one ladder for every operator), which is why the thresholds are
- * passed in as configuration rather than derived per field. This is DISTINCT from the §7.1
- * Financial Authority, which is per-field and comes from the field's Service Contract: FA
- * answers «does this enter the cost cycle», the ladder answers «whose signature clears it».
+ * The thresholds are passed in AS CONFIGURATION rather than derived per field — and that one
+ * design choice is what let the ladder become per-operator without a line of engine code changing.
+ *
+ * ق1 (2026-08-20) said «one ladder for every operator», and this engine was built to it. The
+ * client decision of 2026-08-25 SUPERSEDES that — «the supervisor sets the ceilings per operator»
+ * — without erasing its effect: `DEFAULT_APPROVAL_TIERS` below is still the SYSTEM DEFAULT, still
+ * in force for every operating company that has no approved ladder of its own. Which ladder a
+ * given request is measured against is resolved by the CALLER (`resolveTiersFor` in the web
+ * store, `assertTierAuthority` on the API side), because that resolution needs a State this
+ * engine must not know. This function's job is unchanged: given a value and A ladder, name the
+ * body that clears it.
+ *
+ * This is DISTINCT from the §7.1 Financial Authority, which is per-field and comes from the
+ * field's Service Contract: FA answers «does this enter the cost cycle», the ladder answers
+ * «whose signature clears it». A per-operator ceiling does NOT make the ladder a financial
+ * authority — it is a signature ladder that happens to be scoped to a company.
  *
  * Fail closed. An absent or unusable configuration resolves to MDOC — the HIGHEST gate — for
  * the same reason §7.1 fails closed on an unresolvable authority: a request whose clearing body
@@ -64,13 +76,18 @@ export function tierNeedsApproval(tier: ApprovalTier): boolean {
 }
 
 /**
- * The ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating company's own, 5–10M the
- * Joint Management Committee's, >10M نفط الوسط's.
+ * The SYSTEM DEFAULT ladder as the client seeded it (ق1, 2026-08-20): ≤5M the operating company's
+ * own, 5–10M the Joint Management Committee's, >10M نفط الوسط's.
  *
  * It lives HERE, in the engine, rather than in either app: the API service gates ratification on
- * it and the web store seeds its state from it, and two copies of a ladder are two ladders. NAMED
- * DEBT (ops/CLIENT-FEEDBACK-PLAN.md, phase 1): there is still no governed action and no endpoint
- * to move these two ceilings — they are seed constants until that lands.
+ * it and the web store seeds its state from it, and two copies of a ladder are two ladders.
+ *
+ * Since the 2026-08-25 decision this is the FALLBACK, not the only ladder: an operating company
+ * with an approved ladder of its own is measured against that instead, and every company without
+ * one is measured against this. NAMED DEBT (ops/OPERATOR-TIERS-SPEC.md §9 phase 2): the server has
+ * no per-operator ladder model yet and reads this constant directly, which is why the client
+ * editor for per-operator ceilings is withheld in api-mode — a ceiling the server does not
+ * enforce would make a disabled «صادق» button and a 403 disagree.
  */
 export const DEFAULT_APPROVAL_TIERS: ApprovalTiers = { operatorMaxUSD: 5_000_000, jmcMaxUSD: 10_000_000 };
 

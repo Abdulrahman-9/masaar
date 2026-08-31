@@ -95,8 +95,8 @@ export default function FileBidders({ tender }: { tender: Tender }) {
                         </span>
                       )}
                     </td>
-                    <td><StatusPill status={b.docsOk ? 'done' : 'delayed'}>{b.docsOk ? t('filebidders.docsOk') : t('filebidders.docsNo')}</StatusPill></td>
-                    <td><StatusPill status={b.bondOk ? 'done' : 'delayed'}>{b.bondOk ? t('filebidders.bondOk') : t('filebidders.bondNo')}</StatusPill></td>
+                    <td><StatusPill size="sm" status={b.docsOk ? 'done' : 'delayed'}>{b.docsOk ? t('filebidders.docsOk') : t('filebidders.docsNo')}</StatusPill></td>
+                    <td><StatusPill size="sm" status={b.bondOk ? 'done' : 'delayed'}>{b.bondOk ? t('filebidders.bondOk') : t('filebidders.bondNo')}</StatusPill></td>
                     <td>
                       <StatusPill status={tech === 'pass' ? 'done' : tech === 'fail' ? 'delayed' : 'planned'}>
                         {tech === 'pass' ? t('filebidders.techPass') : tech === 'fail' ? t('filebidders.techFail') : t('filebidders.techPending')}

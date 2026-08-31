@@ -50,6 +50,25 @@ export function capsForRole(role: ApiRole): Capability[] {
   return COUNTED.filter((c) => roleHas(c, role));
 }
 
+/**
+ * The same question asked by capability ID — what a NAVIGATION decision needs (ل3).
+ *
+ * A destination is offered to a role only when the role can actually read the subject that
+ * destination is about, and «can actually read» is answered here by the register that mirrors the
+ * real `@Roles(...)` decorators — never by a second, hand-kept list of who sees which menu row.
+ * Otherwise the sidebar and the server drift, which is the state ل3 exists to end: fourteen
+ * destinations offered to a joint-committee session, several of which answer 403 and audit the
+ * refusal on arrival.
+ *
+ * An id the register does not carry answers `false`: a permission question fails CLOSED, and the
+ * accompanying test pins every declared id against the register so a typo cannot hide a
+ * destination silently instead.
+ */
+export function roleHasCapId(id: string, role: ApiRole): boolean {
+  const cap = COUNTED.find((c) => c.id === id);
+  return cap ? roleHas(cap, role) : false;
+}
+
 /** Capabilities withheld from this role — the negative space that makes SoD auditable. */
 export function withheldFrom(role: ApiRole): Capability[] {
   return COUNTED.filter((c) => !roleHas(c, role));

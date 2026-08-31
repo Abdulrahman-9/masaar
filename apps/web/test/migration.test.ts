@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StoreProvider, liveFields, seedState, tenderApprovalTier, useStore, type Tender } from '../src/store';
+import {
+  SEED_APPROVAL_TIERS, StoreProvider, liveFields, resolveTiersFor, seedState, tenderApprovalTier,
+  useStore, type Tender,
+} from '../src/store';
 import { selectableVendors } from '../src/operator/BidderAddDialog';
 import { clearSession, loadSession, saveSession } from '../src/session';
 
@@ -256,6 +259,141 @@ describe('masaar-operator v10 → v11 migration (the archive model)', () => {
     localStorage.setItem('masaar-operator-v10', JSON.stringify(v10Blob()));
     localStorage.setItem('masaar-operator-v11', JSON.stringify({ ...v10Blob(), seq: 999 }));
     expect(load().seq).toBe(999);
+  });
+});
+
+/**
+ * KEY migration → v12 (design-finish D1, 2026-08-30 — the STAGE DEVIATION RECORD). `StageState`
+ * gained the optional `actualFrom` and `devReason` the closing wizard collects, so the store
+ * shape moved and the key moves with it. Same wholesale pass-through as v10 → v11: both fields
+ * are optional and absent means «not recorded», so nothing is rewritten and nothing is appended.
+ */
+describe('masaar-operator v11 → v12 migration (the stage deviation record)', () => {
+  const v11WithClosedStage = () => ({
+    ...v10Blob(),
+    tenders: [tender('t11', 'AH-DRL', 'op-alwaha', 4_200_000, {
+      fieldId: 'f-ahdab',
+      stages: [{ key: 'cost', plannedFrom: '2026-05-01', plannedTo: '2026-05-07', actualTo: '2026-05-09', uploadedDocs: ['stage-report'] }],
+    })],
+  });
+
+  it('carries a v11 blob through whole — the closed stage survives verbatim, nothing is appended', () => {
+    localStorage.setItem('masaar-operator-v11', JSON.stringify(v11WithClosedStage()));
+    const s = load();
+
+    expect(s.tenders.map((t) => t.id)).toEqual(['t11']);
+    expect(s.audit).toHaveLength(2); // v10Blob's two rows — no migration row for a pass-through
+    const stage = s.tenders[0]!.stages[0]!;
+    expect(stage.actualTo).toBe('2026-05-09');
+    // absent means NOT RECORDED — the migration must not invent a start date or a reason
+    expect(stage.actualFrom).toBeUndefined();
+    expect(stage.devReason).toBeUndefined();
+  });
+
+  it('keeps a recorded deviation reason when a v12 blob already carries one', () => {
+    const blob = v11WithClosedStage();
+    (blob.tenders[0]!.stages[0] as Record<string, unknown>).actualFrom = '2026-05-02';
+    (blob.tenders[0]!.stages[0] as Record<string, unknown>).devReason = { cat: 'publisherDelay', note: 'تأخر جهة النشر عن موعد النشر المتفق عليه' };
+    localStorage.setItem('masaar-operator-v12', JSON.stringify(blob));
+    const s = load();
+
+    const stage = s.tenders[0]!.stages[0]!;
+    expect(stage.actualFrom).toBe('2026-05-02');
+    expect(stage.devReason).toEqual({ cat: 'publisherDelay', note: 'تأخر جهة النشر عن موعد النشر المتفق عليه' });
+  });
+
+  it('prefers a live v12 blob over a stale v11 one', () => {
+    localStorage.setItem('masaar-operator-v11', JSON.stringify(v11WithClosedStage()));
+    localStorage.setItem('masaar-operator-v12', JSON.stringify({ ...v11WithClosedStage(), seq: 1234 }));
+    expect(load().seq).toBe(1234);
+  });
+});
+
+/**
+ * KEY migration → v13 (client decision 2026-08-25 — PER-OPERATOR APPROVAL LADDERS). The state root
+ * gained `operatorTiers`, an optional map of ceilings approved for one operating company.
+ *
+ * Another wholesale pass-through in the v11/v12 mould: an absent map means «every company is on the
+ * system default», which is precisely what a v12 blob meant, so nothing is rewritten and nothing is
+ * appended. What is NOT like its predecessors is why the key moved at all — see the store comment:
+ * an OLD build reading a v13 blob would not see the map and would measure a company that holds an
+ * approved ladder against the default instead, which is a silent authority downgrade rather than a
+ * display gap. The bump is the isolation, and these tests hold it to that.
+ */
+describe('masaar-operator v12 → v13 migration (per-operator approval ladders)', () => {
+  const v12Blob = () => ({
+    ...v10Blob(),
+    tenders: [tender('t12', 'AH-DRL', 'op-alwaha', 4_200_000, { fieldId: 'f-ahdab' })],
+  });
+
+  it('carries a v12 blob through whole — every record survives, operatorTiers is empty, nothing is appended', () => {
+    localStorage.setItem('masaar-operator-v12', JSON.stringify(v12Blob()));
+    const s = load();
+
+    expect(s.tenders.map((t) => t.id)).toEqual(['t12']);
+    expect(s.operators.map((o) => o.id)).toEqual(['op-alwaha']);
+    expect(s.seq).toBe(v12Blob().seq);
+    // the absence of an override IS the migration: no company had one, so all are on the default
+    expect(s.operatorTiers).toEqual({});
+    // the blob's OWN default ladder rides through untouched — v13 adds a layer above it,
+    // it does not reset it to seed
+    expect(s.approvalTiers).toEqual({ operatorMaxUSD: 3_000_000, jmcMaxUSD: 9_000_000 });
+    // NO migration row: a v12 blob and a v13 blob describe the same authorities, and a row
+    // claiming a change that never happened is the same fabrication as an unrecorded one
+    expect(s.audit).toHaveLength(2);
+    expect(s.audit.map((r) => r.action)).not.toContain('SEED_MIGRATION_V9');
+  });
+
+  it('carries an APPROVED per-operator ladder through a v13 blob verbatim', () => {
+    localStorage.setItem('masaar-operator-v13', JSON.stringify({
+      ...v12Blob(),
+      operatorTiers: { 'op-alwaha': { operatorMaxUSD: 1_000_000, jmcMaxUSD: 3_000_000 } },
+    }));
+    const s = load();
+    expect(s.operatorTiers['op-alwaha']).toEqual({ operatorMaxUSD: 1_000_000, jmcMaxUSD: 3_000_000 });
+    // and the resolution really uses it: 4.20M is ط1 on the default and ط3 under this ladder
+    expect(resolveTiersFor(s, 'op-alwaha')).toEqual({ operatorMaxUSD: 1_000_000, jmcMaxUSD: 3_000_000 });
+    expect(tenderApprovalTier(s, s.tenders[0]!)).toBe('MDOC');
+  });
+
+  it('loads a STRUCTURALLY BROKEN stored ladder exactly as written, and the engine fails closed on it', () => {
+    localStorage.setItem('masaar-operator-v13', JSON.stringify({
+      ...v12Blob(),
+      // a string ceiling is corrupt CONFIGURATION, not an absent one — repairing it from the
+      // default here would clear this company's requests at the lowest gate on a ladder nobody
+      // approved, which is the exact failure the fail-closed reading exists to prevent
+      operatorTiers: { 'op-alwaha': { operatorMaxUSD: 'nine', jmcMaxUSD: 3_000_000 } },
+    }));
+    const s = load();
+    expect(Number.isNaN(s.operatorTiers['op-alwaha']!.operatorMaxUSD)).toBe(true);
+    expect(s.operatorTiers['op-alwaha']!.jmcMaxUSD).toBe(3_000_000);
+    // NOT silently completed from the seed, and not read at the lowest gate: MDOC, the highest
+    expect(s.operatorTiers['op-alwaha']).not.toEqual(SEED_APPROVAL_TIERS);
+    expect(tenderApprovalTier(s, s.tenders[0]!)).toBe('MDOC');
+  });
+
+  it('normalizes only the SHAPE of the map — a non-object map and non-ladder entries name nothing', () => {
+    localStorage.setItem('masaar-operator-v13', JSON.stringify({ ...v12Blob(), operatorTiers: 'nope' }));
+    expect(load().operatorTiers).toEqual({});
+    localStorage.clear();
+    localStorage.setItem('masaar-operator-v13', JSON.stringify({ ...v12Blob(), operatorTiers: { 'op-alwaha': 7 } }));
+    expect(load().operatorTiers).toEqual({});
+  });
+
+  it('prefers a live v13 blob over a stale v12 one', () => {
+    localStorage.setItem('masaar-operator-v12', JSON.stringify(v12Blob()));
+    localStorage.setItem('masaar-operator-v13', JSON.stringify({ ...v12Blob(), seq: 4321 }));
+    expect(load().seq).toBe(4321);
+  });
+
+  it('composes the whole chain: a v9 blob migrates its roles AND arrives with the new field normalized', () => {
+    localStorage.setItem('masaar-operator-v9', JSON.stringify(v9Blob([
+      { id: 'u1', azureOid: 'oid-1', name: 'أ', email: 'a@x.iq', role: 'ROC_ADMIN', twoFa: true, disabled: false },
+    ])));
+    const s = load();
+    expect(s.users[0]!.role).toBe('MDOC_ADMIN'); // v10's rename still applied
+    expect(s.operatorTiers).toEqual({});          // v13's field normalized on the way through
+    expect(s.tenders.map((t) => t.id)).toEqual(['t9']);
   });
 });
 

@@ -13,7 +13,7 @@ import { saveSession } from '../src/session';
  * «محلي» flag missing from an action no endpoint enforces, all typecheck cleanly.
  */
 
-const KEY = 'masaar-operator-v11';
+const KEY = 'masaar-operator-v13';
 const SUPER: Actor = { oid: 'oid-super-01', name: 'م. مصطفى الكرخي', role: 'SUPER_ADMIN' };
 const REASON = 'انتهى عقد خدمة الحقل ولم تعد الشركة تشغّله — سحب موثّق بكتاب 2026/311';
 

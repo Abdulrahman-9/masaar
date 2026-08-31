@@ -1,4 +1,6 @@
 import type { ApprovalTier } from '@masaar/scpp-rules';
+import type { WorkingCalendar } from '@masaar/working-days';
+import { stageDevWd } from '../operator/derive';
 import { currentStage, tenderApprovalTier, type ContractState, type State, type Tender } from '../store';
 import { currentStageKey, scheduleVariancePct } from './contractDerive';
 
@@ -104,6 +106,44 @@ export function awaitingTier(rows: ApprovalRow[], tier: Exclude<ApprovalTier, 'O
 export function ratifiedInMonth(rows: ApprovalRow[], todayIso: string): ApprovalRow[] {
   const month = todayIso.slice(0, 7);
   return rows.filter((r) => r.tender.ratification?.status === 'ratified' && r.tender.ratification.on.slice(0, 7) === month);
+}
+
+/* ---------------- how long a signature has been owed (س‌ل3 / ل5) ---------------- */
+
+/**
+ * The stage the approval chain is ABOUT. Named once because three readers of it must agree:
+ * `pendingRatification` (parked here), this measure, and the ratify gate itself.
+ */
+export const RATIFY_STAGE_KEY = 'ratify';
+
+/**
+ * «منتظرة منذ» — and it is FOUR answers, not one number, because three of them are different
+ * facts that a single figure would flatten into a lie.
+ *
+ *  · `none`      — the row is decided. Nobody is waiting; a duration here would be invented.
+ *  · `unplanned` — the ratification stage carries no planned end. It cannot be judged late, and
+ *                  «0» would read as «on time» (the honesty rule scheduleDerive already states).
+ *  · `onPlan`    — planned, and the plan has not run out yet. A real, measurable «not yet».
+ *  · `overdue`   — planned, and past. The number is `stageDevWd`, the SAME signed working-day
+ *                  deviation every other schedule surface in the product argues from.
+ *
+ * What it deliberately is NOT: `Date.now() - submittedOn` in calendar days against a 45-day
+ * threshold. That threshold cites no clause, and calendar days are not how this platform measures
+ * anything (the reference's own 45-day red flag is refused for both reasons — س‌ل7/ل6). `today` is
+ * injected, so the measure is deterministic and testable rather than read off the wall clock.
+ */
+export type RatifyWait =
+  | { kind: 'none' }
+  | { kind: 'unplanned' }
+  | { kind: 'onPlan' }
+  | { kind: 'overdue'; wd: number };
+
+export function ratifyWait(row: ApprovalRow, today: string, cal: WorkingCalendar): RatifyWait {
+  if (row.decision !== 'pending') return { kind: 'none' };
+  const stage = row.tender.stages.find((s) => s.key === RATIFY_STAGE_KEY);
+  if (!stage?.plannedTo) return { kind: 'unplanned' };
+  const wd = stageDevWd(stage, today, cal);
+  return wd > 0 ? { kind: 'overdue', wd } : { kind: 'onPlan' };
 }
 
 /* ---------------- the triad explainer (client request 21) ---------------- */

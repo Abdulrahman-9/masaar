@@ -98,7 +98,14 @@ html[lang='en'] body { font-family: var(--font-sans); }
 
 .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: var(--t-caption); color: var(--text-3); }
+/* ---- ONE field-label voice for the whole product: 12px · 600 · --text-2 ----
+   Two voices used to disagree about what a field label sounds like — `.field label` at
+   12/400/--text-3 (paper forms) and `.wz-field__l` at 13/600/--text-2 (the wizards) — so the same
+   question wore two faces depending on which screen asked it. The showcase settles it at
+   12/600/--text-2, and this is the ONLY place it is said; `operator.css` no longer restates it,
+   it only keeps the `small` variant that quiets an inline hint inside a label. */
+.field label,
+.wz-field__l { font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--text-2); }
 /* the §4-هـ field shape. DECLARED EXCEPTION on the type size: these inputs carry a one-time
    code and a money figure that are read digit by digit, and ≥16px is also what stops a mobile
    browser zooming the whole form on focus. */
@@ -353,6 +360,55 @@ html[dir='ltr'] td.op-code:not(.op-end), html[dir='ltr'] th.op-code:not(.op-end)
 .hbar__fill { display: block; block-size: 100%; border-radius: var(--r-pill); background: var(--link); transition: width var(--dur-base) var(--ease-out); }
 .hbar__v { font-size: var(--t-caption); color: var(--text-1); inline-size: 44px; text-align: end; }
 @media (max-width: 700px) { .hbar__l { inline-size: 150px; } }
+
+/* ---------- Approval ladder chip (ق1) ----------
+   The chip TierPill paints. It lived in admin.css until د11 needed the same band on the operator's
+   tender file, and admin.css is a sheet the operator portal never loads (the `.reg-select`
+   precedent). Moved here whole — same declarations, one home — rather than copied into a second
+   sheet. A tier is an AUTHORITY BAND, not a lifecycle state, so it reads as a rung of the indigo
+   ramp and leaves the closed --status-* set to things that have a status; the chip is
+   SQUARE-cornered on purpose, which is how a tier is told apart from a disc-shaped status badge. */
+.ad-tier {
+  display: inline-flex; align-items: center; gap: 5px;
+  block-size: 22px; padding-inline: 9px; border-radius: var(--r-sm);
+  border: 1px solid var(--btn-secondary-bd);
+  background: var(--btn-secondary-bg);
+  font-size: var(--t-micro); font-weight: var(--fw-semibold); white-space: nowrap;
+}
+.ad-tier--operator { color: var(--tier-operator); }
+.ad-tier--jmc      { color: var(--tier-jmc); }
+.ad-tier--mdoc     { color: var(--tier-mdoc); }
+
+/* The read-only ladder listing, moved here from admin.css for exactly the reason above: since
+   د9 the operator portal shows its own company's ladder (#/operator/approvals) and never loads
+   the admin sheet. Same declarations, one home — not a second copy. */
+.ad-ladder { display: flex; flex-direction: column; gap: 6px; }
+.ad-ladder__row { display: flex; align-items: center; gap: 10px; font-size: var(--t-caption); color: var(--text-2); }
+.ad-ladder__band { font-family: var(--font-mono); direction: ltr; unicode-bidi: isolate; font-size: var(--t-caption); color: var(--text-1); margin-inline-start: auto; white-space: nowrap; }
+.ad-ladder__note { margin-block-start: var(--space-2); font-size: var(--t-caption); line-height: var(--lh-loose); color: var(--text-3); }
+
+/* WHERE a ladder came from — the system default, or one approved for this company. Square like
+   the tier chip it stands beside, and deliberately outside --status-*: a ladder's source is a
+   standing fact about an authority, not a lifecycle state. The default is quiet paper; a custom
+   ladder wears the JMC rung of the same indigo ramp, so it reads as «an authority was moved». */
+.ad-ladder__src {
+  display: inline-flex; align-items: center;
+  block-size: 20px; padding-inline: 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-1); background: var(--bg-muted); color: var(--text-3);
+  font-size: var(--t-micro); font-weight: var(--fw-semibold); white-space: nowrap;
+}
+.ad-ladder__src--own { border-color: var(--btn-secondary-bd); background: var(--btn-secondary-bg); color: var(--tier-jmc); }
+
+/* WHERE an approving body's decision stands. Unlike the tier and its source this IS a lifecycle
+   fact about one request, so it wears the closed --status-* set and the disc shape that goes with
+   it. Moved here from admin.css because the operator portal now reads its own requests' decisions
+   at #/operator/approvals — same declarations, one home. */
+.ad-dec { display: inline-flex; align-items: center; block-size: 22px; padding-inline: 10px; border-radius: var(--r-pill); border: 1px solid transparent; font-size: var(--t-caption); font-weight: var(--fw-semibold); white-space: nowrap; }
+.ad-dec--pending   { background: var(--status-progress-bg); border-color: var(--status-progress-bd); color: var(--status-progress); }
+.ad-dec--ratified  { background: var(--status-done-bg); border-color: var(--status-done-bd); color: var(--status-done); }
+.ad-dec--returned  { background: var(--status-delayed-bg); border-color: var(--status-delayed-bd); color: var(--status-delayed); }
+.ad-dec--suspended { background: var(--status-risk-bg); border-color: var(--status-risk-bd); color: var(--status-risk); }
+.ad-dec--cancelled { background: var(--status-blocked-bg); border-color: var(--status-blocked-bd); color: var(--status-blocked); }
 
 /* ---------- Print (PDF export) ----------
    No colour is re-declared: the dark palette lives inside @media screen, so print already

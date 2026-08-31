@@ -156,7 +156,14 @@ export function TierDonut({ counts, lang, sub }: { counts: TierCounts; lang: 'ar
             </>
           );
           // ط1 opens no approval gate, so it has no chain to open — it stays an inert row rather
-          // than pointing at a registry that structurally cannot hold it
+          // than pointing at a registry that structurally cannot hold it (`tier.ts:42-44`).
+          //
+          // لوحة-28 — that inertness is now READABLE instead of merely true. The reference makes
+          // all three bands clickable; we keep ours inert (the destination does not exist) and pay
+          // for it in explanation: the row never turns the cursor into a pointer, it carries the
+          // reason as a hover `title`, and the same sentence is PRINTED under the legend — because
+          // a browser tooltip is unreachable by touch and by keyboard, so it may add the reason but
+          // may never be the only place the reason lives.
           return href ? (
             <li key={tier}>
               <a
@@ -172,10 +179,13 @@ export function TierDonut({ counts, lang, sub }: { counts: TierCounts; lang: 'ar
               </a>
             </li>
           ) : (
-            <li key={tier} className="ch-legend__i">{body}</li>
+            <li key={tier} className="ch-legend__i ch-legend__i--inert" title={t('ch.donut.inert')}>{body}</li>
           );
         })}
       </ul>
+
+      {/* the one thing the ring cannot draw: WHY its first band opens nothing */}
+      <p className="ch__note ch-donut__note">{t('ch.donut.inert')}</p>
     </figure>
   );
 }

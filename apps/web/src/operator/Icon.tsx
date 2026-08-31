@@ -28,6 +28,8 @@ const PATHS: Record<string, string> = {
   // theme toggle (§3-د) — glyphs lifted verbatim from design-v2-ref/dashboard.dc.html
   moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
   sun: 'M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M4.93 19.07l1.41-1.41 M17.66 6.34l1.41-1.41',
+  // ت6 — the clipboard glyph (feather «copy»): the front sheet is the rect in extra() below
+  copy: 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
   // toast marks / dismiss
   alert: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01',
   close: 'M18 6L6 18 M6 6l12 12',
@@ -45,6 +47,8 @@ function extra(name: string): JSX.Element | null {
       return <rect x="3" y="3" width="18" height="18" rx="2" />;
     case 'lock':
       return <rect x="3" y="11" width="18" height="11" rx="2" />;
+    case 'copy':
+      return <rect x="9" y="9" width="13" height="13" rx="2" />;
     case 'sun':
       return <circle cx="12" cy="12" r="4" />;
     default:

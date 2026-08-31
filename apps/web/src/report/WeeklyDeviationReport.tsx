@@ -1,8 +1,8 @@
-import { METHODS, scheduleCompliancePct, stageByKey } from '@masaar/scpp-rules';
+import { METHODS, scheduleCompliancePct, stageByKey, stageDeviationWorkingDays } from '@masaar/scpp-rules';
 import { workingDaysBetween } from '@masaar/working-days';
 import { useTranslation } from 'react-i18next';
 import { resolveSessionOrg } from '../orgIdentity';
-import { aboveOwnFA, calendarOf, currentStage, todayIso, useStore } from '../store';
+import { aboveOwnFA, calendarOf, currentStage, sessionScopedTenders, todayIso, useStore } from '../store';
 import { fmtCount, tenderDeviationWd } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { reportStamp } from '../registry/report';
@@ -20,20 +20,31 @@ export default function WeeklyDeviationReport() {
   const org = resolveSessionOrg(state, lang);
   const words = useStampWords();
 
-  const open = state.tenders.filter((x) => currentStage(x));
-  const lateRows = state.tenders
+  // D4 — the rows really are the session's scope now, as the stamp sentence already claimed:
+  // an operator session prints ITS company's portfolio; platform roles print everything.
+  const tenders = sessionScopedTenders(state);
+  const open = tenders.filter((x) => currentStage(x));
+  const lateRows = tenders
     .map((x) => ({ tender: x, cur: currentStage(x), dev: tenderDeviationWd(x, today, cal) }))
     .filter((r) => r.cur?.plannedTo && today > r.cur.plannedTo)
     .sort((a, b) => b.dev - a.dev);
   const compliance = scheduleCompliancePct(
-    state.tenders.flatMap((x) => x.stages.filter((s) => s.plannedTo).map((s) => ({ plannedEnd: s.plannedTo!, actualEnd: s.actualTo }))),
+    tenders.flatMap((x) => x.stages.filter((s) => s.plannedTo).map((s) => ({ plannedEnd: s.plannedTo!, actualEnd: s.actualTo }))),
   );
-  const inMct = state.tenders.filter((x) => aboveOwnFA(state, x) && x.mct);
+  const inMct = tenders.filter((x) => aboveOwnFA(state, x) && x.mct);
 
-  const pub = state.tenders.filter((x) => x.announcement.mode === 'public');
+  // D1 — the promise «يظهر في تقرير الالتزام» honoured: every stage CLOSED late, with the
+  // classified reason the closing wizard recorded (rows closed before the record existed say so).
+  const reasonRows = tenders
+    .flatMap((x) => x.stages
+      .filter((s) => s.actualTo && s.plannedTo && stageDeviationWorkingDays(s.plannedTo, s.actualTo, cal) > 0)
+      .map((s) => ({ tender: x, stage: s, dev: stageDeviationWorkingDays(s.plannedTo!, s.actualTo!, cal) })))
+    .sort((a, b) => b.dev - a.dev);
+
+  const pub = tenders.filter((x) => x.announcement.mode === 'public');
   const annOk = pub.filter((x) => x.announcement.periodDays >= 21).length;
   const annPct = pub.length ? Math.round((annOk / pub.length) * 100) : 100;
-  const mctAll = state.tenders.filter((x) => x.mct?.meetingHeldOn);
+  const mctAll = tenders.filter((x) => x.mct?.meetingHeldOn);
   const mctOk = mctAll.filter((x) => workingDaysBetween(x.mct!.notifiedOn, x.mct!.meetingHeldOn!, cal) <= 14).length;
   const mctPct = mctAll.length ? Math.round((mctOk / mctAll.length) * 100) : 100;
 
@@ -53,7 +64,7 @@ export default function WeeklyDeviationReport() {
   const stamp = reportStamp({
     params: new URLSearchParams(), labels: {}, lang,
     rows: lateRows.length, today, words,
-    scope: t('report.wk_scope', { n: fmtCount(state.tenders.length, lang), org: org.name ?? '—' }),
+    scope: t('report.wk_scope', { n: fmtCount(tenders.length, lang), org: org.name ?? '—' }),
   });
 
   return (
@@ -144,6 +155,41 @@ export default function WeeklyDeviationReport() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 4 documented deviation reasons (D1) — what the closing wizard collected, quoted */}
+          <div className="rp-sec rp-sec--avoid">
+            <div className="rp-sec__head"><span className="rp-sec__n">4</span><span className="rp-sec__t">{t('report.wk_sec4')}</span></div>
+            {reasonRows.length === 0 ? (
+              <div className="rp-conclusion">{t('report.wk_noReasons')}</div>
+            ) : (
+              <table className="rp-tbl">
+                <thead>
+                  <tr>
+                    <th>{t('report.wk_colTender')}</th>
+                    <th>{t('report.wk_colStage')}</th>
+                    <th className="c">{t('report.wk_colWindow')}</th>
+                    <th className="c">{t('report.wk_colDev')}</th>
+                    <th>{t('report.wk_colReason')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reasonRows.map((r) => (
+                    <tr key={`${r.tender.id}-${r.stage.key}`}>
+                      <td><span dir="auto">{r.tender.title[lang]}</span> <span className="rp-mono" style={{ fontSize: 9.5, color: 'var(--text-3)' }}>{r.tender.code}</span></td>
+                      <td>{stageByKey(r.stage.key)?.[lang] ?? r.stage.key}</td>
+                      <td className="c rp-mono" style={{ fontSize: 9.5 }}>{r.stage.actualFrom ?? '—'} → {r.stage.actualTo}</td>
+                      <td className="c"><span className={r.dev > 5 ? 'rp-dev--late5' : 'rp-dev--late'}>{t('report.late', { n: fmtCount(r.dev, lang) })} {t('report.wd')}</span></td>
+                      <td dir="auto">
+                        {r.stage.devReason
+                          ? <><b>{t(`wizco.cat_${r.stage.devReason.cat}`)}</b> — {r.stage.devReason.note}</>
+                          : <span style={{ color: 'var(--text-3)' }}>{t('report.wk_reasonMissing')}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

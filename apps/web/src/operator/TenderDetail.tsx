@@ -3,21 +3,41 @@ import { StatusPill } from '@masaar/ui';
 import { calendarDaysBetween, workingDaysBetween } from '@masaar/working-days';
 import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { calendarOf, currentStage, expectedAwardDate, stageStatus, todayIso, useStore } from '../store';
-import { fmtCount, fmtMoney, tenderStatus, wizardTypeFor } from './derive';
+import { calendarOf, currentStage, expectedAwardDate, requiredDocsFor, stageStatus, todayIso, useStore } from '../store';
+import { fmtCount, fmtMoney, tenderDeviationWd, tenderStatus, wizardTypeFor } from './derive';
+import { DevChip } from './DevChip';
 import FileBidders from './FileBidders';
 import FileDocs from './FileDocs';
+import FileLog from './FileLog';
+import FileSide from './FileSide';
 import FileTimeline from './FileTimeline';
 import { Icon } from './Icon';
+import { useOperatorUi } from './OperatorShell';
 import { PathChip } from './PathChip';
 
-type Tab = 'timeline' | 'docs' | 'bidders';
-const TABS: readonly Tab[] = ['timeline', 'docs', 'bidders'];
+type Tab = 'timeline' | 'docs' | 'bidders' | 'log';
+const TABS: readonly Tab[] = ['timeline', 'docs', 'bidders', 'log'];
+
+/**
+ * ت6 — the clipboard, defensively. `navigator.clipboard` is absent in jsdom, absent over plain
+ * HTTP and revocable by permission, and reading the property itself can throw in a hardened
+ * context. So the write is attempted, its PROMISE is what proves success, and every failure path
+ * lands on one honest toast instead of an unhandled rejection: no button on this page may break it.
+ */
+function writeClipboard(text: string): Promise<void> {
+  try {
+    const p = navigator.clipboard?.writeText?.(text);
+    return p instanceof Promise ? p : Promise.reject(new Error('no-clipboard'));
+  } catch (e) {
+    return Promise.reject(e instanceof Error ? e : new Error('clipboard-threw'));
+  }
+}
 
 export default function TenderDetail({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
   const lang = (i18n.language === 'ar' ? 'ar' : 'en') as 'ar' | 'en';
   const { state } = useStore();
+  const { toast } = useOperatorUi();
   const today = todayIso();
   const cal = calendarOf(state);
 
@@ -89,6 +109,25 @@ export default function TenderDetail({ id }: { id: string }) {
     window.location.hash = `#/operator/t/${tender.id}/w/${wizardTypeFor(stageKey)}`;
   };
 
+  const copyCode = () => {
+    void writeClipboard(tender.code).then(
+      () => toast(t('file.copyDone', { code: tender.code }), { kind: 'success' }),
+      () => toast(t('file.copyFail'), { kind: 'error' }),
+    );
+  };
+
+  /**
+   * ت2 — the facts strip. Four figures, every one of them DERIVED here and nowhere stored:
+   * the estimate, the stage the sequence says is open, the tender-wide deviation in WORKING days
+   * (`tenderDeviationWd`, printed by the same `DevChip` the timeline column uses, so the strip can
+   * never disagree with the row it summarises), and the document count for the RUNNING stage only.
+   * It is a quiet fact line, not a tile board: a filled counter above a file would out-shout the
+   * file, and none of these four numbers is a thing to click.
+   */
+  const devWd = tenderDeviationWd(tender, today, cal);
+  const stageDocs = active ? requiredDocsFor(active.key) : [];
+  const docsHave = active ? stageDocs.filter((d) => active.uploadedDocs.includes(d)).length : 0;
+
   return (
     <div className="op-page op-page--file">
       <a className="file-back" href="#/operator">
@@ -99,7 +138,12 @@ export default function TenderDetail({ id }: { id: string }) {
       <div className="file-head">
         <div className="file-head__main">
           <div className="file-head__tags">
-            <span className="file-codechip">{tender.code}</span>
+            <span className="file-code">
+              <span className="file-codechip">{tender.code}</span>
+              <button type="button" className="file-copy" onClick={copyCode} title={t('file.copyCode')} aria-label={t('file.copyCode')}>
+                <Icon name="copy" size={13} strokeWidth={2} />
+              </button>
+            </span>
             <PathChip id={tender.methodId} lang={lang} />
             <StatusPill status={status}>{t(`status.${status}`)}</StatusPill>
           </div>
@@ -115,6 +159,27 @@ export default function TenderDetail({ id }: { id: string }) {
           {t('file.reportPrint')}
         </a>
       </div>
+
+      <dl className="file-kpi">
+        <div className="file-kpi__cell">
+          <dt className="file-kpi__l">{t('file.kpi.value')}</dt>
+          <dd className="file-kpi__v op-code">{fmtMoney(tender.estimatedValueUSD)}</dd>
+        </div>
+        <div className="file-kpi__cell">
+          <dt className="file-kpi__l">{t('file.kpi.stage')}</dt>
+          <dd className="file-kpi__v" dir="auto">{active ? (stageByKey(active.key)?.[lang] ?? active.key) : t('file.kpi.stageAllDone')}</dd>
+        </div>
+        <div className="file-kpi__cell">
+          <dt className="file-kpi__l">{t('file.kpi.dev')}</dt>
+          <dd className="file-kpi__v"><DevChip wd={devWd} /></dd>
+        </div>
+        <div className="file-kpi__cell">
+          <dt className="file-kpi__l">{t('file.kpi.docs')}</dt>
+          <dd className="file-kpi__v op-code">
+            {active ? t('file.kpi.docsOf', { have: fmtCount(docsHave, lang), need: fmtCount(stageDocs.length, lang) }) : t('file.kpi.none')}
+          </dd>
+        </div>
+      </dl>
 
       {active && (
         <div className="file-here">
@@ -132,43 +197,57 @@ export default function TenderDetail({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="file-tabs" role="tablist" aria-label={t('file.tabsLabel')}>
-        {TABS.map((k) => (
-          <button
-            key={k}
-            id={tabId(k)}
-            ref={(el) => { tabRefs.current[k] = el; }}
-            role="tab"
-            type="button"
-            aria-selected={tab === k}
-            aria-controls={panelId(k)}
-            tabIndex={tab === k ? 0 : -1}
-            className={`file-tab${tab === k ? ' file-tab--on' : ''}`}
-            onClick={() => setTab(k)}
-            onKeyDown={onTabKey}
-          >
-            {t(`file.tabs.${k}`)}
-          </button>
-        ))}
-      </div>
+      {/* the tab set keeps the whole main column; the ت3/ت4/ت5 cards stand beside it as ONE side
+          column rather than being folded into a tab, because they are standing facts about the
+          file that stay true whichever tab is open (the grid stacks them below on narrow viewports) */}
+      <div className="file-body">
+        <div className="file-main">
+          <div className="file-tabs" role="tablist" aria-label={t('file.tabsLabel')}>
+            {TABS.map((k) => (
+              <button
+                key={k}
+                id={tabId(k)}
+                ref={(el) => { tabRefs.current[k] = el; }}
+                role="tab"
+                type="button"
+                aria-selected={tab === k}
+                aria-controls={panelId(k)}
+                tabIndex={tab === k ? 0 : -1}
+                className={`file-tab${tab === k ? ' file-tab--on' : ''}`}
+                onClick={() => setTab(k)}
+                onKeyDown={onTabKey}
+              >
+                {t(`file.tabs.${k}`)}
+              </button>
+            ))}
+          </div>
 
-      {/* one panel is rendered at a time; each still names the tab that owns it, so a screen
-          reader entering the panel is told which of the three it is inside */}
-      {tab === 'timeline' && (
-        <div role="tabpanel" id={panelId('timeline')} aria-labelledby={tabId('timeline')}>
-          <FileTimeline tender={tender} focus={focus} onFocus={setFocus} onWizard={openWizard} />
+          {/* one panel is rendered at a time; each still names the tab that owns it, so a screen
+              reader entering the panel is told which of the four it is inside */}
+          {tab === 'timeline' && (
+            <div role="tabpanel" id={panelId('timeline')} aria-labelledby={tabId('timeline')}>
+              <FileTimeline tender={tender} focus={focus} onFocus={setFocus} onWizard={openWizard} />
+            </div>
+          )}
+          {tab === 'docs' && (
+            <div role="tabpanel" id={panelId('docs')} aria-labelledby={tabId('docs')}>
+              <FileDocs tender={tender} />
+            </div>
+          )}
+          {tab === 'bidders' && (
+            <div role="tabpanel" id={panelId('bidders')} aria-labelledby={tabId('bidders')}>
+              <FileBidders tender={tender} />
+            </div>
+          )}
+          {tab === 'log' && (
+            <div role="tabpanel" id={panelId('log')} aria-labelledby={tabId('log')}>
+              <FileLog tender={tender} />
+            </div>
+          )}
         </div>
-      )}
-      {tab === 'docs' && (
-        <div role="tabpanel" id={panelId('docs')} aria-labelledby={tabId('docs')}>
-          <FileDocs tender={tender} />
-        </div>
-      )}
-      {tab === 'bidders' && (
-        <div role="tabpanel" id={panelId('bidders')} aria-labelledby={tabId('bidders')}>
-          <FileBidders tender={tender} />
-        </div>
-      )}
+
+        <FileSide tender={tender} />
+      </div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ import { WHATS_NEW_KEY } from '../src/WhatsNew';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../../..');
-const STORE_KEY = 'masaar-operator-v11';
+const STORE_KEY = 'masaar-operator-v13';
 const BRIEF = '#/admin/reports/update-brief';
 
 const MDOC = { name: 'د. سارة الجبوري', role: 'MDOC_ADMIN' as const, oid: 'oid-roc-01' };
@@ -293,7 +293,7 @@ describe('the «الجديد في مسار» strip on both landing screens', () 
     /*
      * The flag must never travel with — or be wiped by — a migration of the business state. It is
      * its own namespaced key (the `masaar.nav.sec` precedent), and nothing about it is written
-     * into the store blob: a chrome preference inside `masaar-operator-v11` would be dropped by
+     * into the store blob: a chrome preference inside `masaar-operator-v13` would be dropped by
      * the next schema bump, silently un-dismissing a strip the reader closed on purpose.
      */
     expect(WHATS_NEW_KEY.startsWith('masaar.')).toBe(true);
@@ -317,11 +317,15 @@ describe('the «الجديد في مسار» strip on both landing screens', () 
     expect(strip()).toBeNull();
   });
 
-  it('keeps its motion to one state fade, and none of it under reduced motion', () => {
+  it('keeps its motion to one state fade, and answers reduced motion through the ONE block', () => {
     const css = readFileSync(join(ROOT, 'apps/web/src/whatsnew.css'), 'utf8');
-    const reduced = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
-    expect(reduced).toContain('.wn__body { animation: none; }');
-    expect(reduced).toContain('transition: none;');
+    expect(css).toMatch(/\.wn__body \{[^}]*animation: fade-in/);
+    // D1-1: the strip's own hand-kept list is gone. It named three classes and would have gone
+    // stale the next time someone gave the strip a fourth transition; the single block in
+    // tokens.css covers whatever the sheet grows. This asserts the sheet is SILENT on it.
+    expect(css).not.toContain('prefers-reduced-motion');
+    const tokens = readFileSync(join(ROOT, 'packages/tokens/css/tokens.css'), 'utf8');
+    expect(tokens).toContain('@media (prefers-reduced-motion: reduce)');
     // and nothing physical-direction: the strip mirrors with the document like every other surface
     expect(css).not.toMatch(/\b(margin|padding|border)-(left|right)\b/);
   });

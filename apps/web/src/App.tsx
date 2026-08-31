@@ -28,6 +28,7 @@ import Gallery from './Gallery';
 import Login from './Login';
 import { NoticeBell } from './NoticeBell';
 import Inbox from './operator/Inbox';
+import OperatorApprovals from './operator/Approvals';
 import OperatorReports from './operator/OperatorReports';
 import OperatorShell, { type OpView } from './operator/OperatorShell';
 import TenderDetail from './operator/TenderDetail';
@@ -189,6 +190,10 @@ function OperatorRoutes({ hash, onLogout }: { hash: string; onLogout: () => void
   } else if (hash === '#/operator/reports') {
     view = 'reports';
     node = <OperatorReports />;
+  } else if (hash === '#/operator/approvals') {
+    // د9 — the scoped, read-only ladder view (settles POST-V2 §ج)
+    view = 'approvals';
+    node = <OperatorApprovals />;
   } else {
     const m = /^#\/operator\/t\/([^/]+)$/.exec(hash);
     if (m) {
@@ -225,8 +230,8 @@ function route(hash: string) {
 }
 
 /**
- * Who may enter #/admin: the four PLATFORM roles (SUPER_ADMIN / MDOC_ADMIN / EVALUATION /
- * AUDITOR). The two operator roles are company-scoped by definition (session.ts
+ * Who may enter #/admin: the five PLATFORM roles (SUPER_ADMIN / MDOC_ADMIN / JMC_APPROVER /
+ * EVALUATION / AUDITOR). The two operator roles are company-scoped by definition (session.ts
  * isOperatorRole) and every admin registry is cross-company, so the panel is closed to them.
  * A session alone is not the gate — that was the bug: any signed-in operator walked in.
  */

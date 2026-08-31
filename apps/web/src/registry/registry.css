@@ -56,6 +56,39 @@
 .reg-pager__size:hover { background: var(--bg-muted); }
 .reg-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ---- ق6 — الصفحات المرقّمة ----
+   السابق/التالي يقولان «خطوة»، ولا يقولان أين أنت من كم: الأرقام تقولها، وتنقل
+   القارئ إلى صفحة بعينها في نقرة بدل عشر. النافذة مضغوطة بـ«…» فوق سبع صفحات
+   حتى لا يبتلع الشريطُ السجلَّ الذي يرقّمه. يفيد كل السجلّات دفعةً واحدة لأنّ
+   الشريط مشترك. */
+.reg-pager__pages { display: flex; align-items: center; gap: 3px; }
+.reg-pager__p {
+  font: inherit;
+  font-size: var(--t-caption);
+  font-family: var(--font-mono);
+  direction: ltr;
+  min-inline-size: 28px;
+  block-size: 28px;
+  padding-inline: 6px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-sm);
+  background: var(--bg-card);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.reg-pager__p:hover { background: var(--bg-muted); }
+/* الصفحة الحالية ليست زرّاً «مضغوطاً» بل الموضع نفسه: `aria-current` هو ما يقوله
+   قارئ الشاشة، وهذه القاعدة ما يقوله المحيط البصري — مصدر واحد لحالة واحدة. */
+.reg-pager__p[aria-current='page'] {
+  background: var(--btn-secondary-bg);
+  border-color: var(--btn-secondary-bd);
+  color: var(--btn-secondary-fg);
+  font-weight: var(--fw-semibold);
+}
+/* الفجوة علامة تخطيط لا زرّ: لا تُبلَّغ ولا تُبأَّر */
+.reg-pager__gap { font-size: var(--t-caption); color: var(--text-muted); padding-inline: 2px; }
+
 /* Registry filter <select> — the field shape of §4-هـ. `appearance` stays NATIVE for the same
    reason it does on `.op-filter-select`: color-scheme is declared per theme, so the platform
    draws the arrow and the popup correctly for free. */
@@ -225,20 +258,27 @@ html[dir='rtl'] .reg-explain[open] .reg-explain__caret { transform: rotate(90deg
 .reg-pager__size:focus-visible,
 .reg-select:focus-visible { background: var(--bg-muted); }
 
-/* ------------------------------------------------------------------ *
- * Reduced motion — the WHOLE stylesheet, not a hand-kept list (spec §2-0).
- * A per-selector list is a list that goes stale the next time someone adds a
- * transition; the universal block cannot. Feedback is NOT removed — a hover
- * tint, a border and a shadow still change, they simply arrive at once.
- *
- * 0.01ms, never 0: `transitionend` / `animationend` do not fire on a
- * zero-length animation, and the drawer's teardown listens for exactly that.
- * ------------------------------------------------------------------ */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* ============================================================
+   ق7 — طباعة السجلّات
+   ------------------------------------------------------------
+   ما يُطبع هو ما يُقرأ: الجدول، والختم الذي يقول بأي مرشِّحات صُنع. وما يُحذف
+   هو ما لا معنى له على ورق: الأدوات، الصدفة، شريط الترقيم، الأزرار.
+   `data-noprint` هي الإعلان الوحيد الذي تحمله الشاشة، فالورقة لا تحتاج قائمة
+   محدِّدات مكتوبة باليد تبيت قديمةً مع أوّل أداة جديدة.
+   **لا لون يُعاد تعريفه هنا**: كتلة الوضع الداكن ملفوفة بـ@media screen، فالورق
+   يعود إلى :root الفاتحة وحده — نفس آلية `report.css`، بلا مصدر حقيقة ثانٍ.
+   ولا `!important`: (0,2,0) من تكرار السمة تكسب على أي `.class` مفردة تعلن
+   `display`، وهي أعلى ما يحمله `display` في المستودع على هذه العناصر. */
+@media print {
+  [data-noprint][data-noprint] { display: none; }
+  /* الصدفة شبكة ذات عمودين على الشاشة؛ بلا شريط جانبي تبقى ورقة واحدة.
+     التكرار هنا لنفس السبب: (0,2,0) تكسب `.op-shell` مهما رتّب المُجمِّع الأوراق. */
+  .op-shell.op-shell { display: block; }
+  .op-page.op-page { max-inline-size: none; padding: 0; }
+  /* الختم يطبع نفسه: بلا رقعة، بحدّ يُرى على ورق أبيض */
+  .reg-stamp.reg-stamp { background: transparent; border-color: var(--border-2); }
+  .op-tablecard.op-tablecard { box-shadow: none; border-color: var(--border-2); }
+  .op-tbl__row { break-inside: avoid; }
+  @page { margin: 14mm; }
 }
+

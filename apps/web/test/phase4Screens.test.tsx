@@ -7,7 +7,7 @@ import i18n from '../src/i18n';
 import { saveSession } from '../src/session';
 import { seedState, type State } from '../src/store';
 
-const KEY = 'masaar-operator-v11';
+const KEY = 'masaar-operator-v13';
 const SUPER = { name: 'م. علي الحسيني', role: 'SUPER_ADMIN' as const, oid: 'oid-super-01' };
 
 /**
@@ -190,9 +190,12 @@ describe('#/admin/tenders — the creation-date window, the scope and the tier (
     expect(window.location.hash).toBe('#/admin/tenders?tier=MDOC');
   });
 
-  it('clears every dimension in ONE address rewrite', () => {
+  it('clears every dimension in ONE address rewrite, and SAYS how many it is about to drop (ق5)', () => {
     at('#/admin/tenders?tier=MDOC&scope=ENGINEERING_CONSTRUCTION&vmin=1000');
-    fireEvent.click(screen.getAllByRole('button', { name: 'مسح الفلاتر' })[0]!);
+    // the count is the button's own promise: three narrowings are standing, so it offers to undo
+    // three — «مسح» with no number leaves the reader guessing what disappears
+    const clear = screen.getAllByRole('button', { name: 'مسح الفلاتر (3)' })[0]!;
+    fireEvent.click(clear);
     expect(window.location.hash).toBe('#/admin/tenders');
   });
 });
@@ -737,22 +740,25 @@ describe('English mirror — the new surfaces render, with the same Latin digits
     expect(screen.getByRole('heading', { name: /Vendor report/ })).toBeTruthy();
     expect(screen.getByText(/pending the official classification/)).toBeTruthy();
     expect(screen.queryByText('Guarantees expiring within 60 days')).toBeNull();
-  });
+  }, 20000);
 
+  // A language flip re-renders the whole admin surface; solo these run in ~2.5s, but under the
+  // full parallel suite the 5s default has twice produced a load-flake. The generous ceiling is
+  // for scheduler contention only — a real hang still fails.
   it('keeps the two ministry-list definitions distinct in English too', async () => {
     await act(async () => { await i18n.changeLanguage('en'); });
     at('#/admin/entities');
     const explain = document.querySelector('.reg-explain') as HTMLElement;
     expect(explain.textContent).toContain('The five state companies (Article 25)');
     expect(explain.textContent).toContain('Ministry suppliers list');
-  });
+  }, 20000);
 
   it('keeps a filter destination language-independent — a translated href would be a second contract', async () => {
     await act(async () => { await i18n.changeLanguage('en'); });
     at('#/admin');
     const tile = screen.getByText('Schedule compliance').closest('a') as HTMLAnchorElement;
     expect(tile.getAttribute('href')).toBe('#/admin/schedule');
-  });
+  }, 20000);
 });
 
 /** The seeded store is the argument these tests make — assert it has not silently moved. */

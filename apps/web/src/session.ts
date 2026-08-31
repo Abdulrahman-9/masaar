@@ -69,17 +69,27 @@ export interface DemoIdentity {
   role: ApiRole;
   oid: string;
   name: string;
+  /**
+   * ل1 — the i18n key naming this seat on the sign-in screen, carried BY the mandate.
+   *
+   * The picker used to be three hand-written `<option>`s while this list held four identities, so
+   * the joint-committee seat existed in every layer of the product except the one door into it:
+   * the ط2 gate could be described on screen and never exercised (§2-ز ل1). Hanging the label on
+   * the identity makes that class of drift impossible — a seat added here arrives at the picker
+   * with its own name, and a seat removed leaves with it.
+   */
+  labelKey: string;
   company?: string;
   companyId?: string;
 }
 
 export const DEMO_IDENTITIES: DemoIdentity[] = [
-  { role: 'OPERATOR_ADMIN', oid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', company: 'شركة نفط الواحة الصينية', companyId: 'op-alwaha' },
-  { role: 'MDOC_ADMIN', oid: 'oid-roc-01', name: 'د. سارة الجبوري' },
+  { role: 'OPERATOR_ADMIN', oid: 'oid-opadmin-01', name: 'م. أحمد عبد الرحمن', labelKey: 'login.roleOperator', company: 'شركة نفط الواحة الصينية', companyId: 'op-alwaha' },
+  { role: 'MDOC_ADMIN', oid: 'oid-roc-01', name: 'د. سارة الجبوري', labelKey: 'login.roleMdoc' },
   // the ط2 seat (request 19ب) — without a way to hold it, the joint committee's gate could be
   // described on screen but never exercised, which is the one thing this section may not do
-  { role: 'JMC_APPROVER', oid: 'oid-jmc-01', name: 'م. رافد الدليمي' },
-  { role: 'SUPER_ADMIN', oid: 'oid-super-01', name: 'م. مصطفى الكرخي' },
+  { role: 'JMC_APPROVER', oid: 'oid-jmc-01', name: 'م. رافد الدليمي', labelKey: 'login.roleJmc' },
+  { role: 'SUPER_ADMIN', oid: 'oid-super-01', name: 'م. مصطفى الكرخي', labelKey: 'login.roleSuper' },
 ];
 
 // v2: `oid` became required. A v1 blob would deserialize with oid === undefined and

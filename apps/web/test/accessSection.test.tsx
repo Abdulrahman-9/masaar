@@ -131,10 +131,16 @@ describe('the roles tab — the triad, then the cards (20 + 21)', () => {
       f.querySelector('dt')?.textContent, f.querySelector('dd')?.textContent,
     ]);
     expect(facts).toEqual([
-      ['يوافق حتى؟', 'حتى $10,000,000'],
+      // د9 §7-5 — the ceiling is read off the DEFAULT ladder and now SAYS so: unqualified, the
+      // sentence claimed this signature clears $10M at every company, which an approved
+      // per-operator ladder makes false. The «قد يختلف» clause is absent here on purpose —
+      // this universe has no override, so there is nothing to caveat (asserted below).
+      ['يوافق حتى؟', 'حتى $10,000,000 الافتراضي النظامي'],
       ['يشهد القرار؟', 'نعم — يصادق ويعيد'],
       ['نطاقه؟', 'كل المنظومة'],
     ]);
+    expect(card.querySelector('.ad-ladder__src')?.textContent).toBe('الافتراضي النظامي');
+    expect(card.querySelector('.ad-ladder__note')).toBeNull();
     // the ceiling is a mono LTR island — «$10,000,000», never «10,000,000$» inside Arabic
     expect(card.querySelector('.acc-rc__money')?.textContent).toBe('$10,000,000');
     // its two enabled holders — the headline count and one avatar link each

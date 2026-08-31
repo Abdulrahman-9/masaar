@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "Masaar",
-    "subtitle": "Contractor & Tender Management Platform — SCPP Rev 1.0",
+    "rev": "SCPP Rev 1.0",
+    "subtitle": "Contractor & Tender Management Platform — $t(app.rev)",
     "switchLang": "عربي",
     "docTitle": "Masaar — Contractor & Tender Management"
   },
@@ -68,7 +69,14 @@
     "creditLabel": "Design & development",
     "creditName": "Eng. Abdulrahman Ahmed Obaid",
     "searchPlaceholder": "Search by name or code — jumps to the file",
-    "noResults": "No results for “{{q}}”"
+    "noResults": "No results for “{{q}}”",
+    "searchKeyHint": "Press / or Ctrl+K to jump to search",
+    "searchResults": "Search results",
+    "navCollapse": "Collapse sidebar",
+    "navExpand": "Expand sidebar",
+    "navItemCount": "{{name}} — {{n}}",
+    "scopeNote": "Only {{name}}'s requests are shown.",
+    "newKeyHint": "Press N to start a new request"
   },
   "onav": {
     "inbox": "Required of me today",
@@ -76,7 +84,9 @@
     "request": "New purchase request",
     "reports": "Reports & printables",
     "tools": "Tools & references",
-    "navLabel": "Operator navigation"
+    "navLabel": "Operator navigation",
+    "crumbLabel": "Breadcrumb",
+    "approvals": "Approval ladder"
   },
   "inbox": {
     "title": "Required of me today",
@@ -98,6 +108,8 @@
   },
   "notif": {
     "title": "Notifications",
+    "ariaCount": "{{title}} — {{n}}",
+    "ariaLate": "{{title}} — {{n}}, {{late}} overdue",
     "foot": "A notice tied to a tender opens its step directly — the same source as “Required of me today”; contract notices are followed from the contracts registry.",
     "empty": "No active notifications"
   },
@@ -118,7 +130,9 @@
     "preview": "Preview",
     "file": "File",
     "completed": "Complete",
-    "empty": "No tenders yet — start with a new purchase request."
+    "empty": "No tenders yet — start with a new purchase request.",
+    "railAria": "Stage {{n}} of {{total}}: {{stage}}",
+    "railDone": "All {{total}} stages complete"
   },
   "status": {
     "planned": "Planned",
@@ -144,7 +158,9 @@
     "a4": "A4 report",
     "openFile": "Open full file",
     "award": "Award",
-    "close": "Close"
+    "close": "Close",
+    "now": "Current stage:",
+    "nowDone": "All stages complete."
   },
   "a11y": {
     "closeDialog": "Close dialog"
@@ -185,9 +201,44 @@
     "tabs": {
       "timeline": "Timeline",
       "docs": "Documents",
-      "bidders": "Bidders"
+      "bidders": "Bidders",
+      "log": "Log"
     },
-    "tabsLabel": "Tender file tabs"
+    "tabsLabel": "Tender file tabs",
+    "copyCode": "Copy tender number",
+    "copyDone": "Tender number {{code}} copied",
+    "copyFail": "Copy failed — please copy the code manually",
+    "kpi": {
+      "value": "Estimated value",
+      "stage": "Current stage",
+      "stageAllDone": "All stages complete",
+      "dev": "Deviation",
+      "docs": "Stage documents",
+      "docsOf": "{{have}} / {{need}}",
+      "none": "—"
+    }
+  },
+  "filelog": {
+    "title": "This tender's log",
+    "sub": "Read-only — filtered by tender code from the append-only record (8.1-e)",
+    "empty": "No entries for this tender yet — the first action is recorded here automatically."
+  },
+  "fileside": {
+    "method": "Method and authority",
+    "path": "Path",
+    "tier": "Approval ladder",
+    "competing": "Competing companies",
+    "funnel": {
+      "applied": "Applied",
+      "qualified": "Passed technical",
+      "priced": "Price recorded"
+    },
+    "funnelNone": "No companies registered yet.",
+    "gate": "Counts only — names and prices are disclosed under 12.4.2",
+    "operator": "Submitting operator",
+    "operatorUnknown": "Not assigned to an operator",
+    "contact": "Contact",
+    "contactRole": "Capacity"
   },
   "timeline": {
     "title": "Unified timeline",
@@ -209,7 +260,7 @@
     "actual": "Actual",
     "deviation": "Deviation",
     "openStageWizard": "Open stage wizard",
-    "ctaHint": "One decision per screen — progress autosaves",
+    "ctaHint": "One decision per screen",
     "note": {
       "done": "This stage is complete and documented.",
       "progress": "In progress now — complete the documentation before closing the stage.",
@@ -304,12 +355,10 @@
   "wizard": {
     "exit": "Exit",
     "step": "Step {{n}} of {{c}}",
-    "autosave": "Draft — autosaved",
     "why": "Why this step?",
     "conditions": "Conditions for this step — checked automatically",
     "prev": "Back",
     "next": "Next",
-    "saveDraft": "Save draft",
     "remaining": "Remaining: {{c}}",
     "institutionalNote": "Institutional action — the counter starts on execution",
     "continue": "Continue",
@@ -524,6 +573,7 @@
     "devHintPos": "You'll be asked to document the delay reason in step three — and the deviation appears in the compliance report.",
     "devHintNeg": "No positive deviation — step three is passed automatically.",
     "cDocs": "Stage documents complete ({{n}})",
+    "cDocsMissing": "Stage documents incomplete ({{n}}) — missing: {{docs}}",
     "docMissing": "Missing",
     "docsNote": "Documents are a closing condition — they stay in the file and appear in the Documents tab and printed reports.",
     "cCat": "Reason category selected",
@@ -628,6 +678,11 @@
     "wk_sec3": "SCPP deadline compliance",
     "wk_ann21": "Public announcements ≥ 21 days",
     "wk_mct14": "Cost-accreditation meetings within 14 WD",
+    "wk_sec4": "Documented deviation reasons — stages closed late",
+    "wk_colWindow": "Actual from — to",
+    "wk_colReason": "Documented reason",
+    "wk_noReasons": "No stages closed late — no documented reasons.",
+    "wk_reasonMissing": "Closed before reason recording existed",
     "wk_footer": "Periodic oversight report issued by the Masaar system — for administrative and audit use",
     "maskDim": "Publication mode",
     "scopeTender": "Tender {{code}}",
@@ -658,7 +713,8 @@
     "fields": "Fields",
     "holidays": "Public holidays",
     "schedule": "Time compliance",
-    "navLabel": "Admin navigation"
+    "navLabel": "Admin navigation",
+    "crumbLabel": "Breadcrumb"
   },
   "adroom": {
     "title": "Follow-up Room",
@@ -810,6 +866,7 @@
     "role": "Role (for the demo)",
     "roleOperator": "Operator admin — AlWaha",
     "roleMdoc": "MDOC administration — Midland Oil Company",
+    "roleJmc": "Joint Committee approver — clears the ط2 band",
     "roleSuper": "Super Admin (system)",
     "sso": "Sign in with Azure AD",
     "ssoNote": "Mock — replaced by MSAL once the corporate tenant is available.",
@@ -855,7 +912,16 @@
       "JMC": "Above the operator's authority: more than {{min}} and up to {{max}} — the Joint Management Committee gate.",
       "MDOC": "Above the JMC ceiling: more than {{min}} — the parent company gate."
     },
-    "sentence": "This tender sits in tier {{tier}} — the decision rests with {{body}}."
+    "sentence": "This tender sits in tier {{tier}} — the decision rests with {{body}}.",
+    "srcDefault": "System default",
+    "srcOwn": "Custom ladder",
+    "srcOwnCo": "A custom ladder approved for your company",
+    "srcDefaultCo": "The system default — no ladder of your own has been approved",
+    "defaultTagged": "The ladder shown here is the SYSTEM DEFAULT: it applies to every operating company that has no ladder of its own approved.",
+    "ownCount": "And {{n}} operating companies are on a custom approved ladder — each one is detailed in the operating-companies registry.",
+    "ownCountNone": "And no company is on a custom ladder today: all of them are measured against this default.",
+    "mayDiffer": "And it may differ at an operator on a custom ladder ({{n}}).",
+    "ownLink": "Operating companies registry"
   },
   "triad": {
     "title": "Who approves what",
@@ -889,13 +955,16 @@
     "title": "Approval chain",
     "sub": "{{n}} tenders above the operator's own authority — each with the body its decision waits on, and where that decision stands.",
     "explainTitle": "What is this chain? — the approval ladder at its current ceilings",
-    "explainIntro": "Every purchase request is measured by its estimated value against one ladder that applies to all operating companies; the ladder — not the kind of work — is what decides who signs. Only tenders that passed their own company's authority appear here.",
+    "explainIntro": "Every purchase request is measured by its estimated value against an approval ladder: a system default that applies to every operating company, unless the platform administrator has approved a ladder for one company in particular, in which case that company alone is measured against it. The ladder — not the kind of work — is what decides who signs, and only tenders that passed their own company's authority appear here.",
     "explainFailClosed": "Both ceilings are inclusive: a value equal to the ceiling stays in the lower tier. If the ladder configuration is missing or out of order, the tender is read conservatively as the highest tier — a request whose clearing body cannot be established must not be treated as cleared by the lowest one.",
-    "localLadder": "The ladder ceilings are in-app configuration — no server route issues them yet; the figures shown are the same ones the tiers are derived from here.",
+    "localLadder": "The ladder ceilings are in-app configuration, and so are the per-operator ladders: no server route issues them yet; the figures shown are the same ones the tiers are derived from here.",
     "kpiJmc": "Awaiting JMC",
     "kpiMdoc": "Awaiting MDOC",
     "kpiRatified": "Ratified this month",
+    "kpiHint": "Show «{{label}}» only — press again to widen back",
+    "kpiMonthWindow": "Current calendar month",
     "allTiers": "All tiers",
+    "allDecisions": "All decisions",
     "allFields": "All fields",
     "searchPh": "Search by code or title",
     "colField": "Field",
@@ -903,6 +972,9 @@
     "colTier": "Tier",
     "colBody": "Awaiting body",
     "colDecision": "Decision",
+    "colWaiting": "Waiting",
+    "colDecidedBy": "Decided by",
+    "colDecidedOn": "Decided on",
     "dec": {
       "pending": "Awaiting decision",
       "ratified": "Ratified",
@@ -916,7 +988,12 @@
     "clearFilters": "Clear filters",
     "exportCsv": "Export CSV",
     "toastExport": "Approval chain exported with the current filters.",
-    "chipPending": "Awaiting decision only"
+    "chipPending": "Awaiting decision only",
+    "waitWd": "{{n}} working days",
+    "waitDef": "Working days elapsed since the ratification stage's planned end (weekends and official holidays excluded) — not a calendar count, and not an unsupported alarm threshold.",
+    "waitOnPlan": "Within the ratification stage's planned window — its date has not passed yet.",
+    "waitUnplanned": "The ratification stage carries no planned end date, so its lateness cannot be measured — a «0» here would read as «on time».",
+    "waitDecided": "Decided — nobody is waiting."
   },
   "match": {
     "def": "«Plan conformance» compares what was actually done with what was planned: for each stage the difference between its planned and its actual completion date is counted in working days (weekends and public holidays excluded); positive is late, negative is early — and the tender's status follows where today sits against the end of its current stage.",
@@ -1046,7 +1123,14 @@
     "empty": "No entries yet — perform any action in the operator portal.",
     "ts": "Timestamp",
     "action": "Action",
-    "target": "Target"
+    "target": "Target",
+    "by": "Actor",
+    "byNone": "—",
+    "chipAll": "All entries",
+    "chipMine": "My decisions",
+    "chipMineHint": "Every entry in this log attributed to your account — matched on the immutable id, never on the name; entries written before actor attribution do not appear, because they cannot say whose they are.",
+    "emptyMine": "No entry in this log is attributed to your account yet.",
+    "mineNote": "Showing {{n}} entries attributed to your account — the log itself is append-only and nothing is removed from it (8.1-e)."
   },
   "notices": {
     "title": "Notifications",
@@ -1152,7 +1236,7 @@
     "vendorCaveat": "Derived from the scopes it has competed in — pending the official classification. The store holds no specialization field, so the classification below is an inference from the participation and award record, not a list issued by the ministry.",
     "vendorExplainTitle": "How was this table derived?",
     "vendorExplainScope": "Specialization: how many tenders the entity actually bid on, spread across the four §9 work scopes. «Primary scope» is the most frequent one; a tie prints «undetermined» rather than inventing a preference.",
-    "vendorExplainBands": "The financial-capacity bands ARE the approval ladder ({{op}} operator authority · {{jmc}} joint-committee ceiling) applied to the total value of contracts awarded to the entity. A governed ladder was chosen over statistical quantiles because a quantile band moves when the data moves: an entity slides from one band to another without any fact about it changing.",
+    "vendorExplainBands": "The financial-capacity bands ARE the SYSTEM DEFAULT approval ladder ({{op}} operator authority · {{jmc}} joint-committee ceiling) applied to the total value of contracts awarded to the entity. They stay on the default deliberately even where operators hold custom ladders: an entity's won value is aggregated across several operators, so there is no single operator whose ladder could be resolved for it. A governed ladder was chosen over statistical quantiles because a quantile band moves when the data moves: an entity slides from one band to another without any fact about it changing.",
     "vendorExplainName": "An entity is bound to its contracts by vendor id where one exists, otherwise by contractor name (the same 12.4.2 rule that binds a bidder to its registry entry). A contract carrying neither is attributed to nobody.",
     "vendorEmpty": "No entities registered yet — no participation or awards to derive a classification from.",
     "bandsLabel": "Financial-capacity band distribution",
@@ -1411,12 +1495,22 @@
     "sub": "{{n}} operating companies — each company's Financial Authority (§7) governs when a request passes the company's own authority, the MDOC participation tier, and split detection",
     "colCompany": "Operating company",
     "colFa": "Financial authority (§7)",
+    "colContact": "Contact",
     "colAccounts": "Accounts",
     "colTenders": "Tenders",
+    "colActive": "Active",
+    "colLate": "Late",
     "colAboveFa": "Above authority",
+    "colContracts": "Contracts",
+    "colTenderValue": "Estimated tender value",
     "nAccounts": "{{n}} enabled of {{all}}",
     "nAboveFa": "{{n}} above authority",
     "aboveFaNote": "Tenders above this company's authority, so they passed beyond the operator's own authority (6.9) and take MDOC witnessing (12.2.2)",
+    "activeNote": "Tenders with an open stage that were neither cancelled nor suspended — the same count the company bar draws in the follow-up room",
+    "lateNote": "Tenders whose current stage is past its planned close — the same count the company table shows in the follow-up room",
+    "contractsNote": "Contracts traceable to this company through their originating tender; a contract signed without one is attributed to nobody",
+    "valueNote": "The sum of the company's ESTIMATED tender values — an estimate made when the request was raised, not signed contract value (contract value is a separate column in the follow-up room)",
+    "fieldsNote": "The field records registered to the companies shown — some of them named as blocks in the registry — and the source of their financial authority (§7.1)",
     "name": "Company name",
     "nameEn": "English name (optional)",
     "faField": "Financial authority in USD",
@@ -1430,9 +1524,10 @@
     "localNote": "Local demo mode — the server has no /api/operators endpoint at all, so this data persists in this browser.",
     "orphanTenders": "{{n}} tenders have no owning company — with no field and no service contract their financial authority cannot be derived, so the engine fails closed and treats them as ABOVE authority (§7.1). This only affects data created before tenders carried their operator; there is no retro-assignment action.",
     "openFields": "Fields ({{n}})",
+    "openTenders": "Tenders ({{n}})",
     "faViaContract": "Financial Authority is set on the field’s Service Contract (§7), not here.",
-    "ladderTitle": "The global approval ladder — it applies to this company exactly as it does to the others",
-    "ladderNote": "The ladder is system-wide: there are no per-operator ceilings to enter here. As soon as the company is registered its tenders are measured by estimated value against these same limits, which decides which of them stay with the operator and which need the Joint Management Committee or the parent company."
+    "ladderTitle": "The system default approval ladder — it applies to this company unless a ladder of its own is approved",
+    "ladderNote": "A company being registered is measured by this default: its requests are measured by estimated value against these limits, which decides which of them stay with the operator and which need the Joint Management Committee or the parent company. Approving ceilings of its own is a later act, from the operating-companies registry itself, with a documented justification and an attributed actor — it is not entered here."
   },
   "reg": {
     "common": {
@@ -1441,13 +1536,16 @@
       "next": "Next",
       "prevDisabled": "You are on the first page",
       "nextDisabled": "You are on the last page",
-      "pageSize": "Rows per page"
+      "pageSize": "Rows per page",
+      "pagesLabel": "Page navigation",
+      "page": "Page {{n}}"
     },
     "tlist": {
       "sub": "The registry of your open tenders ({{n}}) — open any file to follow its stage and act on the required step.",
       "kpiTotal": "Total",
       "kpiLate": "Overdue",
       "kpiDueWeek": "Due this week",
+      "kpiValue": "Value in flight",
       "searchPh": "Search by tender code or title",
       "allMethods": "All methods",
       "allFields": "All fields",
@@ -1479,7 +1577,21 @@
       "allTiers": "All tiers",
       "allScopes": "All scopes",
       "rangeValue": "Estimated value (USD)",
-      "rangeDate": "Created on"
+      "rangeDate": "Created on",
+      "clearFiltersN": "Clear filters ({{n}})",
+      "print": "Print",
+      "kpiHint": "Show «{{label}}» only — press again to widen back",
+      "viewLabel": "View mode",
+      "viewTable": "Table",
+      "viewBoard": "Board",
+      "colEmpty": "No tender in this column under the current filters.",
+      "col": {
+        "progress": "In progress",
+        "risk": "At risk",
+        "delayed": "Late",
+        "done": "Completed",
+        "cancelled": "Cancelled"
+      }
     },
     "contracts": {
       "title": "Post-award contract registry",
@@ -1494,6 +1606,9 @@
       "kpiLateHint": "Behind planned progress",
       "kpiBonds": "Guarantees expiring within 60 days",
       "kpiBondsHint": "Renew before they lapse",
+      "kpiValue": "Portfolio value",
+      "kpiHint": "Show «{{label}}» only — press again to widen back",
+      "barAria": "{{pct}}% actual progress against {{planned}}% planned",
       "searchPh": "Search by contract code, contractor or project",
       "chipAll": "All",
       "cap_ok": "Within caps",
@@ -1530,13 +1645,15 @@
     },
     "operators": {
       "localOnly": "Local registry — there is no /operators endpoint yet; edits here are not saved to the server.",
-      "searchPh": "Search by company name or ID",
+      "searchPh": "Search by company name, ID or one of its fields",
       "exportCsv": "Export CSV",
       "toastExport": "Operators registry exported to a local CSV file — not written to the audit log",
       "kpiCompanies": "Operating companies",
+      "kpiFields": "Fields & blocks",
       "kpiAccounts": "Enabled accounts",
       "kpiTenders": "Tenders",
       "kpiAboveFa": "Above authority",
+      "kpiValue": "Portfolio value",
       "chipAll": "All",
       "chipCostCycle": "Has above-authority tenders",
       "chipNoAccounts": "No accounts",
@@ -1562,6 +1679,7 @@
         "field": "Field",
         "method": "Method",
         "tier": "Approval tier",
+        "decision": "Decision",
         "scope": "Work scope",
         "status": "Status",
         "class": "Classification",
@@ -1771,8 +1889,9 @@
     },
     "donut": {
       "title": "Tenders by approval tier",
-      "sub": "Global ladder: up to {{op}} the operator, up to {{jmc}} the Joint Management Committee, above that MDOC",
+      "sub": "System default ladder: up to {{op}} the operator, up to {{jmc}} the Joint Management Committee, above that MDOC — a company on a custom ladder is measured by its own",
       "unit": "tenders",
+      "inert": "Tier 1 is ratified inside the operating company and never enters the approval registry",
       "aria": "{{label}} — {{n}} tenders, {{pct}} of the portfolio. Open the approval chain filtered to this tier."
     },
     "hist": {
@@ -1924,5 +2043,46 @@
     "adminSchedule": "Schedule-compliance screen",
     "opTenders": "My tenders — by approval tier",
     "opWeekly": "Weekly deviation sheet — stamped printout"
+  },
+  "opladder": {
+    "action": "Company ladder…",
+    "title": "This company's approval ladder",
+    "currentHead": "The ladder in force now",
+    "currentDefault": "This company is on the system default.",
+    "currentOwn": "This company is on a custom approved ladder.",
+    "nextHead": "The ladder after approval",
+    "opMax": "The company's own authority ceiling (T1)",
+    "jmcMax": "The Joint Management Committee ceiling (T2)",
+    "errNumber": "Both ceilings must be finite figures, neither below zero.",
+    "errOrder": "The company ceiling must be STRICTLY below the committee ceiling: equal ceilings describe an empty T2 band, which is an ambiguity rather than a two-tier ladder.",
+    "errNoChange": "No change from the ladder in force — and no row is written for a change that did not happen.",
+    "zeroNote": "A zero company ceiling is deliberately allowed: it sends every one of the company's requests above its own tier.",
+    "previewHead": "Impact on pending tenders",
+    "previewNone": "No pending tender of this company changes tier under this ladder.",
+    "previewCount": "{{n}} pending tenders change tier:",
+    "previewUp": "{{n}} move up a tier",
+    "previewDown": "{{n}} move down a tier",
+    "previewMove": "{{from}} → {{to}}",
+    "previewLive": "The preview is derived right now from this company's live, undecided tenders, and they are measured by the new ladder the moment it is approved: the tier is read at decision time and never stored.",
+    "reset": "Return to the system default",
+    "resetNote": "Withdrawing a custom ladder is a full governed act with its own justification and actor, not a silent erase; the company returns to the system default immediately.",
+    "confirm": "Approve the ladder",
+    "resetConfirm": "Withdraw the custom ladder",
+    "apiBlocked": "Editing per-operator ladders is withheld in server mode: there is no model for custom ladders and no endpoint yet, and the server rules by the default ladder alone. Approving a ceiling the server does not enforce would make the disabled button and the 403 refusal disagree, so the editor stays closed until the route lands.",
+    "toastSet": "A custom ladder was approved for {{name}}.",
+    "toastReset": "{{name}} returned to the system default ladder.",
+    "colSource": "Ladder",
+    "kpiOwn": "On a custom ladder",
+    "kpiOwnNote": "How many registered companies have an approval ladder of their own approved; every other company is on the system default."
+  },
+  "opapprovals": {
+    "title": "Approval ladder",
+    "sub": "Which ladder your company's requests are measured against, and where they stand today",
+    "ladderHead": "Your company's ladder",
+    "pendingHead": "Your requests at the approval gates",
+    "noGate": "T1 opens no approval gate: the decision stays inside your company, as follow-up and audit.",
+    "empty": "None of your company's tenders is at an approval gate today.",
+    "noScope": "This screen shows the ladder of the session's company, and your session is not scoped to an operating company.",
+    "foot": "Moving these ceilings is the platform administrator's authority alone: it is approved from the operating-companies registry with a documented justification and an attributed actor. This screen is read-only and carries no decision act — ratification is not this portal's seat."
   }
 }

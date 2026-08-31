@@ -1,13 +1,11 @@
-import { stageByKey, stageDeviationWorkingDays } from '@masaar/scpp-rules';
+import { stageByKey, stageCanClose, stageDeviationWorkingDays } from '@masaar/scpp-rules';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { currentStage, requiredDocsFor, todayIso, useStore } from '../../store';
+import { calendarOf, currentStage, DEV_REASON_CATS, requiredDocsFor, todayIso, useStore } from '../../store';
 import { DevBadge } from '../DevBadge';
 import { DevChip } from '../DevChip';
 import { Icon } from '../Icon';
-import WizardShell, { type WizardStep } from './WizardShell';
-
-const DEV_CATS = ['publisherDelay', 'docsCompletion', 'forceMajeure', 'internalCoord'];
+import WizardShell, { FieldError, fieldReject, groupReject, type WizardRejection, type WizardStep } from './WizardShell';
 
 export default function CompleteWizard({ tenderId }: { tenderId: string }) {
   const { t, i18n } = useTranslation();
@@ -20,13 +18,23 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
   const [to, setTo] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const [note, setNote] = useState('');
+  // the last refusal the gate handed back — cleared by the edit that answers it
+  const [bad, setBad] = useState<WizardRejection | null>(null);
 
   if (!tender || !cur) return <div className="op-empty">{t('file.notFound')}</div>;
 
   const def = stageByKey(cur.key);
   const req = requiredDocsFor(cur.key);
-  const docsOk = req.every((d) => cur.uploadedDocs.includes(d));
-  const dev = to && cur.plannedTo ? stageDeviationWorkingDays(cur.plannedTo, to) : null;
+  // D7 — the ONE docs judgement the reducer and the server make (stageCanClose), consumed rather
+  // than re-implemented, so `missing` names the documents instead of being thrown away.
+  const docsGate = stageCanClose(req, cur.uploadedDocs);
+  const docsOk = docsGate.ok;
+  const missingNames = docsGate.missing.map((d) => t(`docs.${d}`)).join(lang === 'ar' ? '، ' : ', ');
+  // D3 — the live calendar, exactly what every display slice passes (derive.ts stageDevWd):
+  // without it a holiday inside the window made the wizard promise a different figure than the
+  // chip shown after closing.
+  const cal = calendarOf(state);
+  const dev = to && cur.plannedTo ? stageDeviationWorkingDays(cur.plannedTo, to, cal) : null;
   const needReason = dev != null && dev > 0;
 
   const steps: WizardStep[] = [
@@ -34,8 +42,10 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
       label: t('wizco.s0'), title: t('wizco.s0'), sub: t('wizco.sub0'),
       help: { t: t('wizco.help0'), r: 'SCPP 8.1' },
       conditions: [
-        { t: t('wizco.cDates'), ok: !!from && !!to },
-        { t: t('wizco.cOrder'), ok: !!from && !!to && to >= from },
+        // each condition names the control it guards, so a refusal lands on the field that caused
+        // it: the missing date first, and the end date when the two are simply out of order
+        { t: t('wizco.cDates'), ok: !!from && !!to, field: from ? 'wizco-to' : 'wizco-from' },
+        { t: t('wizco.cOrder'), ok: !!from && !!to && to >= from, field: 'wizco-to' },
       ],
       content: (
         <div className="wz-grid2">
@@ -45,8 +55,16 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
               <span className="op-code" style={{ fontSize: 13, fontWeight: 600 }}>{cur.plannedFrom ?? '—'} → {cur.plannedTo ?? '—'}</span>
             </div>
             {/* native date widgets: values stored as Latin ISO; display digits follow browser locale (documented Track-0 exclusion) */}
-            <div className="wz-field"><label className="wz-field__l">{t('wizco.from')}</label><input className="wz-in wz-in--mono" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-            <div className="wz-field"><label className="wz-field__l">{t('wizco.to')}</label><input className="wz-in wz-in--mono" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+            <div className="wz-field">
+              <label className="wz-field__l" htmlFor="wizco-from">{t('wizco.from')}</label>
+              <input {...fieldReject(bad, 'wizco-from', 'wz-in wz-in--mono')} type="date" value={from} onChange={(e) => { setBad(null); setFrom(e.target.value); }} />
+              <FieldError rejected={bad} id="wizco-from" />
+            </div>
+            <div className="wz-field">
+              <label className="wz-field__l" htmlFor="wizco-to">{t('wizco.to')}</label>
+              <input {...fieldReject(bad, 'wizco-to', 'wz-in wz-in--mono')} type="date" value={to} onChange={(e) => { setBad(null); setTo(e.target.value); }} />
+              <FieldError rejected={bad} id="wizco-to" />
+            </div>
           </div>
           <div className="wz-side-box">
             <div className="wz-side-box__l">{t('wizco.devAuto')}</div>
@@ -62,7 +80,14 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
     {
       label: t('wizco.s1'), title: t('wizco.s1'), sub: t('wizco.sub1'),
       help: { t: t('wizco.help1'), r: 'SCPP 8.1' },
-      conditions: [{ t: t('wizco.cDocs', { n: `${cur.uploadedDocs.filter((d) => req.includes(d)).length}/${req.length}` }), ok: docsOk }],
+      conditions: [{
+        // the unmet condition line feeds the wz-gate sentence, so the gate NAMES what is missing
+        // (D7) instead of only counting it
+        t: docsOk
+          ? t('wizco.cDocs', { n: `${cur.uploadedDocs.filter((d) => req.includes(d)).length}/${req.length}` })
+          : t('wizco.cDocsMissing', { n: `${cur.uploadedDocs.filter((d) => req.includes(d)).length}/${req.length}`, docs: missingNames }),
+        ok: docsOk,
+      }],
       content: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {req.map((d) => {
@@ -94,7 +119,10 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
       label: t('wizco.s2'), title: t('wizco.s2'), sub: t('wizco.sub2'),
       help: { t: t('wizco.help2'), r: 'SCPP 8.2' },
       conditions: needReason
-        ? [{ t: t('wizco.cCat'), ok: !!cat }, { t: t('wizco.cNote'), ok: note.trim().length >= 15 }]
+        ? [
+            { t: t('wizco.cCat'), ok: !!cat, field: 'wizco-cat' },
+            { t: t('wizco.cNote'), ok: note.trim().length >= 15, field: 'wizco-note' },
+          ]
         : [{ t: t('wizco.cNoDev'), ok: true }],
       content: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -105,14 +133,32 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
           {needReason ? (
             <>
               <div className="wz-field">
-                <label className="wz-field__l">{t('wizco.reasonCat')}</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  {DEV_CATS.map((c) => <button key={c} className={`wz-chip${cat === c ? ' wz-chip--on' : ''}`} onClick={() => setCat(c)}>{t(`wizco.cat_${c}`)}</button>)}
+                <span className="wz-field__l" id="wizco-cat-l">{t('wizco.reasonCat')}</span>
+                {/* toggle buttons in a NAMED group, not `role="radio"`: a radio group also owes
+                    arrow-key navigation and a roving tabindex, and half of an ARIA pattern reads
+                    worse than none. `aria-pressed` is complete as it stands, and the group's name
+                    is what a screen reader announces the refusal against. */}
+                <div role="group" aria-labelledby="wizco-cat-l" style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {DEV_REASON_CATS.map((c, i) => (
+                    <button
+                      key={c}
+                      // no red edge on a chip: the refusal here is «none of these is chosen», which
+                      // belongs to the GROUP, not to one option. The line below carries it.
+                      {...(i === 0 ? groupReject(bad, 'wizco-cat') : {})}
+                      className={`wz-chip${cat === c ? ' wz-chip--on' : ''}`}
+                      aria-pressed={cat === c}
+                      onClick={() => { setBad(null); setCat(c); }}
+                    >
+                      {t(`wizco.cat_${c}`)}
+                    </button>
+                  ))}
                 </div>
+                <FieldError rejected={bad} id="wizco-cat" />
               </div>
               <div className="wz-field">
-                <label className="wz-field__l">{t('wizco.reasonDetail')}</label>
-                <textarea className="wz-ta" rows={3} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('wizco.reasonPh')} />
+                <label className="wz-field__l" htmlFor="wizco-note">{t('wizco.reasonDetail')}</label>
+                <textarea {...fieldReject(bad, 'wizco-note', 'wz-ta')} rows={3} dir="auto" value={note} onChange={(e) => { setBad(null); setNote(e.target.value); }} placeholder={t('wizco.reasonPh')} />
+                <FieldError rejected={bad} id="wizco-note" />
               </div>
             </>
           ) : (
@@ -148,9 +194,19 @@ export default function CompleteWizard({ tenderId }: { tenderId: string }) {
       finalLabel={t('wizco.final')}
       doneHash={`#/operator/t/${tenderId}`}
       exitHash={`#/operator/t/${tenderId}`}
+      onReject={setBad}
       success={{ title: t('wizco.doneTitle', { stage: def?.[lang] ?? cur.key }), desc: t('wizco.doneDesc'), audit: `${tender.code} · STAGE CLOSED · DEV ${dev != null && dev > 0 ? '+' : ''}${dev ?? 0}WD` }}
       onFinish={() => {
-        dispatch({ type: 'COMPLETE_STAGE', tenderId, stageKey: cur.key, actualTo: to || todayIso() });
+        // D1 — everything the form collected rides the action: the start date, and (when the
+        // deviation is positive) the classified reason the compliance report promises to show.
+        void dispatch({
+          type: 'COMPLETE_STAGE',
+          tenderId,
+          stageKey: cur.key,
+          actualTo: to || todayIso(),
+          ...(from ? { actualFrom: from } : {}),
+          ...(needReason && cat && note.trim().length >= 15 ? { devReason: { cat, note: note.trim() } } : {}),
+        });
       }}
     />
   );

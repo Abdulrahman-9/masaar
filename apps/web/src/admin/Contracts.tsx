@@ -3,7 +3,7 @@ import { guaranteeExpiringSoon } from '@masaar/scpp-rules';
 import { StatusPill } from '@masaar/ui';
 import { useTranslation } from 'react-i18next';
 import { CompletionHistogram } from '../charts/CompletionHistogram';
-import { fmtCount, fmtMoney } from '../operator/derive';
+import { fmtCount, fmtMoney, fmtMoneyShort } from '../operator/derive';
 import { Icon } from '../operator/Icon';
 import { dateRangeInverted, inDateRange, inValueRange, rangeInverted } from '../registry/filters';
 import { PROGRESS_BUCKETS, useFilterParams, type ProgressBucket } from '../registry/useHashParams';
@@ -17,15 +17,27 @@ import { exportCsv, reportStamp, type FilterLabels, type ReportColumn } from '..
 import { SearchBox } from '../registry/SearchBox';
 import { SelectFilter } from '../registry/SelectFilter';
 import { SortableTh } from '../registry/SortableTh';
+import { ContractStageRail } from '../registry/StageRail';
 import { usePagination } from '../registry/usePagination';
 import { arCompare, useTableSort } from '../registry/useTableSort';
 import { useStampWords } from '../registry/useStampWords';
 import { useAdminUi } from './AdminShell';
-import { CONTRACT_STAGES, capHealth, contractProgress, currentStageKey, scheduleVariancePct, stageLabel, type CapHealth } from './contractDerive';
+import { CONTRACT_STAGES, capHealth, contractProgress, currentStageKey, plannedDelivery, plannedProgressPct, scheduleVariancePct, stageLabel, type CapHealth } from './contractDerive';
 
 const CAP_PILL = { ok: 'done', risk: 'risk', breach: 'blocked' } as const;
 /** Best → worst, so the tri-state sort reads ok → risk → breach ascending. */
 const HEALTH_ORDER: CapHealth[] = ['ok', 'risk', 'breach'];
+
+/**
+ * The cap-health narrowing. `attention` is risk ∪ breach — the exact set the «قرب/تجاوز السقف»
+ * tile counts, and therefore the value that tile has to be able to write (P3: a tile opens what it
+ * counted). It is a VALUE of the one health dimension, never a second filter about the same idea
+ * (ع7 was rejected for exactly that), so the tile, the chip and the export stamp all say it in the
+ * same words and one press clears it.
+ */
+type HealthFilter = '' | CapHealth | 'attention';
+const matchesHealth = (c: ContractState, h: HealthFilter): boolean =>
+  h === '' ? true : h === 'attention' ? capHealth(c) !== 'ok' : capHealth(c) === h;
 
 /** Post-award contracts registry — classified by worst cap health + lifecycle stage,
  *  each row opening the 360° contract file. Contracts are born of tender ratification;
@@ -61,7 +73,7 @@ export default function Contracts() {
   const vmax = f.get('vmax');
   const dFrom = f.get('from');
   const dTo = f.get('to');
-  const [health, setHealth] = useState<'' | CapHealth>('');
+  const [health, setHealth] = useState<HealthFilter>('');
 
   const valueBad = rangeInverted(vmin, vmax);
   const dateBad = dateRangeInverted(dFrom, dTo);
@@ -84,7 +96,7 @@ export default function Contracts() {
   }), [contracts, q, qn, progParam, stageParam, vmin, vmax, dFrom, dTo]);
 
   const rows = useMemo(
-    () => (health ? searched.filter((c) => capHealth(c) === health) : searched),
+    () => (health ? searched.filter((c) => matchesHealth(c, health)) : searched),
     [searched, health],
   );
 
@@ -103,19 +115,48 @@ export default function Contracts() {
   const { pageRows, page, setPage, pageSize, setPageSize, total, start, end } = usePagination(sorted, 10);
 
   // KPIs from the FILTERED view — real store fields only (no «disbursed» metric: no such field).
-  const kpiCaps = rows.filter((c) => capHealth(c) !== 'ok').length;
   const kpiLate = rows.filter((c) => scheduleVariancePct(c, today) < 0).length;
   const kpiBonds = rows.reduce((n, c) => n + c.guarantees.filter((g) => guaranteeExpiringSoon(g.expiresOn, today)).length, 0);
+  /**
+   * ع3 — «قيمة المحفظة»: the sum of the SAME rows the table shows and the export writes, so the
+   * tile and the CSV total column (`valueUSD` carries `total: true`) can never print two different
+   * portfolios. The headline is short-form because a nine-figure sum cannot live at display size;
+   * the exact grouped figure is printed under it whenever the short form rounded, so the number
+   * the CSV totals is on screen too rather than hidden in a tooltip.
+   */
+  const kpiValue = rows.reduce((sum, c) => sum + c.valueUSD, 0);
+  const kpiValueExact = fmtMoney(kpiValue);
+  const kpiValueShort = fmtMoneyShort(kpiValue);
+  /**
+   * ع4 — the ONE tile with a filter behind it counts over `searched` (every dimension except the
+   * health it writes), exactly as the chips below it do: a tile that counted the health-filtered
+   * rows would promise a set its own press cannot produce. The other four describe the view they
+   * sit above, and none of them is a button — «متأخرة عن الخطة» has no variance dimension to
+   * narrow by, and a button that only looks like one is the placebo this plan rejects.
+   */
+  const kpiCaps = searched.filter((c) => capHealth(c) !== 'ok').length;
+  const capsOn = health === 'attention';
 
-  const kpis = [
-    { l: t('reg.contracts.kpiCount'), v: rows.length, tone: undefined as string | undefined, delta: undefined as string | undefined },
-    { l: t('reg.contracts.kpiCaps'), v: kpiCaps, tone: kpiCaps > 0 ? 'var(--status-risk)' : undefined, delta: kpiCaps > 0 ? t('reg.contracts.kpiCapsHint') : undefined },
-    { l: t('reg.contracts.kpiLate'), v: kpiLate, tone: kpiLate > 0 ? 'var(--status-delayed)' : undefined, delta: kpiLate > 0 ? t('reg.contracts.kpiLateHint') : undefined },
-    { l: t('reg.contracts.kpiBonds'), v: kpiBonds, tone: kpiBonds > 0 ? 'var(--status-risk)' : undefined, delta: kpiBonds > 0 ? t('reg.contracts.kpiBondsHint') : undefined },
+  const kpis: { key: string; l: string; v: string; tone: string; delta?: string; on?: boolean; go?: () => void }[] = [
+    { key: 'count', l: t('reg.contracts.kpiCount'), v: fmtCount(rows.length, lang), tone: 'brand' },
+    {
+      key: 'caps',
+      l: t('reg.contracts.kpiCaps'),
+      v: fmtCount(kpiCaps, lang),
+      tone: 'risk',
+      delta: kpiCaps > 0 ? t('reg.contracts.kpiCapsHint') : undefined,
+      on: capsOn,
+      go: () => setHealth(capsOn ? '' : 'attention'),
+    },
+    { key: 'late', l: t('reg.contracts.kpiLate'), v: fmtCount(kpiLate, lang), tone: 'delayed', delta: kpiLate > 0 ? t('reg.contracts.kpiLateHint') : undefined },
+    { key: 'bonds', l: t('reg.contracts.kpiBonds'), v: fmtCount(kpiBonds, lang), tone: 'risk', delta: kpiBonds > 0 ? t('reg.contracts.kpiBondsHint') : undefined },
+    { key: 'value', l: t('reg.contracts.kpiValue'), v: kpiValueShort, tone: 'planned', delta: kpiValueShort === kpiValueExact ? undefined : kpiValueExact },
   ];
 
   const filterChips: FilterChip[] = [
     { key: '', label: t('reg.contracts.chipAll'), count: searched.length, active: health === '' },
+    // the tile's own value, in the tile's own words — pressed from either control it is one state
+    { key: 'attention', label: t('reg.contracts.kpiCaps'), count: kpiCaps, active: capsOn },
     { key: 'ok', label: t('reg.contracts.cap_ok'), count: searched.filter((c) => capHealth(c) === 'ok').length, active: health === 'ok' },
     { key: 'risk', label: t('reg.contracts.cap_risk'), count: searched.filter((c) => capHealth(c) === 'risk').length, active: health === 'risk' },
     { key: 'breach', label: t('reg.contracts.cap_breach'), count: searched.filter((c) => capHealth(c) === 'breach').length, active: health === 'breach' },
@@ -124,7 +165,7 @@ export default function Contracts() {
   /** ONE declaration of every narrowing — it drives the chips and the export/print stamp alike. */
   const labels: FilterLabels = {
     q: { label: t('reg.stamp.dim.q') },
-    health: { label: t('reg.stamp.dim.health'), value: (v) => t(`reg.contracts.cap_${v}`) },
+    health: { label: t('reg.stamp.dim.health'), value: (v) => (v === 'attention' ? t('reg.contracts.kpiCaps') : t(`reg.contracts.cap_${v}`)) },
     // the chip prints the SAME range the histogram column does (`bucketRangeLabel`) — the key
     // '25-50' is the machine name of a half-open bucket, not the range a reader should be shown
     prog: { label: t('reg.stamp.dim.prog'), value: (v) => `${bucketRangeLabel(v as ProgressBucket)}%` },
@@ -164,6 +205,8 @@ export default function Contracts() {
     { key: 'title', label: 'title', value: (c) => c.title[lang] },
     { key: 'contractor', label: 'contractor', value: (c) => c.contractorName },
     { key: 'signedOn', label: 'signedOn', value: (c) => c.signedOn, format: 'date' },
+    // ع5 — on screen, therefore in the file: the export and the table narrate one contract
+    { key: 'plannedDelivery', label: 'plannedDelivery', value: (c) => plannedDelivery(c), format: 'date' },
     { key: 'valueUSD', label: 'valueUSD', value: (c) => c.valueUSD, format: 'money', total: true },
     { key: 'health', label: 'health', value: (c) => capHealth(c) },
     { key: 'stage', label: 'stage', value: (c) => currentStageKey(c) ?? 'delivered' },
@@ -199,16 +242,38 @@ export default function Contracts() {
         </div>
       </div>
 
-      <div className="ad-kpis" style={{ marginTop: 4 }}>
-        {kpis.map((k) => (
-          <div key={k.l} className="ad-kpi">
-            <div className="ad-kpi__head"><span className="ad-kpi__l">{k.l}</span></div>
-            <div className="ad-kpi__row">
-              <span className="ad-kpi__v" style={k.tone ? { color: k.tone } : undefined}>{fmtCount(k.v, lang)}</span>
-            </div>
-            {k.delta && <div className="ad-kpi__delta" style={{ color: k.tone }}>{k.delta}</div>}
-          </div>
-        ))}
+      {/* §2-ط — the filled statistical surface, spent here as it is on the tenders registry and
+          the approvals chain: one class, one tone map, the ink and its contrast measured in
+          tokens.css. The hierarchy inside a fully-filled row is the conditional pulse on
+          «متأخرة», and only while it has something to pulse about. */}
+      <div className="ad-kpis ad-kpis--wrap" style={{ marginBlockStart: 4 }} data-noprint="1">
+        {kpis.map((k) => {
+          const body = (
+            <>
+              <span className="ad-kpi__head">
+                <span className={`ad-kpi__dot${k.tone === 'delayed' && kpiLate > 0 ? ' ad-kpi__dot--alert' : ''}`} />
+                <span className="ad-kpi__l">{k.l}</span>
+              </span>
+              <span className="ad-kpi__row"><span className="ad-kpi__v">{k.v}</span></span>
+              {k.delta && <span className={`ad-kpi__delta${k.key === 'value' ? ' mono' : ''}`}>{k.delta}</span>}
+            </>
+          );
+          return k.go ? (
+            <button
+              key={k.key}
+              type="button"
+              className="ad-kpi ad-fill ad-kpi--fill"
+              data-tone={k.tone}
+              aria-pressed={k.on}
+              title={t('reg.contracts.kpiHint', { label: k.l })}
+              onClick={k.go}
+            >
+              {body}
+            </button>
+          ) : (
+            <div key={k.key} className="ad-kpi ad-fill ad-kpi--fill" data-tone={k.tone}>{body}</div>
+          );
+        })}
       </div>
 
       {/* Client request 12(c) — the completion shape of the whole portfolio, above the table it
@@ -221,7 +286,7 @@ export default function Contracts() {
 
       <div className="acc-filters">
         <SearchBox value={q} onChange={setQ} placeholder={t('reg.contracts.searchPh')} style={{ width: 300 }} />
-        <FilterChips chips={filterChips} onSelect={(key) => setHealth(key as CapHealth | '')} lang={lang} />
+        <FilterChips chips={filterChips} onSelect={(key) => setHealth(key as HealthFilter)} lang={lang} />
         {/* request 7 — the completion bucket as a control, not only as a histogram click: the
             same `?prog=` parameter, so the column and the select are one filter, never two */}
         <SelectFilter
@@ -284,7 +349,7 @@ export default function Contracts() {
                   <th>{t('reg.contracts.colContractor')}</th>
                   <SortableTh label={t('reg.contracts.colValue')} sortKey="value" active={sortKey} dir={dir} onToggle={toggle} className="op-end" style={{ width: 150 }} />
                   <SortableTh label={t('reg.contracts.colCaps')} sortKey="health" active={sortKey} dir={dir} onToggle={toggle} style={{ width: 170 }} />
-                  <th style={{ width: 190 }}>{t('reg.contracts.colStage')}</th>
+                  <th style={{ width: 230 }}>{t('reg.contracts.colStage')}</th>
                   <th className="op-end" style={{ width: 96 }} />
                 </tr>
               </thead>
@@ -293,6 +358,7 @@ export default function Contracts() {
                   const cHealth = capHealth(c);
                   const stageKey = currentStageKey(c);
                   const prog = contractProgress(c);
+                  const plannedPct = plannedProgressPct(c, today);
                   const bondSoon = c.guarantees.some((g) => guaranteeExpiringSoon(g.expiresOn, today));
                   const behind = scheduleVariancePct(c, today) < 0;
                   const href = `#/admin/contracts/${c.id}`;
@@ -305,19 +371,41 @@ export default function Contracts() {
                       <td dir="auto">{c.contractorName}</td>
                       <td className="op-end mono">{fmtMoney(c.valueUSD)}</td>
                       <td>
-                        <StatusPill status={CAP_PILL[cHealth]}>{t(`reg.contracts.cap_${cHealth}`)}</StatusPill>
+                        <StatusPill size="sm" status={CAP_PILL[cHealth]}>{t(`reg.contracts.cap_${cHealth}`)}</StatusPill>
                         {bondSoon && <div className="op-tbl__code" style={{ color: 'var(--status-risk)' }}>{t('reg.contracts.bondSoon')}</div>}
                       </td>
                       <td>
+                        {/* ع1 — the lifecycle rail is the SAME component the tenders registry
+                            wears, over `c.stages`; the line above it stays the readable name, so
+                            the shape is `aria-hidden` and says nothing twice. */}
                         {stageKey ? (
-                          <>
-                            <div style={{ fontSize: 13 }}>{stageLabel(stageKey, lang)}</div>
-                            <div className="op-tbl__code">{fmtCount(prog.done, lang)}/{fmtCount(prog.total, lang)} · {fmtCount(prog.pct, lang)}%</div>
-                            {behind && <div className="op-tbl__code" style={{ color: 'var(--status-delayed)' }}>{t('reg.contracts.behind')}</div>}
-                          </>
+                          <div className="op-tbl__stage">{stageLabel(stageKey, lang)}</div>
                         ) : (
-                          <StatusPill status="done">{t('reg.contracts.delivered')}</StatusPill>
+                          <StatusPill size="sm" status="done">{t('reg.contracts.delivered')}</StatusPill>
                         )}
+                        <ContractStageRail contract={c} today={today} lang={lang} />
+                        {/* ع2 — one bar, two facts: the fill is progress actually recorded, the
+                            notch is `plannedProgressPct` — the shape of the reference over our own
+                            derivation, so «متأخرة» is visible as a distance and not only as a
+                            word. Both numbers are named once, on the bar itself. */}
+                        <div className="ctr-rowbar">
+                          <span
+                            className="ctr-rowbar__track"
+                            role="img"
+                            aria-label={t('reg.contracts.barAria', { pct: fmtCount(prog.pct, lang), planned: fmtCount(plannedPct, lang) })}
+                          >
+                            <span className={`ctr-rowbar__fill${behind ? ' ctr-rowbar__fill--late' : ''}`} style={{ inlineSize: `${prog.pct}%` }} />
+                            <span className="ctr-rowbar__mark" style={{ insetInlineStart: `${plannedPct}%` }} />
+                          </span>
+                          <span className="ctr-rowbar__v" aria-hidden="true">{fmtCount(prog.pct, lang)}%</span>
+                        </div>
+                        {/* ع5 — the contractual completion date the term implies, in the column
+                            that already narrates schedule; mono and LTR-isolated like every other
+                            machine date in this product. */}
+                        <div className="op-tbl__code">
+                          {t('contracts.deliveryPlanned')} <span className="op-code">{plannedDelivery(c)}</span>
+                        </div>
+                        {behind && <div className="op-tbl__code" style={{ color: 'var(--status-delayed)' }}>{t('reg.contracts.behind')}</div>}
                       </td>
                       <td className="op-end">
                         {/* a real link, so the file is reachable by keyboard — an onClick <tr> is not */}

@@ -1,6 +1,6 @@
 import { serviceContractEffective } from '@masaar/scpp-rules';
 import { loadSession } from './session';
-import type { OperatorOrg, State } from './store';
+import { sessionScopeCompanyId, type OperatorOrg, type State, type UserAccount } from './store';
 
 /**
  * Who the signed-in operator actually works for — resolved from the registries, never named
@@ -39,6 +39,34 @@ export function resolveSessionOrg(state: State, lang: 'ar' | 'en'): SessionOrg {
 }
 
 /**
+ * د15-م3 — the SUBJECT of «تُعرض طلبيات {الشركة} فقط», or `undefined` where there is no such claim
+ * to make.
+ *
+ * Two gates, and both have to hold. The first is `sessionScopeCompanyId()` — the one condition
+ * `sessionScopedTenders` filters by — so the sentence appears exactly on the sessions whose lists
+ * are actually narrowed: a platform session in local mode reads every company, and printing the
+ * sentence there would be a false claim about the rows on screen (§6, لا ادعاء كاذب). The second
+ * is the registry: a company it cannot name is not named, and the caller drops the line rather
+ * than saying «طلبيات شركتك» to a reader who cannot tell which.
+ *
+ * NOTE the resolver it does NOT use. `resolveSessionOrg` answers a different question — «who does
+ * this PERSON work for» — and prefers the account's `operatorId` over the session's `companyId`,
+ * which is the right precedence for the chrome and for a printed report's letterhead. But the
+ * list on screen was filtered by `companyId`, so a sentence built on the account's answer could
+ * name one company over another company's rows the moment the two disagree. The claim is about
+ * THE ROWS, so it is built from the id that produced them, and the fallback is the session's own
+ * scope label rather than a registry lookup that never applied.
+ *
+ * Both operator surfaces read this, so the register and the inbox can never disagree about whose
+ * work they are showing.
+ */
+export function sessionScopeOrgName(state: State, lang: 'ar' | 'en'): string | undefined {
+  const companyId = sessionScopeCompanyId();
+  if (!companyId) return undefined;
+  return operatorName(state, companyId, lang) ?? loadSession()?.company;
+}
+
+/**
  * An operating company RECORD's display name in the active language.
  *
  * The English fallback is the Arabic name, never the record id: `nameEn` is optional on
@@ -56,6 +84,21 @@ export function orgName(o: OperatorOrg, lang: 'ar' | 'en'): string {
 export function operatorName(state: State, operatorId: string | undefined, lang: 'ar' | 'en'): string | undefined {
   const o = operatorId ? state.operators.find((x) => x.id === operatorId) : undefined;
   return o ? orgName(o, lang) : undefined;
+}
+
+/**
+ * Client question 18 — an operating company's CONTACT, DERIVED and never invented: the first
+ * ENABLED account the registry holds for that company. It is the only person the registry can
+ * vouch for, so it is the only person printed.
+ *
+ * `undefined` is a first-class answer, and the two surfaces that call this (the tender file's
+ * side column and the operators registry) both render NOTHING when it comes back empty rather
+ * than a name, a placeholder or a role with nobody behind it. This lived twice — once in
+ * `FileSide`, once about to be copied into `Operators` — and a second copy is exactly how the
+ * two screens start disagreeing about who to call.
+ */
+export function operatorContact(state: State, operatorId: string | undefined): UserAccount | undefined {
+  return operatorId ? state.users.find((u) => u.operatorId === operatorId && !u.disabled) : undefined;
 }
 
 /**

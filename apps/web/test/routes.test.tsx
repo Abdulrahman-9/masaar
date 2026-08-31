@@ -193,7 +193,7 @@ describe('#/admin — the follow-up room speaks the approval ladder, not MCT', (
 });
 
 describe('#/admin/operators — the add form shows the global ladder read-only (ق1)', () => {
-  it('lists the three tiers with the live ceilings and no per-operator input', () => {
+  it('lists the three tiers with the live default ceilings, tagged, and nothing to type into', () => {
     // only a SUPER_ADMIN may open the form; the ladder is what the form must state.
     // The trigger is the MERGED wizard now (request 9 — one flow for the company and its
     // fields); the ladder moved into its review section and must still read out of state.
@@ -202,7 +202,10 @@ describe('#/admin/operators — the add form shows the global ladder read-only (
     fireEvent.click(screen.getByRole('button', { name: 'إضافة مشغّل وحقوله' }));
 
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('سلّم الموافقات العام — يسري على هذه الشركة كما يسري على غيرها')).toBeTruthy();
+    // د9 — the wizard shows the SYSTEM DEFAULT, and now says so: a company under registration
+    // has no ladder of its own yet, and approving one is a later act from the registry itself
+    expect(within(dialog).getByText('سلّم الموافقات الافتراضي النظامي — يسري على هذه الشركة ما لم يُعتمد لها سلّم خاص')).toBeTruthy();
+    expect(within(dialog).getByText('الافتراضي النظامي')).toBeTruthy();
     expect(within(dialog).getByText('ط1 · المشغّل')).toBeTruthy();
     expect(within(dialog).getByText('ط2 · JMC')).toBeTruthy();
     expect(within(dialog).getByText('ط3 · MDOC')).toBeTruthy();

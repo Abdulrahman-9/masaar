@@ -103,7 +103,7 @@ export default function FileTimeline({
           <span className="file-tl__axis-h" />
         </div>
 
-        {tender.stages.map((s) => {
+        {tender.stages.map((s, i) => {
           const def = stageByKey(s.key);
           const st = stageViewStatus(tender, s, today);
           const dev = stageDevWd(s, today, cal);
@@ -118,12 +118,29 @@ export default function FileTimeline({
           return (
             <button key={s.key} className={`file-tl__row${s.key === focusKey ? ' file-tl__row--on' : ''}`} onClick={() => onFocus(s.key)}>
               <span className="file-tl__stage">
-                <span className={`file-tl__dot file-tl__dot--${st}`} />
+                {/* د11-ت7 — the dot GREW into a numbered bubble on a connecting rail. It is a skin
+                    over the existing `stageViewStatus`: the colour family is still the one the
+                    status names (so red still means a planned end that passed with no actual
+                    close, never «current»), and the number is the stage's own position in THIS
+                    tender's stage array — a path with nine stages numbers to nine, not to twelve. */}
+                <span className={`file-tl__dot file-tl__dot--${st}`}>{i + 1}</span>
                 <span style={{ minWidth: 0 }}>
                   <span className={`file-tl__name ${st === 'planned' ? 'file-tl__name--muted' : activeLike ? 'file-tl__name--active' : ''}`}>
                     {def ? def[lang] : s.key}
                   </span>
-                  <span className="file-tl__sub">{st === 'progress' || st === 'delayed' ? t('timeline.progressNow') : st === 'planned' ? t('timeline.notStarted') : ''}</span>
+                  {/* د4 — the running stage wears a pulsing tag; nothing else on the chart moves.
+                      `activeLike` is `stageViewStatus` reporting THIS stage as the one still open,
+                      so the pulse is conditional on the stage genuinely running. The tag turns
+                      `--status-delayed` on the same measured fact the dot does — a planned end
+                      that passed with no actual close — and never merely because it is current. */}
+                  {activeLike ? (
+                    <span className={`file-tl__now${st === 'delayed' ? ' file-tl__now--delayed' : ''}`}>
+                      <span className="file-tl__now-dot" />
+                      {st === 'delayed' ? t('status.delayed') : t('timeline.progressNow')}
+                    </span>
+                  ) : (
+                    <span className="file-tl__sub">{st === 'planned' ? t('timeline.notStarted') : ''}</span>
+                  )}
                 </span>
               </span>
 

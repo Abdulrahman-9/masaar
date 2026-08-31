@@ -301,7 +301,7 @@ export default function Vendors() {
                         {r.vendor.archived && <span className="arch-pill" style={{ marginInlineStart: 8 }}>{t('entity.archived')}</span>}
                       </div>
                     </td>
-                    <td><StatusPill status={r.vendor.mooListed ? 'done' : 'planned'} title={t('vendors.mooDef')}>{r.vendor.mooListed ? t('vendors.mooYes') : t('vendors.mooNo')}</StatusPill></td>
+                    <td><StatusPill size="sm" status={r.vendor.mooListed ? 'done' : 'planned'} title={t('vendors.mooDef')}>{r.vendor.mooListed ? t('vendors.mooYes') : t('vendors.mooNo')}</StatusPill></td>
                     <td>
                       <ScoreBar label={t('vendors.tech')} value={r.vendor.techScore} />
                       <ScoreBar label={t('vendors.fin')} value={r.vendor.financialScore} />

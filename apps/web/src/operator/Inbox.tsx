@@ -1,8 +1,9 @@
 import { stageByKey } from '@masaar/scpp-rules';
 import { useTranslation } from 'react-i18next';
-import { calendarOf, todayIso, useStore } from '../store';
+import { sessionScopeOrgName } from '../orgIdentity';
+import { calendarOf, sessionScopedTenders, todayIso, useStore } from '../store';
 import { WhatsNew } from '../WhatsNew';
-import { deriveTasks, fmtCount, fmtDate, groupTasks, STAGE_CLAUSE, STAGE_ICON, type DerivedTask, type TaskGroup } from './derive';
+import { deriveTasks, fmtCount, fmtDate, groupTasks, STAGE_CLAUSE, STAGE_ICON, wizardTypeFor, type DerivedTask, type TaskGroup } from './derive';
 import { Icon } from './Icon';
 
 const GROUPS: TaskGroup[] = ['late', 'today', 'week'];
@@ -20,12 +21,18 @@ export default function Inbox() {
   const today = todayIso();
   const cal = calendarOf(state);
 
-  const tasks = deriveTasks(state, today, cal);
+  // D4 — the operator's inbox lists ITS company's work only, mirroring the server scope
+  // (apps/api/src/auth/scope.ts); platform roles keep the full portfolio.
+  const tasks = deriveTasks({ ...state, tenders: sessionScopedTenders(state) }, today, cal);
   const grouped = groupTasks(tasks);
   const tenderCount = new Set(tasks.map((x) => x.tender.id)).size;
 
   // fmtDate: Arabic month/weekday names, guaranteed Latin digits (client decision «كل الأرقام لاتينية»).
   const dateLabel = fmtDate(today, lang);
+
+  // م3 — the scope, said out loud. `undefined` on a platform session, which reads every company
+  // here and would be making a false claim; the register prints the identical sentence.
+  const scopeOrg = sessionScopeOrgName(state, lang);
 
   return (
     <div className="op-page op-page--inbox">
@@ -40,6 +47,7 @@ export default function Inbox() {
           <div className="op-page__sub">
             {t('inbox.sub', { date: dateLabel, tasks: fmtCount(tasks.length, lang), tenders: fmtCount(tenderCount, lang) })}
           </div>
+          {scopeOrg && <div className="op-page__scope" dir="auto">{t('shell.scopeNote', { name: scopeOrg })}</div>}
         </div>
         <div className="op-legend">
           {GROUPS.map((g) => (
@@ -70,7 +78,24 @@ export default function Inbox() {
             <div className="op-group__list">
               {grouped[g].map((task) => {
                 const def = stageByKey(task.stageKey);
-                const href = `#/operator/t/${task.tender.id}`;
+                /**
+                 * م4 — «افتح الخطوة» opens THE STEP, not the folder it sits in.
+                 *
+                 * The card used to land the file, from which the reader clicked «ابدأ الخطوة»
+                 * to reach the very wizard this task names — a whole screen spent restating what
+                 * the row already said. The destination is `wizardTypeFor(stageKey)`, the same
+                 * function `TenderDetail.openWizard` calls, so the two doors open on one seat and
+                 * no third button was born to do it.
+                 *
+                 * The fallback is not decoration: `stageByKey` is the rules engine's own answer to
+                 * «is this a stage I govern», and `StageState.key` is a plain string, so a record
+                 * carrying a stage outside the table is reachable. For that task there IS no
+                 * wizard to open honestly, and the card stays on the file — where the reader can
+                 * see the whole record and decide — rather than guessing a seat for it.
+                 */
+                const href = def
+                  ? `#/operator/t/${task.tender.id}/w/${wizardTypeFor(task.stageKey)}`
+                  : `#/operator/t/${task.tender.id}`;
                 return (
                   <a key={task.tender.id} className={`op-task${g === 'late' ? ' op-task--late' : ''}`} href={href}>
                     <span className={`op-task__icon op-task__icon--${g}`}>
