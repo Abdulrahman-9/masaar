@@ -1,3 +1,5 @@
+/* مُزامَن عكسياً 2026-08-30 من packages/tokens/css/tokens.css —
+   كل قيمة مصحَّحة تحمل تعليق نسبتها المقيسة. */
 /* ============================================================
    مسار v2 — Design Tokens (light + dark)
    Primary: indigo-blue #1E3A8A→#3B82F6 · Secondary: sky #0EA5E9
@@ -23,38 +25,48 @@
   --bg-card: #FFFFFF;
   --bg-muted: var(--surface-100);
   --bg-inset: var(--surface-200);
-  --text-1:#0F172A; --text-2:#334155; --text-3:#475569; --text-muted:#64748B; --text-disabled:#94A3B8;
+  /* --text-muted **مشتقّ**: --surface-500 #64748B يسقط إلى 4.344 على --bg-muted
+     و3.860 على --bg-inset، وهو يحمل نصّاً يُقرأ (عنوان عمود، سطر فرعي، مهلة).
+     أُعتِم حتى يجتاز الأسوأ من الأربعة:
+       #5A687D → 5.409 / 5.659 / 5.165 / 4.590 على page/card/muted/inset. */
+  --text-1:#0F172A; --text-2:#334155; --text-3:#475569; --text-muted:#5A687D; --text-disabled:#94A3B8;
   --border-1:#E2E8F0;                      /* hairline (decorative) */
   --border-2:#CBD5E1;                      /* card / panel outline  */
-  --border-control:#94A3B8;                /* form controls — ≥3:1  */
+  /* --border-control هو ما يقول «هذا حقل»، فيخضع لـ1.4.11 عند 3:1. قيمة v2
+     #94A3B8 تدّعي ذلك ولا تبلغه (2.451/2.564/2.340/2.080). أُعتِمت حتى:
+       #788496 → 3.623 / 3.791 / 3.460 / 3.075. */
+  --border-control:#788496;                /* form controls — ≥3:1  */
   --link: var(--primary-700);
 
   /* Status — الطلبية (fg = نص AA فوق bg الناعم · base = نقطة/رسم) */
-  --st-pending-base:#D97706;   --st-pending-fg:#B45309;   --st-pending-bg:#FFFBEB; --st-pending-bd:#FDE68A;
-  --st-approved-base:#16A34A;  --st-approved-fg:#15803D;  --st-approved-bg:#F0FDF4; --st-approved-bd:#BBF7D0;
+  /* pending-fg كان #B45309 (دون AA على --bg-inset) → 4.073 · approved-fg كان #15803D → 4.069 */
+  --st-pending-base:#D97706;   --st-pending-fg:#A84D08;   --st-pending-bg:#FFFBEB; --st-pending-bd:#FDE68A;
+  --st-approved-base:#16A34A;  --st-approved-fg:#147739;  --st-approved-bg:#F0FDF4; --st-approved-bd:#BBF7D0;
   --st-preparing-base:#7C3AED; --st-preparing-fg:#6D28D9; --st-preparing-bg:#F5F3FF; --st-preparing-bd:#DDD6FE;
   --st-delivered-base:#166534; --st-delivered-fg:#ECFDF5; --st-delivered-bg:#166534; --st-delivered-bd:#166534; /* مُسلَّم = ممتلئ */
   --st-cancelled-base:#DC2626; --st-cancelled-fg:#B91C1C; --st-cancelled-bg:#FEF2F2; --st-cancelled-bd:#FECACA;
   --st-late-base:#BE123C;      --st-late-fg:#BE123C;      --st-late-bg:#FFF1F2;     --st-late-bd:#FECDD3; /* حيود زمني */
 
   /* سلّم الموافقات — ترتيبي داخل درجة الأساس (ليس حالة) */
-  --tier-operator:#3B82F6; --tier-jmc:#1D4ED8; --tier-mdoc:#172554;
-  --chart-track: var(--surface-200); --chart-sep: var(--bg-card); --chart-neutral: var(--primary-700);
+  /* tier-operator كان #3B82F6: اسم الطبقة نصّ 11px على الرقاقة = 3.383 < 4.5؛ الجديد 4.753 والسلّم يبقى رتيباً */
+  --tier-operator:var(--primary-600); --tier-jmc:#1D4ED8; --tier-mdoc:#172554;
+  /* chart-track كان surface-200: ط١ تسقط إلى 2.983 عليه */
+  --chart-track: var(--surface-100); --chart-sep: var(--bg-card); --chart-neutral: var(--primary-700);
 
   /* Buttons */
   --btn-primary-bg:var(--primary-600); --btn-primary-hover:var(--primary-700); --btn-primary-active:var(--primary-800); --btn-primary-fg:#FFFFFF;
-  --btn-secondary-bg:var(--primary-50); --btn-secondary-hover:var(--primary-100); --btn-secondary-active:var(--primary-200); --btn-secondary-fg:var(--primary-700); --btn-secondary-bd:var(--primary-200);
+  --btn-secondary-bg:var(--primary-50); --btn-secondary-hover:var(--primary-100); --btn-secondary-active:var(--primary-200); --btn-secondary-fg:var(--primary-700); --btn-secondary-bd:var(--primary-500); /* كان primary-200: حدّ 1.421 على البطاقة — لا فصل 1.4.11؛ الجديد 3.678 */
   --btn-ghost-fg:var(--text-2); --btn-ghost-hover:var(--bg-muted); --btn-ghost-active:var(--bg-inset);
   --btn-danger-bg:#DC2626; --btn-danger-hover:#B91C1C; --btn-danger-active:#991B1B; --btn-danger-fg:#FFFFFF;
 
   /* Sidebar (light: نيلي مؤسسي متدرّج) */
   --side-bg: linear-gradient(180deg,#1E3A8A 0%,#172554 70%);
-  --side-fg:#E0E7FF; --side-fg-2:rgba(224,231,255,0.66); --side-active:rgba(255,255,255,0.12);
+  --side-fg:#E0E7FF; --side-fg-2:rgba(224,231,255,0.75); /* 0.66 = 4.019 فوق --side-hover عند قمّة التدرّج؛ الجديد 4.695/6.235 */ --side-active:rgba(255,255,255,0.12);
   --side-hover:rgba(255,255,255,0.07); --side-border:rgba(224,231,255,0.14); --side-count:rgba(224,231,255,0.16);
 
   /* Typography */
-  --font-sans:'IBM Plex Sans Arabic','Segoe UI',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --font-sans:'IBM Plex Sans Arabic','Segoe UI',system-ui,-apple-system,sans-serif; /* + -apple-system احتياط منصّة */
+  --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace; /* + Consolas احتياط ويندوز */
   --t-display-1:44px; --t-display-2:32px; --t-h1:24px; --t-h2:20px; --t-h3:17px; --t-h4:15px;
   --t-body:14px; --t-body-sm:13px; --t-caption:12px; --t-micro:11px;
   --fw-regular:400; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
@@ -91,26 +103,34 @@
   --bg-card:var(--surface-800);
   --bg-muted:#26334B;
   --bg-inset:#334155;
-  --text-1:#F1F5F9; --text-2:#CBD5E1; --text-3:#94A3B8; --text-muted:#94A3B8; --text-disabled:#64748B;
+  /* text-3 كان #94A3B8 = 4.038 على --bg-inset وعليه تسميات فعلية → 4.591؛
+     وtext-muted يندمج فيه تصريحاً (كانت الدرجتان #94A3B8 حرفياً — اندماج مصادفة صار معلناً) */
+  --text-1:#F1F5F9; --text-2:#CBD5E1; --text-3:#A0AEC0; --text-muted:var(--text-3); --text-disabled:#64748B;
   --border-1:rgba(148,163,184,0.16);
   --border-2:rgba(148,163,184,0.24);
-  --border-control:rgba(148,163,184,0.45);
+  --border-control:rgba(148,163,184,0.82); /* 0.45 = 2.29 على البطاقة (1.4.11)؛ الجديد 5.083–3.245 */
   --link:var(--primary-300);
 
   --st-pending-base:#F59E0B;   --st-pending-fg:#FBBF24;   --st-pending-bg:rgba(217,119,6,0.15);   --st-pending-bd:rgba(251,191,36,0.32);
   --st-approved-base:#22C55E;  --st-approved-fg:#4ADE80;  --st-approved-bg:rgba(34,197,94,0.13);  --st-approved-bd:rgba(74,222,128,0.32);
-  --st-preparing-base:#8B5CF6; --st-preparing-fg:#A78BFA; --st-preparing-bg:rgba(124,58,237,0.17); --st-preparing-bd:rgba(167,139,250,0.34);
+  /* preparing-fg كان #A78BFA = 3.805 على --bg-inset دون AA */
+  --st-preparing-base:#8B5CF6; --st-preparing-fg:#C4B5FD; --st-preparing-bg:rgba(124,58,237,0.17); --st-preparing-bd:rgba(167,139,250,0.34);
   --st-delivered-base:#22C55E; --st-delivered-fg:#BBF7D0; --st-delivered-bg:#14532D;              --st-delivered-bd:#14532D;
-  --st-cancelled-base:#EF4444; --st-cancelled-fg:#F87171; --st-cancelled-bg:rgba(220,38,38,0.15); --st-cancelled-bd:rgba(248,113,133,0.32);
+  /* cancelled-fg كان #F87171 = 3.743 دون AA */
+  --st-cancelled-base:#EF4444; --st-cancelled-fg:#FCA5A5; --st-cancelled-bg:rgba(220,38,38,0.15); --st-cancelled-bd:rgba(248,113,113,0.32);
   --st-late-base:#FB7185;      --st-late-fg:#FDA4AF;      --st-late-bg:rgba(190,18,60,0.17);      --st-late-bd:rgba(251,113,133,0.32);
 
-  --tier-operator:#60A5FA; --tier-jmc:#3B82F6; --tier-mdoc:#BFDBFE;
+  /* السلّم الداكن كان غير رتيب (jmc أعتم من operator فينكسر ترتيب السلطة) ويسقط إلى 2.815؛
+     تفتيح متزايد مكتمل: 4.073 / 5.742 / 8.487 */
+  --tier-operator:#60A5FA; --tier-jmc:var(--primary-300); --tier-mdoc:var(--primary-100);
   --chart-track:#334155; --chart-sep:var(--surface-800); --chart-neutral:#93C5FD;
 
-  --btn-primary-bg:var(--primary-500); --btn-primary-hover:var(--primary-400); --btn-primary-active:var(--primary-600); --btn-primary-fg:#020617;
-  --btn-secondary-bg:rgba(59,130,246,0.14); --btn-secondary-hover:rgba(59,130,246,0.22); --btn-secondary-active:rgba(59,130,246,0.30); --btn-secondary-fg:#93C5FD; --btn-secondary-bd:rgba(96,165,250,0.32);
+  /* الثلاثي الداكن معكوس: أساس فاتح وتحويم أفتح؛ primary-600 مع الحبر #020617 = 3.903 فيسقط من active */
+  --btn-primary-bg:var(--primary-400); --btn-primary-hover:var(--primary-300); --btn-primary-active:var(--primary-500); --btn-primary-fg:#020617;
+  --btn-secondary-bg:rgba(59,130,246,0.14); --btn-secondary-hover:rgba(59,130,246,0.22); --btn-secondary-active:rgba(59,130,246,0.30); --btn-secondary-fg:#93C5FD; --btn-secondary-bd:rgba(96,165,250,0.68); /* 0.32 = 1.798 على البطاقة؛ الجديد 3.922 */
   --btn-ghost-fg:var(--text-2); --btn-ghost-hover:rgba(148,163,184,0.12); --btn-ghost-active:rgba(148,163,184,0.2);
-  --btn-danger-bg:#DC2626; --btn-danger-hover:#EF4444; --btn-danger-active:#B91C1C; --btn-danger-fg:#FFFFFF;
+  /* ثلاثي الخطر 700/600/800 — #EF4444 مع الأبيض = 3.763 فيسقط من hover */
+  --btn-danger-bg:#B91C1C; --btn-danger-hover:#DC2626; --btn-danger-active:#991B1B; --btn-danger-fg:#FFFFFF;
 
   --side-bg:linear-gradient(180deg,#111C36 0%,var(--surface-900) 70%);
   --side-fg:#DBEAFE; --side-fg-2:rgba(219,234,254,0.6); --side-active:rgba(96,165,250,0.16);
@@ -160,3 +180,19 @@ a:hover { text-decoration:underline; }
     transition-duration:0.01ms !important; scroll-behavior:auto !important;
   }
 }
+
+/* ============================================================
+   توكنات المنتج بلا مقابل في اللوحة — موثَّقة أمانةً، غير مفعَّلة هنا:
+   · عائلة --status-* (planned/progress/done/risk/delayed — 18 اسم
+     إسقاط لمفردات SCPP فوق عائلات --st-*)
+   · --status-on-fill (حبر الملء: أبيض فاتحاً / surface-950 داكناً)
+   · --mark-accent (صبغة «أنت هنا» — بديل أحمر-الحالية المرفوض)
+   · عائلة --status-*-fill — ملء البلاطات الإحصائية المهندَس
+     (DESIGN-FINISH-PLAN §٢-ط): بُنيت في د١٠ وصارت **ثماني** نغمات
+     (brand/risk/delayed/progress/done/planned + jmc/mdoc من توكنات
+     السلّم) بتباينات مقيسة 5.0–16.5 في الوضعين + --satin واحد
+     محبوس الإبراز في أول 6px (أسوأ مركّب 4.666) — كلها معرَّفة في
+     packages/tokens/css/tokens.css ولم تُدفع هنا (اللوحة مجمّدة).
+   · مزامنة 2026-08-31: برهان diff كتلي بعد حلّ var() — 215/215
+     اسماً مشتركاً متطابق القيمة، صفر انحراف (سكربت tokens-diff).
+   ============================================================ */
