@@ -186,7 +186,13 @@ model Stage {
   order       Int
   plannedFrom DateTime?
   plannedTo   DateTime?
+  /// actual start recorded at closing (design-finish D1) — informational; deadlines read actualTo
+  actualFrom  DateTime?
   actualTo    DateTime? // set only after the docs gate passes
+  /// classified deviation reason recorded when the stage closed late (D1) — quoted by the
+  /// compliance report; category is one of the closed client vocabulary, note ≥ 15 chars
+  devReasonCat  String?
+  devReasonNote String?
   documents   Document[]
 
   @@unique([tenderId, key])

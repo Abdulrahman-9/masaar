@@ -283,7 +283,19 @@ export class TendersService {
       await this.audit.record(user.userId, 'COMPLETE_STAGE_REFUSED', tender.code);
       throw new BadRequestException({ message: 'Stage cannot close without required documents', missing: gate.missing });
     }
-    await this.prisma.stage.update({ where: { id: stage.id }, data: { actualTo: new Date(dto.actualTo) } });
+    // D1 — the deviation reason is category + detail as ONE record: one half alone is neither
+    // classifiable nor explained, so it is refused rather than half-stored.
+    if ((dto.devReasonCat == null) !== (dto.devReasonNote == null)) {
+      throw new BadRequestException('devReason requires both category and note');
+    }
+    await this.prisma.stage.update({
+      where: { id: stage.id },
+      data: {
+        actualTo: new Date(dto.actualTo),
+        ...(dto.actualFrom ? { actualFrom: new Date(dto.actualFrom) } : {}),
+        ...(dto.devReasonCat ? { devReasonCat: dto.devReasonCat, devReasonNote: dto.devReasonNote } : {}),
+      },
+    });
     await this.audit.record(user.userId, 'COMPLETE_STAGE', `${tender.code}/${stage.key}`);
     return this.presented(user, id);
   }

@@ -41,6 +41,12 @@ export class SetPriceDto {
 export class CompleteStageDto {
   @IsString() stageKey!: string;
   @Matches(/^\d{4}-\d{2}-\d{2}$/) actualTo!: string;
+  /** D1 — actual start recorded at closing; informational, deadlines still read actualTo */
+  @IsOptional() @Matches(ISO_DATE) actualFrom?: string;
+  /** D1 — classified deviation reason; the SAME closed vocabulary the client wizard offers
+   *  (store DEV_REASON_CATS) and the same ≥15-char detail bound the wizard enforces */
+  @IsOptional() @Matches(/^(publisherDelay|docsCompletion|forceMajeure|internalCoord)$/) devReasonCat?: string;
+  @IsOptional() @IsString() @Length(15, 2000) devReasonNote?: string;
 }
 
 /** The immutable oid of the acting officer, sent by the client alongside governance

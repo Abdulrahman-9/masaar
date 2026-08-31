@@ -110,6 +110,40 @@ describe('completeStage guard (docs gate)', () => {
     await svc.completeStage(MDOC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13' });
     expect(prisma.stage.update).toHaveBeenCalledOnce();
   });
+
+  // D1 — the optional deviation record: persisted whole when both halves arrive, refused when
+  // one arrives alone (a category with no explanation — or the reverse — explains nothing).
+  it('persists actualFrom + the paired deviation reason on the stage', async () => {
+    const tender = {
+      id: 't1', code: 'RU-1', operatorId: 'op1', bidders: [], mct: null, announcement: null,
+      stages: [{ id: 's', key: 'tech-analysis', order: 4, actualTo: null, documents: [{ kind: 'evaluation-report' }] }],
+    };
+    const { svc, prisma } = makeService(tender);
+    await svc.completeStage(MDOC, 't1', {
+      stageKey: 'tech-analysis', actualTo: '2026-06-13', actualFrom: '2026-06-01',
+      devReasonCat: 'publisherDelay', devReasonNote: 'تأخر جهة النشر عن الموعد المتفق عليه',
+    });
+    expect(prisma.stage.update).toHaveBeenCalledWith({
+      where: { id: 's' },
+      data: {
+        actualTo: new Date('2026-06-13'),
+        actualFrom: new Date('2026-06-01'),
+        devReasonCat: 'publisherDelay',
+        devReasonNote: 'تأخر جهة النشر عن الموعد المتفق عليه',
+      },
+    });
+  });
+
+  it('refuses a half reason — category and note travel together or not at all', async () => {
+    const tender = {
+      id: 't1', code: 'RU-1', operatorId: 'op1', bidders: [], mct: null, announcement: null,
+      stages: [{ id: 's', key: 'tech-analysis', order: 4, actualTo: null, documents: [{ kind: 'evaluation-report' }] }],
+    };
+    const { svc, prisma } = makeService(tender);
+    await expect(svc.completeStage(MDOC, 't1', { stageKey: 'tech-analysis', actualTo: '2026-06-13', devReasonCat: 'publisherDelay' }))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.stage.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('§9 C8.6 origin gate on setTechnical (10.6.18) — the hard award-side mirror', () => {
